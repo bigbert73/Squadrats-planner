@@ -142,6 +142,34 @@ docker compose down && docker compose up --build
 copy data\squadrats.db data\squadrats_backup.db
 ```
 
+## Street View — podgląd trasy
+
+Przycisk z ikoną osoby (prawy górny róg mapy) włącza tryb Street View:
+- ekran dzieli się 50/50 — lewa strona mapa, prawa Street View
+- kliknięcie w dowolne miejsce mapy otwiera widok ulicy w prawym panelu
+
+### Kolorowanie trasy wg pokrycia Street View
+
+Wymaga klucza Google Maps API. Gdy klucz jest skonfigurowany:
+- backend sprawdza pokrycie Street View dla ~120 punktów na trasie (API metadanych = bezpłatne w Google)
+- odcinki pokryte Street View pokazują **cyan podkreślenie** pod czerwoną trasą
+
+**Uzyskanie klucza:**
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → utwórz nowy projekt
+2. APIs & Services → Library → **Street View Static API** → Włącz
+3. APIs & Services → Credentials → **Create API Key** → ogranicz do Street View Static API
+4. Dodaj klucz do OCP secret (`squadrats-strava` lub osobny):
+
+```yaml
+GOOGLE_MAPS_KEY: "AIza..."
+```
+
+Po zapisaniu sekretu zrestartuj pod backendu:
+**Workloads → Deployments → squadrats-backend → Actions → Restart Rollout**
+
+---
+
 ## Rozwiązywanie problemów
 
 | Problem | Rozwiązanie |
