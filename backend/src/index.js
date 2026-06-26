@@ -182,17 +182,39 @@ app.get('/api/route', async (req, res) => {
   }
 });
 
-async function fetchOsrmRoute(points, quietRoads=false) {
+const BROUTER_URL = process.env.BROUTER_URL || 'http://brouter:17777';
+
+async function fetchOsrmRoute(points) {
   const coords = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
-  const base = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false`;
-  if (quietRoads) {
-    try {
-      const r = await axios.get(base + '&exclude=motorway,trunk', { timeout: 20000 });
-      if (r.data?.code === 'Ok') return r.data;
-    } catch (_) { /* OSRM doesn't support exclude on this profile — fall through */ }
-  }
-  const r = await axios.get(base, { timeout: 20000 });
+  const url = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false`;
+  const r = await axios.get(url, { timeout: 20000 });
   return r.data;
+}
+
+async function fetchBRouterRoute(points, profile) {
+  const lonlats = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join('|');
+  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`;
+  const r = await axios.get(url, { timeout: 30000 });
+  const feat = r.data?.features?.[0];
+  if (!feat) throw new Error('BRouter: empty response');
+  return {
+    code: 'Ok',
+    routes: [{
+      distance: parseFloat(feat.properties?.['track-length'] || 0),
+      geometry: feat.geometry,
+    }]
+  };
+}
+
+async function fetchRoute(points, bikeProfile) {
+  if (bikeProfile && bikeProfile !== 'standard') {
+    try {
+      return await fetchBRouterRoute(points, bikeProfile);
+    } catch (e) {
+      console.warn(`BRouter (${bikeProfile}) unavailable, falling back to OSRM:`, e.message);
+    }
+  }
+  return fetchOsrmRoute(points);
 }
 
 function routeDistanceKm(routeData) {
@@ -202,7 +224,7 @@ function routeDistanceKm(routeData) {
 // POST body: { waypoints:[{lat,lng}], mode, loop }
 // Returns optimised OSRM route with detour waypoints injected
 app.post('/api/route/detour', async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, quietRoads = false } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard' } = req.body;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const ownedSQSet  = new Set(db.getAllTilesSQ().map(r => `${r.tx},${r.ty}`));
@@ -223,10 +245,10 @@ app.post('/api/route/detour', async (req, res) => {
 
   if (mode === 'shortest') {
     try {
-      const routeData = await fetchOsrmRoute(pts, quietRoads);
+      const routeData = await fetchRoute(pts, bikeProfile);
       return res.json(routeData);
     } catch (e) {
-      return res.status(500).json({ error: 'OSRM error: ' + e.message });
+      return res.status(500).json({ error: 'Routing error: ' + e.message });
     }
   }
 
@@ -235,9 +257,9 @@ app.post('/api/route/detour', async (req, res) => {
   let routeData;
 
   try {
-    routeData = await fetchOsrmRoute(pts, quietRoads);
+    routeData = await fetchRoute(pts, bikeProfile);
   } catch (e) {
-    return res.status(500).json({ error: 'OSRM error: ' + e.message });
+    return res.status(500).json({ error: 'Routing error: ' + e.message });
   }
 
   const baseKm = routeDistanceKm(routeData);
@@ -271,7 +293,7 @@ app.post('/api/route/detour', async (req, res) => {
 
     let detourData;
     try {
-      detourData = await fetchOsrmRoute(detourPts, quietRoads);
+      detourData = await fetchRoute(detourPts, bikeProfile);
     } catch (e) {
       break;
     }
