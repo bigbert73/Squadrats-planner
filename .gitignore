@@ -5,3 +5,4 @@ backend/node_modules/
 *.db-wal
 *.db-shm
 .claude/
+ocp/manifests/01-secret.yaml
