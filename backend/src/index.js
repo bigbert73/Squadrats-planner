@@ -182,10 +182,10 @@ app.get('/api/route', async (req, res) => {
   }
 });
 
-async function fetchOsrmRoute(points) {
+async function fetchOsrmRoute(points, quietRoads=false) {
   const coords = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
-  const url = `https://router.project-osrm.org/route/v1/bike/${coords}`
-    + `?overview=full&geometries=geojson&steps=false`;
+  const exclude = quietRoads ? '&exclude=motorway,trunk' : '';
+  const url = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false${exclude}`;
   const r = await axios.get(url, { timeout: 20000 });
   return r.data;
 }
@@ -197,7 +197,7 @@ function routeDistanceKm(routeData) {
 // POST body: { waypoints:[{lat,lng}], mode, loop }
 // Returns optimised OSRM route with detour waypoints injected
 app.post('/api/route/detour', async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0 } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, quietRoads = false } = req.body;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const ownedSQSet  = new Set(db.getAllTilesSQ().map(r => `${r.tx},${r.ty}`));
@@ -218,7 +218,7 @@ app.post('/api/route/detour', async (req, res) => {
 
   if (mode === 'shortest') {
     try {
-      const routeData = await fetchOsrmRoute(pts);
+      const routeData = await fetchOsrmRoute(pts, quietRoads);
       return res.json(routeData);
     } catch (e) {
       return res.status(500).json({ error: 'OSRM error: ' + e.message });
@@ -230,7 +230,7 @@ app.post('/api/route/detour', async (req, res) => {
   let routeData;
 
   try {
-    routeData = await fetchOsrmRoute(pts);
+    routeData = await fetchOsrmRoute(pts, quietRoads);
   } catch (e) {
     return res.status(500).json({ error: 'OSRM error: ' + e.message });
   }
@@ -266,7 +266,7 @@ app.post('/api/route/detour', async (req, res) => {
 
     let detourData;
     try {
-      detourData = await fetchOsrmRoute(detourPts);
+      detourData = await fetchOsrmRoute(detourPts, quietRoads);
     } catch (e) {
       break;
     }
