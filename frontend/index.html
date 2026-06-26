@@ -114,8 +114,18 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .crb input:focus{border-color:var(--bhi)}
 
 /* ── MAP ── */
-#mc{flex:1;position:relative;overflow:hidden}
+#mc{flex:1;display:flex;overflow:hidden}
+#mc-left{flex:1;position:relative;overflow:hidden}
+#mc.sv-active #mc-left{flex:0 0 50%;min-width:300px}
 #map{width:100%;height:100%;background:#0d1117}
+#sv-panel{display:none;flex-direction:column;background:var(--bg);border-left:2px solid var(--green);flex-shrink:0;width:50%}
+#mc.sv-active #sv-panel{display:flex}
+#sv-head{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--border);padding:6px 10px;flex-shrink:0}
+#sv-frame{flex:1;border:none;width:100%;display:none}
+#sv-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--tx3);font-size:11px;text-align:center;padding:20px;line-height:1.6}
+#sv-placeholder i{font-size:36px}
+#sv-legend{font-size:10px;color:var(--tx3);margin-top:4px;display:flex;align-items:center;gap:6px}
+.sv-dot{width:12px;height:4px;border-radius:2px;flex-shrink:0}
 .leaflet-control-attribution{background:rgba(13,17,23,.85)!important;color:var(--tx3)!important;font-size:9px!important}
 .leaflet-control-attribution a{color:var(--tx3)!important}
 
@@ -147,7 +157,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .tleg-row{display:flex;align-items:center;gap:6px;padding:3px 0}
 .tleg-sw{width:14px;height:10px;border-radius:1px;flex-shrink:0;border:1px solid}
 
-#mc.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
+#mc-left.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
 </style>
 </head>
 <body>
@@ -354,34 +364,54 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 <!-- MAP -->
 <div id="mc">
-  <div id="map"></div>
-  <div id="mind"><i class="ti ti-hand" id="m-icon"></i><span id="m-txt">Tryb widoku</span></div>
-  <div id="zlvl">z12</div>
-  <div id="mtools">
-    <button class="mtb" onclick="map.zoomIn()" title="+"><i class="ti ti-plus"></i></button>
-    <button class="mtb" onclick="map.zoomOut()" title="-"><i class="ti ti-minus"></i></button>
-    <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
-    <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
-    <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-    <button class="mtb on" data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
-    <button class="mtb"    data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map-2"></i></button>
-    <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
-    <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
-    <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
+  <div id="mc-left">
+    <div id="map"></div>
+    <div id="mind"><i class="ti ti-hand" id="m-icon"></i><span id="m-txt">Tryb widoku</span></div>
+    <div id="zlvl">z12</div>
+    <div id="mtools">
+      <button class="mtb" onclick="map.zoomIn()" title="+"><i class="ti ti-plus"></i></button>
+      <button class="mtb" onclick="map.zoomOut()" title="-"><i class="ti ti-minus"></i></button>
+      <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
+      <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
+      <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
+      <button class="mtb on" data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
+      <button class="mtb"    data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map-2"></i></button>
+      <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
+      <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
+      <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
+      <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
+      <button class="mtb" id="mtb-sv" onclick="toggleSV()" title="Street View — podgląd trasy"><i class="ti ti-street-view"></i></button>
+    </div>
+    <div id="ibar">
+      <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
+      <div class="im"><i class="ti ti-grid-dots"></i>SQ:&nbsp;<strong id="b-sq">—</strong></div>
+      <div class="im"><i class="ti ti-sparkles"></i>Nowe SQ:&nbsp;<strong id="b-new">—</strong></div>
+      <div class="im"><i class="ti ti-border-all"></i>Nowe SQI:&nbsp;<strong id="b-newi">—</strong></div>
+      <div class="im" style="margin-left:auto"><span id="b-coords" style="font-family:'JetBrains Mono',monospace;font-size:9px">—</span></div>
+    </div>
+    <div id="plan-info">
+      <div><strong id="b-plan-dist">Plan: —</strong></div>
+      <div id="b-plan-sq">Nowe SQ: 0</div>
+      <div id="b-plan-sqi">Nowe SQI: 0</div>
+    </div>
+    <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
   </div>
-  <div id="ibar">
-    <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
-    <div class="im"><i class="ti ti-grid-dots"></i>SQ:&nbsp;<strong id="b-sq">—</strong></div>
-    <div class="im"><i class="ti ti-sparkles"></i>Nowe SQ:&nbsp;<strong id="b-new">—</strong></div>
-    <div class="im"><i class="ti ti-border-all"></i>Nowe SQI:&nbsp;<strong id="b-newi">—</strong></div>
-    <div class="im" style="margin-left:auto"><span id="b-coords" style="font-family:'JetBrains Mono',monospace;font-size:9px">—</span></div>
+  <div id="sv-panel">
+    <div id="sv-head">
+      <i class="ti ti-street-view" style="font-size:15px;color:var(--green)"></i>
+      <span id="sv-loc" style="flex:1;font-size:10px;color:var(--tx2);font-family:'JetBrains Mono',monospace">Street View</span>
+      <button onclick="toggleSV()" style="background:none;border:none;color:var(--tx3);cursor:pointer;padding:2px 5px;border-radius:3px;font-size:15px;line-height:1;display:flex;align-items:center" title="Zamknij"><i class="ti ti-x"></i></button>
+    </div>
+    <iframe id="sv-frame" src="about:blank" frameborder="0" allowfullscreen></iframe>
+    <div id="sv-placeholder">
+      <i class="ti ti-pointer"></i>
+      Kliknij dowolne miejsce na mapie<br>aby zobaczyć Street View Google Maps
+      <div id="sv-legend" style="margin-top:8px">
+        <span class="sv-dot" style="background:#00bcd4"></span><span>Trasa pokryta Street View</span>
+      </div>
+      <span style="font-size:9px;color:var(--tx3);margin-top:4px">Wymaga klucza Google Maps API<br>dla sprawdzenia pokrycia</span>
+    </div>
   </div>
-  <div id="plan-info">
-    <div><strong id="b-plan-dist">Plan: —</strong></div>
-    <div id="b-plan-sq">Nowe SQ: 0</div>
-    <div id="b-plan-sqi">Nowe SQI: 0</div>
-  </div>
-  <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
 </div>
 
 </div>
@@ -420,6 +450,7 @@ function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
 // ═══════════════════════════════════════════════════════════════════════
 let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
+let svMode=false, svCovData=null;
 
 // In-memory tile sets (loaded from API on startup + refreshed after sync)
 let ownedSQ=new Set(), ownedSQI=new Set();
@@ -444,6 +475,8 @@ let statsData={}, toastTm=null, authenticated=false;
 // ═══════════════════════════════════════════════════════════════════════
 async function initMap(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([52.23,21.01],12);
+  map.createPane('coveragePane'); map.getPane('coveragePane').style.zIndex='401';
+  map.createPane('routePane');    map.getPane('routePane').style.zIndex='402';
 
   baseLayers.dark     =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © Carto',maxZoom:19});
   baseLayers.osm      =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
@@ -458,10 +491,10 @@ async function initMap(){
   map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();redrawAll();});
 
   // Drag-drop GPX
-  const mc=g('mc');
-  mc.addEventListener('dragover',e=>{e.preventDefault();mc.classList.add('drag');});
-  mc.addEventListener('dragleave',()=>mc.classList.remove('drag'));
-  mc.addEventListener('drop',e=>{e.preventDefault();mc.classList.remove('drag');[...e.dataTransfer.files].filter(f=>f.name.endsWith('.gpx')).forEach(importGPXFile);});
+  const mc=g('mc'), mcl=g('mc-left');
+  mc.addEventListener('dragover',e=>{e.preventDefault();mcl.classList.add('drag');});
+  mc.addEventListener('dragleave',()=>mcl.classList.remove('drag'));
+  mc.addEventListener('drop',e=>{e.preventDefault();mcl.classList.remove('drag');[...e.dataTransfer.files].filter(f=>f.name.endsWith('.gpx')).forEach(importGPXFile);});
 
   // Keyboard
   document.addEventListener('keydown',e=>{
@@ -723,7 +756,7 @@ function previewRoute(){
   if(rLine){map.removeLayer(rLine);rLine=null;}
   if(wpts.length<2){updDist(0);return;}
   const pts=wpts.map(w=>w.marker.getLatLng());
-  rLine=L.polyline(pts,{color:'#58a6ff',weight:3,opacity:.5,dashArray:'7 5',interactive:false}).addTo(map);
+  rLine=L.polyline(pts,{color:'#58a6ff',weight:3,opacity:.5,dashArray:'7 5',interactive:false,pane:'routePane'}).addTo(map);
   updDist(compDist(pts));
 }
 
@@ -747,7 +780,7 @@ async function calcRoute(){
 
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates.map(([lng,lat])=>({lat,lng}));
-    rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false}).addTo(map);
+    rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
 
     // Get new tiles for this route from server
     const prvRes=await fetch('/api/route/preview-tiles',{
@@ -778,14 +811,16 @@ async function calcRoute(){
     g('b-newi').textContent=newSQI.size;
     hideLoad();
     toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI`);
+    svCovData=null; clearLyr('sv-cov');
+    if(svMode) fetchSVCoverage();
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 
 function clearRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
-  routeCoords=[]; newSQ.clear(); newSQI.clear();
-  clearLyr('sq-new'); clearLyr('sqi-new');
+  routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
+  clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov');
   renderWL(); previewRoute(); updDist(0);
   g('b-plan-dist').textContent = 'Plan: —';
   g('b-plan-sq').textContent = 'Nowe SQ: 0';
@@ -812,6 +847,7 @@ function exportGPX(){
 //  WAYPOINTS
 // ═══════════════════════════════════════════════════════════════════════
 function onMapClick(e){
+  if(svMode){openSV(e.latlng.lat,e.latlng.lng);return;}
   if(mode==='view') return;
   addWpt(e.latlng, mode==='waypoint'?'mid':mode);
   if(mode==='start'||mode==='end') setMode('view');
@@ -931,6 +967,7 @@ if(up.get('auth')==='error'){setTimeout(()=>toast('Błąd logowania: '+up.get('m
 // ═══════════════════════════════════════════════════════════════════════
 function setMode(m){
   mode=m;
+  if(svMode){svMode=false;g('mtb-sv').classList.remove('on');g('mc').classList.remove('sv-active');clearLyr('sv-cov');setTimeout(()=>map.invalidateSize(),50);}
   document.querySelectorAll('.mb2').forEach(b=>b.classList.remove('on'));
   const b=g('mb-'+m); if(b) b.classList.add('on');
   const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku'};
@@ -973,6 +1010,67 @@ function hideLoad(){g('loading').classList.add('h');}
 function v(id){return document.getElementById(id)?.value.trim()||'';}
 function g(id){return document.getElementById(id);}
 function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTm);toastTm=setTimeout(()=>t.classList.remove('on'),5000);}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STREET VIEW
+// ═══════════════════════════════════════════════════════════════════════
+function toggleSV(){
+  svMode=!svMode;
+  g('mtb-sv').classList.toggle('on',svMode);
+  g('mc').classList.toggle('sv-active',svMode);
+  if(svMode){
+    map.getContainer().style.cursor='crosshair';
+    g('m-icon').className='ti ti-street-view';
+    g('m-txt').textContent='Street View — kliknij na mapie';
+    if(routeCoords.length&&!svCovData) fetchSVCoverage();
+    else if(svCovData) drawSVCoverage();
+  }else{
+    g('sv-frame').src='about:blank';
+    g('sv-frame').style.display='none';
+    g('sv-placeholder').style.display='flex';
+    clearLyr('sv-cov');
+    setMode(mode);
+    return;
+  }
+  setTimeout(()=>map.invalidateSize(),60);
+}
+
+function openSV(lat,lng){
+  const url=`https://maps.google.com/maps?q=&layer=c&cbll=${lat.toFixed(6)},${lng.toFixed(6)}&cbp=12,20,0,0,0&output=embed`;
+  g('sv-loc').textContent=`${lat.toFixed(4)}°N  ${lng.toFixed(4)}°E`;
+  g('sv-placeholder').style.display='none';
+  g('sv-frame').style.display='block';
+  g('sv-frame').src=url;
+}
+
+async function fetchSVCoverage(){
+  if(!routeCoords.length) return;
+  const step=Math.max(1,Math.ceil(routeCoords.length/120));
+  const pts=routeCoords.filter((_,i)=>i%step===0).map(p=>({lat:p.lat,lng:p.lng}));
+  try{
+    const res=await fetch('/api/streetview/coverage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts})});
+    const d=await res.json();
+    if(d.coverage){svCovData=d.coverage;svCovData._step=step;if(svMode)drawSVCoverage();}
+  }catch(e){console.warn('SV coverage',e);}
+}
+
+function drawSVCoverage(){
+  clearLyr('sv-cov');
+  if(!svCovData||!routeCoords.length) return;
+  const step=svCovData._step||5;
+  const lines=[];
+  let seg=[],lastOk=null;
+  routeCoords.forEach((pt,i)=>{
+    const si=Math.floor(i/step);
+    const ok=si<svCovData.length?svCovData[si].ok:false;
+    if(ok!==lastOk){
+      if(seg.length>1&&lastOk) lines.push(L.polyline(seg,{color:'#00bcd4',weight:8,opacity:.55,interactive:false,pane:'coveragePane'}));
+      seg=[L.latLng(pt.lat,pt.lng)]; lastOk=ok;
+    }else seg.push(L.latLng(pt.lat,pt.lng));
+  });
+  if(seg.length>1&&lastOk) lines.push(L.polyline(seg,{color:'#00bcd4',weight:8,opacity:.55,interactive:false,pane:'coveragePane'}));
+  if(lines.length) LAYERS['sv-cov']=L.layerGroup(lines).addTo(map);
+}
 
 window.addEventListener('DOMContentLoaded',initMap);
 </script>

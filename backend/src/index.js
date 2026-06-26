@@ -345,6 +345,24 @@ app.post('/api/route/preview-tiles', (req, res) => {
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
+// ── Street View coverage (requires GOOGLE_MAPS_KEY env var) ──────────────────
+app.post('/api/streetview/coverage', async (req, res) => {
+  const { points } = req.body;
+  const key = process.env.GOOGLE_MAPS_KEY;
+  if (!key || !points?.length) return res.json({ coverage: null });
+  try {
+    const coverage = await Promise.all(points.map(async p => {
+      const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${p.lat},${p.lng}&source=outdoor&key=${key}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      return { lat: p.lat, lng: p.lng, ok: d.status === 'OK' };
+    }));
+    res.json({ coverage });
+  } catch (e) {
+    res.json({ coverage: null });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(FRONTEND, 'index.html'));
 });
