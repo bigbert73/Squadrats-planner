@@ -1,0 +1,33 @@
+# ── ImageStream — stores built BRouter images ──────────────────────────────
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: squadrats-brouter
+  namespace: squadrats
+spec:
+  lookupPolicy:
+    local: false
+---
+# ── BuildConfig — builds BRouter from brouter/Dockerfile in GitHub repo ────
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: squadrats-brouter
+  namespace: squadrats
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/bigbert73/Squadrats-planner.git
+      ref: main
+    contextDir: brouter
+  strategy:
+    type: Docker
+    dockerStrategy: {}
+  output:
+    to:
+      kind: ImageStreamTag
+      name: squadrats-brouter:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange

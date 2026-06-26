@@ -17,6 +17,8 @@ kind: Deployment
 metadata:
   name: squadrats-brouter
   namespace: squadrats
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"squadrats-brouter:latest","namespace":"squadrats"},"fieldPath":"spec.template.spec.containers[?(@.name==\"brouter\")].image","pause":"false"}]'
 spec:
   replicas: 1
   selector:
@@ -33,7 +35,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: brouter
-          image: abrensch/brouter
+          image: image-registry.openshift-image-registry.svc:5000/squadrats/squadrats-brouter:latest
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
