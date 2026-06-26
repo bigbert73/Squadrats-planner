@@ -1,0 +1,21 @@
+# OCP Route — exposes the frontend externally with TLS edge termination.
+# Hostname is auto-assigned by the cluster router.
+# After applying, get the URL with:
+#   oc get route squadrats -n squadrats -o jsonpath='https://{.spec.host}'
+# Then update 01-secret.yaml STRAVA_REDIRECT_URI and re-apply the secret.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: squadrats
+  namespace: squadrats
+spec:
+  to:
+    kind: Service
+    name: squadrats-frontend
+    weight: 100
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY src ./src
+
+# Support arbitrary UIDs assigned by OpenShift (1000000+ range).
+# Making files group-writable by group 0 lets any UID in group 0 write.
+RUN mkdir -p /app/data \
+    && chgrp -R 0 /app \
+    && chmod -R g=u /app
+
+EXPOSE 3000
+
+CMD ["node", "src/index.js"]

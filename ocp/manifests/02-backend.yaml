@@ -1,0 +1,128 @@
+# ── PersistentVolumeClaim — SQLite database ────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: squadrats-data
+  namespace: squadrats
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+# ── ConfigMap — non-sensitive env vars ────────────────────────────────────
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: squadrats-backend-env
+  namespace: squadrats
+data:
+  NODE_ENV: production
+  DB_PATH: /app/data/squadrats.db
+  PORT: "3000"
+---
+# ── ImageStream — stores built backend images ──────────────────────────────
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: squadrats-backend
+  namespace: squadrats
+spec:
+  lookupPolicy:
+    local: false
+---
+# ── BuildConfig — builds backend image from Git using Dockerfile.prod ──────
+# contextDir: backend  →  Docker build context = ./backend/
+# dockerfilePath       →  relative to contextDir
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: squadrats-backend
+  namespace: squadrats
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/bigbert73/Squadrats-planner.git
+      ref: main
+    contextDir: backend
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile.prod
+  output:
+    to:
+      kind: ImageStreamTag
+      name: squadrats-backend:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+---
+# ── Deployment ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squadrats-backend
+  namespace: squadrats
+  annotations:
+    # Auto-update this Deployment when the ImageStream tag changes after a build.
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"squadrats-backend:latest","namespace":"squadrats"},"fieldPath":"spec.template.spec.containers[?(@.name==\"backend\")].image","pause":"false"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: squadrats-backend
+  template:
+    metadata:
+      labels:
+        app: squadrats-backend
+    spec:
+      containers:
+        - name: backend
+          image: image-registry.openshift-image-registry.svc:5000/squadrats/squadrats-backend:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: squadrats-backend-env
+            - secretRef:
+                name: squadrats-strava
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          readinessProbe:
+            httpGet:
+              path: /api/auth-status
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/auth-status
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: squadrats-data
+---
+# ── Service ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadrats-backend
+  namespace: squadrats
+spec:
+  selector:
+    app: squadrats-backend
+  ports:
+    - port: 3000
+      targetPort: 3000

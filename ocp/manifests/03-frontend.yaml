@@ -1,0 +1,91 @@
+# ── ImageStream — stores built frontend images ─────────────────────────────
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: squadrats-frontend
+  namespace: squadrats
+spec:
+  lookupPolicy:
+    local: false
+---
+# ── BuildConfig — builds nginx image from repo root ────────────────────────
+# No contextDir → build context = repo root, so ocp/frontend/Dockerfile
+# can COPY from both frontend/ and ocp/frontend/
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: squadrats-frontend
+  namespace: squadrats
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/bigbert73/Squadrats-planner.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: ocp/frontend/Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: squadrats-frontend:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+---
+# ── Deployment ─────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: squadrats-frontend
+  namespace: squadrats
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"squadrats-frontend:latest","namespace":"squadrats"},"fieldPath":"spec.template.spec.containers[?(@.name==\"frontend\")].image","pause":"false"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: squadrats-frontend
+  template:
+    metadata:
+      labels:
+        app: squadrats-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: image-registry.openshift-image-registry.svc:5000/squadrats/squadrats-frontend:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: 32Mi
+              cpu: 50m
+            limits:
+              memory: 128Mi
+              cpu: 200m
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+---
+# ── Service ────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: squadrats-frontend
+  namespace: squadrats
+spec:
+  selector:
+    app: squadrats-frontend
+  ports:
+    - port: 8080
+      targetPort: 8080
