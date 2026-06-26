@@ -8,16 +8,21 @@ RUN mkdir -p /brouter-data/segments4 /brouter-data/profiles2 /opt/brouter
 RUN microdnf install -y unzip && microdnf clean all
 
 # BRouter releases a zip, not a standalone jar.
-# Use GitHub API to find the zip asset URL, then extract the jar.
+# GitHub API JSON has spaces: "browser_download_url": "https://..."
 RUN curl -fsSL "https://api.github.com/repos/abrensch/brouter/releases/latest" \
+      -H "Accept: application/vnd.github+json" \
       -o /tmp/release.json && \
-    ZIP_URL=$(grep -o '"browser_download_url":"[^"]*\.zip"' /tmp/release.json \
-      | head -1 | cut -d'"' -f4) && \
-    echo "Downloading BRouter from: $ZIP_URL" && \
+    echo "--- GitHub API response (first 3 lines) ---" && \
+    head -3 /tmp/release.json && \
+    ZIP_URL=$(grep -o '"browser_download_url": *"[^"]*\.zip"' /tmp/release.json \
+      | head -1 | grep -o 'https://[^"]*') && \
+    echo "BRouter zip URL: $ZIP_URL" && \
+    [ -n "$ZIP_URL" ] || { echo "ERROR: zip URL not found"; cat /tmp/release.json; exit 1; } && \
     curl -fL -o /tmp/brouter.zip "$ZIP_URL" && \
     unzip /tmp/brouter.zip -d /tmp/brouter-dist && \
     JAR_PATH=$(find /tmp/brouter-dist -name "*.jar" | head -1) && \
     echo "Copying JAR: $JAR_PATH" && \
+    [ -n "$JAR_PATH" ] || { echo "ERROR: no jar found in zip"; exit 1; } && \
     cp "$JAR_PATH" /opt/brouter/brouter.jar && \
     rm -rf /tmp/brouter.zip /tmp/brouter-dist /tmp/release.json
 
