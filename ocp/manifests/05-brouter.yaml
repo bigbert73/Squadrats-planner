@@ -11,8 +11,7 @@ spec:
       storage: 2Gi
 ---
 # ── Deployment — BRouter routing engine ────────────────────────────────────
-# InitContainer downloads OSM rd5 segment files for Poland on first start.
-# No explicit runAsUser/fsGroup — OCP injects UID from namespace range.
+# Segments pre-loaded to PVC via oc cp — no init container needed.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,41 +31,6 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: download-segments
-          image: alpine:3.19
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-          command:
-            - sh
-            - -c
-            - |
-              set -e
-              cd /segments
-              for seg in E10_N50 E15_N50 E20_N50 E15_N45 E20_N45; do
-                if [ -f "${seg}.rd5" ]; then
-                  echo "OK: ${seg}.rd5 already present"
-                else
-                  echo "Downloading ${seg}.rd5 ..."
-                  wget -q --tries=3 -O "${seg}.rd5" \
-                    "https://brouter.de/brouter/segments4/${seg}.rd5" \
-                    || { rm -f "${seg}.rd5"; echo "FAILED: ${seg}.rd5"; exit 1; }
-                  echo "Done: ${seg}.rd5 ($(du -sh ${seg}.rd5 | cut -f1))"
-                fi
-              done
-              echo "All segments ready."
-          volumeMounts:
-            - name: brouter-data
-              mountPath: /segments
-          resources:
-            requests:
-              memory: 32Mi
-              cpu: 50m
-            limits:
-              memory: 128Mi
-              cpu: 200m
       containers:
         - name: brouter
           image: abrensch/brouter
