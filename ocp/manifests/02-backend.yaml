@@ -31,9 +31,8 @@ spec:
   lookupPolicy:
     local: false
 ---
-# ── BuildConfig — builds backend image from Git using Dockerfile.prod ──────
+# ── BuildConfig — builds backend image from Git using backend/Dockerfile ───
 # contextDir: backend  →  Docker build context = ./backend/
-# dockerfilePath       →  relative to contextDir
 apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
@@ -48,8 +47,7 @@ spec:
     contextDir: backend
   strategy:
     type: Docker
-    dockerStrategy:
-      dockerfilePath: Dockerfile.prod
+    dockerStrategy: {}
   output:
     to:
       kind: ImageStreamTag
