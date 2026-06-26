@@ -184,9 +184,14 @@ app.get('/api/route', async (req, res) => {
 
 async function fetchOsrmRoute(points, quietRoads=false) {
   const coords = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
-  const exclude = quietRoads ? '&exclude=motorway,trunk' : '';
-  const url = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false${exclude}`;
-  const r = await axios.get(url, { timeout: 20000 });
+  const base = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false`;
+  if (quietRoads) {
+    try {
+      const r = await axios.get(base + '&exclude=motorway,trunk', { timeout: 20000 });
+      if (r.data?.code === 'Ok') return r.data;
+    } catch (_) { /* OSRM doesn't support exclude on this profile — fall through */ }
+  }
+  const r = await axios.get(base, { timeout: 20000 });
   return r.data;
 }
 
