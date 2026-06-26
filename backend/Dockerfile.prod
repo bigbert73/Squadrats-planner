@@ -1,20 +1,21 @@
-FROM node:20-alpine
-
-RUN apk add --no-cache python3 make g++
-
+# Stage 1: build — Debian has python3/make/g++ in apt (reliable in corporate networks)
+FROM node:20 AS builder
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm ci --omit=dev
-
 COPY src ./src
 
-# Support arbitrary UIDs assigned by OpenShift (1000000+ range).
-# Making files group-writable by group 0 lets any UID in group 0 write.
+# Stage 2: lean runtime — node:20-slim is also glibc so the native .node binary works
+FROM node:20-slim
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+COPY package*.json ./
+# Support arbitrary UIDs assigned by OpenShift (1000000+ range)
 RUN mkdir -p /app/data \
     && chgrp -R 0 /app \
     && chmod -R g=u /app
-
 EXPOSE 3000
-
 CMD ["node", "src/index.js"]
