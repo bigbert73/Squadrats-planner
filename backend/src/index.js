@@ -345,6 +345,15 @@ app.post('/api/route/preview-tiles', (req, res) => {
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
+// ── Street View embed URL (requires GOOGLE_MAPS_KEY env var) ─────────────────
+app.get('/api/streetview/embed-url', (req, res) => {
+  const { lat, lng } = req.query;
+  const key = process.env.GOOGLE_MAPS_KEY;
+  if (!key || !lat || !lng) return res.json({ url: null });
+  const url = `https://www.google.com/maps/embed/v1/streetview?key=${key}&location=${parseFloat(lat).toFixed(6)},${parseFloat(lng).toFixed(6)}&heading=0&pitch=0&fov=90`;
+  res.json({ url });
+});
+
 // ── Street View coverage (requires GOOGLE_MAPS_KEY env var) ──────────────────
 app.post('/api/streetview/coverage', async (req, res) => {
   const { points } = req.body;

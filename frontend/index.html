@@ -1035,12 +1035,28 @@ function toggleSV(){
   setTimeout(()=>map.invalidateSize(),60);
 }
 
-function openSV(lat,lng){
-  const url=`https://maps.google.com/maps?q=&layer=c&cbll=${lat.toFixed(6)},${lng.toFixed(6)}&cbp=12,20,0,0,0&output=embed`;
+async function openSV(lat,lng){
   g('sv-loc').textContent=`${lat.toFixed(4)}°N  ${lng.toFixed(4)}°E`;
-  g('sv-placeholder').style.display='none';
-  g('sv-frame').style.display='block';
-  g('sv-frame').src=url;
+  try{
+    const res=await fetch(`/api/streetview/embed-url?lat=${lat}&lng=${lng}`);
+    const d=await res.json();
+    if(d.url){
+      g('sv-placeholder').style.display='none';
+      g('sv-frame').style.display='block';
+      g('sv-frame').src=d.url;
+    }else{
+      g('sv-frame').style.display='none';
+      g('sv-placeholder').style.display='flex';
+      g('sv-placeholder').innerHTML=`
+        <i class="ti ti-external-link" style="font-size:36px"></i>
+        Brak klucza Google Maps API.<br>
+        <a href="https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},3a,75y,0h,90t/" target="_blank"
+           style="color:var(--blue);margin-top:10px;font-size:12px;display:inline-flex;align-items:center;gap:4px">
+          <i class="ti ti-map-pin"></i> Otwórz Street View w nowej karcie
+        </a>
+        <span style="font-size:9px;margin-top:12px;color:var(--tx3)">Dodaj GOOGLE_MAPS_KEY do sekretu OCP<br>aby włączyć podgląd w aplikacji</span>`;
+    }
+  }catch(e){console.warn('openSV',e);}
 }
 
 async function fetchSVCoverage(){
