@@ -12,8 +12,7 @@ spec:
 ---
 # ── Deployment — BRouter routing engine ────────────────────────────────────
 # InitContainer downloads OSM rd5 segment files for Poland on first start.
-# Files are cached in the PVC — subsequent restarts skip the download.
-# Runs fully non-root to satisfy OCP PodSecurity restricted policy.
+# No explicit runAsUser/fsGroup — OCP injects UID from namespace range.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,8 +30,6 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
       initContainers:
