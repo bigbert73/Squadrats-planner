@@ -328,10 +328,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
    <div class="ps">
     <p class="sl">Mapa bazowa</p>
     <div class="rg mb8">
-      <label><input type="radio" name="bm" value="dark" checked onchange="chBase('dark')">🌑 Carto Dark</label>
-      <label><input type="radio" name="bm" value="osm" onchange="chBase('osm')">🗺️ OpenStreetMap</label>
-      <label><input type="radio" name="bm" value="topo" onchange="chBase('topo')">⛰️ OpenTopoMap</label>
-      <label><input type="radio" name="bm" value="cycle" onchange="chBase('cycle')">🚲 CyclOSM</label>
+      <label><input type="radio" name="bm" value="dark"      checked onchange="chBase('dark')">🌑 Carto Dark</label>
+      <label><input type="radio" name="bm" value="osm"              onchange="chBase('osm')">🗺️ OpenStreetMap</label>
+      <label><input type="radio" name="bm" value="satellite"        onchange="chBase('satellite')">🛰️ Satelita (ESRI)</label>
+      <label><input type="radio" name="bm" value="topo"             onchange="chBase('topo')">⛰️ OpenTopoMap</label>
+      <label><input type="radio" name="bm" value="cycle"            onchange="chBase('cycle')">🚲 CyclOSM</label>
     </div>
     <p class="sl mt8">Squadrats — specyfikacja</p>
     <div style="font-size:10px;color:var(--tx2);line-height:1.8;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px">
@@ -361,6 +362,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <button class="mtb" onclick="map.zoomOut()" title="-"><i class="ti ti-minus"></i></button>
     <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
     <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
+    <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
+    <button class="mtb on" data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
+    <button class="mtb"    data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map-2"></i></button>
+    <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
+    <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
+    <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
   </div>
   <div id="ibar">
     <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
@@ -438,11 +445,12 @@ let statsData={}, toastTm=null, authenticated=false;
 async function initMap(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([52.23,21.01],12);
 
-  baseLayers.dark =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',    {attribution:'© OSM © Carto',maxZoom:19});
-  baseLayers.osm  =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',               {attribution:'© OpenStreetMap',maxZoom:19});
-  baseLayers.topo =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                 {attribution:'© OpenTopoMap',maxZoom:17});
-  baseLayers.cycle=L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
-  baseLayers.osm.addTo(map);
+  baseLayers.dark     =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © Carto',maxZoom:19});
+  baseLayers.osm      =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
+  baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri, i-cubed, USDA, USGS, AEX, GeoEye',maxZoom:19});
+  baseLayers.topo     =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
+  baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
+  baseLayers.dark.addTo(map);
 
   map.on('click',onMapClick);
   map.on('mousemove',e=>{g('b-coords').textContent=e.latlng.lat.toFixed(5)+'°N '+e.latlng.lng.toFixed(5)+'°E';});
@@ -939,7 +947,13 @@ function swTab(id,btn){
   btn.classList.add('on');
 }
 
-function chBase(n){Object.values(baseLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l);});baseLayers[n]?.addTo(map);}
+function chBase(n){
+  Object.values(baseLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l);});
+  baseLayers[n]?.addTo(map);
+  document.querySelectorAll('[data-base]').forEach(b=>b.classList.toggle('on',b.dataset.base===n));
+  const r=document.querySelector(`input[name="bm"][value="${n}"]`);
+  if(r) r.checked=true;
+}
 
 function fitAll(){
   if(wpts.length){map.fitBounds(L.latLngBounds(wpts.map(w=>w.marker.getLatLng())),{padding:[50,50]});return;}
