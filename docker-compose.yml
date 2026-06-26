@@ -20,8 +20,22 @@ services:
       - NODE_ENV=development
       - DB_PATH=/app/data/squadrats.db
       - PORT=3000
+      - BROUTER_URL=http://brouter:17777
     env_file:
       - .env
+    depends_on:
+      - brouter
+
+  brouter:
+    image: abrensch/brouter
+    container_name: squadrats-brouter
+    restart: unless-stopped
+    ports:
+      - "17777:17777"
+    volumes:
+      - ./data/brouter-segments:/brouter-data/segments4
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms128m
 
   # Optional: simple static file server for frontend
   frontend:

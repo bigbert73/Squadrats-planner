@@ -242,13 +242,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <label><input type="radio" name="loop" value="loop">Pętla</label>
     </div>
 
-    <div class="sl mt8">Preferencje trasy</div>
-    <div class="tog-row">
-      <span style="font-size:11px;color:var(--tx2);display:flex;align-items:center;gap:6px">
-        <i class="ti ti-road-off" style="font-size:13px;color:var(--orange)"></i>
-        Unikaj ruchliwych dróg
-      </span>
-      <div class="tog" id="quiet-tog" onclick="togQuiet(this)"><div class="togk"></div></div>
+    <div class="sl mt8">Profil roweru</div>
+    <div class="mgrid mb8" style="grid-template-columns:repeat(3,1fr)">
+      <button class="mb2 on" id="bp-standard"  onclick="setBikeProf('standard',this)"><i class="ti ti-bike"></i>Standard</button>
+      <button class="mb2"    id="bp-fastbike"  onclick="setBikeProf('fastbike',this)"><i class="ti ti-bike" style="color:var(--blue)"></i>Szosowy</button>
+      <button class="mb2"    id="bp-trekking"  onclick="setBikeProf('trekking',this)"><i class="ti ti-mountain" style="color:var(--orange)"></i>Gravel</button>
+      <button class="mb2"    id="bp-lowtraffic" onclick="setBikeProf('fastbike-lowtraffic',this)"><i class="ti ti-road-off" style="color:var(--yellow)"></i>Mały ruch</button>
+      <button class="mb2"    id="bp-safety"    onclick="setBikeProf('safety',this)"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
+    </div>
+    <div id="bp-note" style="font-size:9px;color:var(--tx3);margin-bottom:10px;padding:4px 6px;background:var(--card);border-radius:var(--r-sm);display:none">
+      <i class="ti ti-info-circle"></i> Profile inne niż Standard wymagają BRouter (samodzielny serwer routingu).
     </div>
 
     <div class="sl">Adresy Start / Meta</div>
@@ -480,7 +483,7 @@ function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
 let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
 let svMode=false, svCovData=null;
-let quietRoads=false;
+let bikeProfile='standard';
 
 // In-memory tile sets (loaded from API on startup + refreshed after sync)
 let ownedSQ=new Set(), ownedSQI=new Set();
@@ -782,7 +785,12 @@ async function importGPXFile(file){
 // ═══════════════════════════════════════════════════════════════════════
 //  ROUTING
 // ═══════════════════════════════════════════════════════════════════════
-function togQuiet(el){quietRoads=!quietRoads;el.classList.toggle('on',quietRoads);}
+function setBikeProf(p,el){
+  bikeProfile=p;
+  document.querySelectorAll('[id^=bp-]').forEach(b=>{if(b.tagName==='BUTTON')b.classList.remove('on')});
+  el.classList.add('on');
+  g('bp-note').style.display=p==='standard'?'none':'block';
+}
 
 function previewRoute(){
   if(rLine){map.removeLayer(rLine);rLine=null;}
@@ -804,7 +812,7 @@ async function calcRoute(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),quietRoads})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile})
     });
     if(!res.ok) throw new Error('routing error '+res.status);
     const data=await res.json();
