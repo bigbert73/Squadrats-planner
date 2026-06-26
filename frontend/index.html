@@ -368,8 +368,6 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
     <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
     <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
-    <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-    <button class="mtb" id="mtb-sv" onclick="toggleSV()" title="Street View — kliknij na mapie (otwiera Google Maps w nowej karcie)"><i class="ti ti-street-view"></i></button>
   </div>
   <div id="ibar">
     <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
@@ -422,7 +420,6 @@ function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
 // ═══════════════════════════════════════════════════════════════════════
 let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
-let svMode=false;
 
 // In-memory tile sets (loaded from API on startup + refreshed after sync)
 let ownedSQ=new Set(), ownedSQI=new Set();
@@ -815,28 +812,10 @@ function exportGPX(){
 //  WAYPOINTS
 // ═══════════════════════════════════════════════════════════════════════
 function onMapClick(e){
-  if(svMode){
-    const{lat,lng}=e.latlng;
-    window.open(`https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},3a,75y,0h,90t/`,'_blank');
-    return;
-  }
   if(mode==='view') return;
   addWpt(e.latlng, mode==='waypoint'?'mid':mode);
   if(mode==='start'||mode==='end') setMode('view');
   renderWL(); previewRoute();
-}
-
-function toggleSV(){
-  svMode=!svMode;
-  const btn=g('mtb-sv');
-  btn.classList.toggle('on',svMode);
-  if(svMode){
-    g('m-txt').textContent='Street View — kliknij dowolne miejsce na mapie';
-    g('m-icon').className='ti ti-street-view';
-    map.getContainer().style.cursor='crosshair';
-  }else{
-    setMode(mode);
-  }
 }
 
 function addWpt(ll,type){
@@ -952,7 +931,6 @@ if(up.get('auth')==='error'){setTimeout(()=>toast('Błąd logowania: '+up.get('m
 // ═══════════════════════════════════════════════════════════════════════
 function setMode(m){
   mode=m;
-  if(svMode){svMode=false;g('mtb-sv').classList.remove('on');}
   document.querySelectorAll('.mb2').forEach(b=>b.classList.remove('on'));
   const b=g('mb-'+m); if(b) b.classList.add('on');
   const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku'};
