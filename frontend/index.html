@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Squadrats Route Planner v2</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--panel:#161b22;--card:#1c2333;--hover:#21262d;
+  --border:#30363d;--bhi:#58a6ff;
+  --tx:#e6edf3;--tx2:#8b949e;--tx3:#484f58;
+  --green:#00e676;--orange:#ff6b35;--blue:#58a6ff;--yellow:#ffd60a;--red:#f85149;--purple:#bf5af2;
+}
+html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tx);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── HEADER ── */
+#hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:200}
+#hdr h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.logo{width:22px;height:22px;background:var(--green);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117}
+.hpills{display:flex;gap:5px;flex-wrap:wrap}
+.hp{display:flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:2px 8px;font-size:10px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+.hp .d{width:6px;height:6px;border-radius:2px}
+.dg{background:var(--green)}.do{background:var(--orange)}.db{background:var(--blue)}.dy{background:var(--yellow)}.dp{background:var(--purple)}
+#auth-btn{margin-left:auto;padding:5px 11px;border-radius:5px;border:1px solid;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;white-space:nowrap;flex-shrink:0}
+#auth-btn.lo{background:rgba(255,107,53,.12);border-color:var(--orange);color:var(--orange)}
+#auth-btn.li{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
+
+/* ── LAYOUT ── */
+#layout{display:flex;flex:1;overflow:hidden}
+#sb{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tb{flex:1;padding:8px 3px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
+.tb i{font-size:13px}.tb.on{color:var(--green);border-bottom-color:var(--green)}.tb:hover:not(.on){color:var(--tx);background:var(--hover)}
+.tp{display:none;flex-direction:column;flex:1;overflow:hidden}.tp.on{display:flex}
+.ps{flex:1;overflow-y:auto;padding:11px}.ps::-webkit-scrollbar{width:3px}.ps::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--border)}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}
+
+/* ── BUTTONS ── */
+.btn{width:100%;padding:8px;border-radius:6px;border:1px solid;font-family:'Space Groteš Grotesk',sans-serif;font-size:11px;font-weight:500;cursor:pointer;margin-bottom:5px;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-g{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}.btn-g:hover:not(:disabled){background:rgba(0,230,118,.2)}
+.btn-b{background:rgba(88,166,255,.12);border-color:var(--blue);color:var(--blue)}.btn-b:hover:not(:disabled){background:rgba(88,166,255,.2)}
+.btn-o{background:rgba(255,107,53,.12);border-color:var(--orange);color:var(--orange)}.btn-o:hover:not(:disabled){background:rgba(255,107,53,.2)}
+.btn-x{background:none;border-color:var(--border);color:var(--tx2)}.btn-x:hover:not(:disabled){border-color:var(--red);color:var(--red)}
+
+/* ── MODE BTNS ── */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px}
+.mb2{padding:7px 4px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:10px;cursor:pointer;transition:all .15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mb2 i{font-size:15px}.mb2.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}.mb2:hover:not(.on){background:var(--hover);color:var(--tx);border-color:var(--bhi)}
+
+/* ── RANGE ── */
+.rw{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.rw input{flex:1;accent-color:var(--green)}
+.rv{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);min-width:42px;text-align:right}
+
+/* ── RADIO ── */
+.rg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.rg label{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tx2);padding:4px 6px;border:1px solid transparent;border-radius:5px}
+.rg label:hover{background:var(--card);border-color:var(--border);color:var(--tx)}
+.rg input{accent-color:var(--green)}
+
+/* ── WAYPOINTS ── */
+.wl{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+.wi{display:flex;align-items:center;gap:6px;padding:5px 7px;background:var(--card);border:1px solid var(--border);border-radius:5px}
+.wico{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.ws{background:var(--green);color:#0d1117}.we{background:var(--orange);color:#0d1117}.wm{background:var(--blue);color:#0d1117}
+.wc{flex:1;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wdel{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:1px 2px;border-radius:2px;line-height:1}
+.wdel:hover{color:var(--red);background:rgba(248,81,73,.1)}
+.hint{font-size:10px;color:var(--tx3);text-align:center;padding:10px 0}
+
+/* ── STATS GRID ── */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px;text-align:center}
+.sn{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:500;line-height:1.2}
+.slb{font-size:9px;color:var(--tx2);margin-top:2px}
+.ng{color:var(--green)}.no{color:var(--orange)}.nb{color:var(--blue)}.ny{color:var(--yellow)}.np{color:var(--purple)}
+
+/* ── LAYER TOGGLES ── */
+.lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px}
+.lb{padding:5px 3px;background:var(--card);border:1px solid var(--border);border-radius:5px;color:var(--tx2);font-size:9px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.lb i{font-size:13px}
+.lb.on-g{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
+.lb.on-o{background:rgba(255,107,53,.12);border-color:var(--orange);color:var(--orange)}
+.lb.on-b{background:rgba(88,166,255,.12);border-color:var(--blue);color:var(--blue)}
+.lb.on-y{background:rgba(255,214,10,.12);border-color:var(--yellow);color:var(--yellow)}
+.lb.on-p{background:rgba(191,90,242,.12);border-color:var(--purple);color:var(--purple)}
+
+/* ── SYNC PROGRESS ── */
+#sync-progress{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:8px;display:none}
+#sync-bar-track{height:4px;background:var(--hover);border-radius:2px;margin:5px 0}
+#sync-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s;width:0}
+#sync-msg{font-size:10px;color:var(--tx2)}
+
+/* ── SETTINGS ── */
+.sr{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tx2)}
+.sr:last-child{border-bottom:none}
+.tog{width:28px;height:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog.on{background:var(--green);border-color:var(--green)}
+.togk{width:10px;height:10px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;transition:left .2s}
+.tog.on .togk{left:14px}
+
+/* ── CRED BOX ── */
+.crb{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px;margin-bottom:8px}
+.crb label{display:block;font-size:9px;color:var(--tx3);margin-bottom:2px;margin-top:6px}
+.crb label:first-child{margin-top:0}
+.crb input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx);outline:none;flex:1;min-width:0}
+.crb input:focus{border-color:var(--bhi)}
+
+/* ── MAP ── */
+#mc{flex:1;position:relative;overflow:hidden}
+#map{width:100%;height:100%;background:#0d1117}
+.leaflet-control-attribution{background:rgba(13,17,23,.85)!important;color:var(--tx3)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--tx3)!important}
+
+#mtools{position:absolute;top:10px;right:10px;z-index:1000;display:flex;flex-direction:column;gap:4px}
+.mtb{width:30px;height:30px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--tx2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.mtb:hover{color:var(--tx);border-color:var(--bhi)}.mtb.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
+
+#mind{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:10px;font-weight:500;color:var(--tx2);display:flex;align-items:center;gap:5px;pointer-events:none;white-space:nowrap}
+
+#zlvl{position:absolute;top:48px;right:10px;z-index:1000;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tx3);pointer-events:none}
+
+#ibar{position:absolute;bottom:0;left:0;right:0;background:var(--panel);border-top:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:12px;z-index:1000;font-size:10px;flex-wrap:wrap}
+.im{display:flex;align-items:center;gap:3px;color:var(--tx2)}.im strong{font-family:'JetBrains Mono',monospace;color:var(--tx);font-weight:500}.im i{font-size:11px}
+#plan-info{position:absolute;bottom:14px;right:14px;z-index:1001;background:rgba(13,17,23,.92);border:1px solid var(--border);border-radius:10px;padding:10px 12px;max-width:220px;font-size:11px;line-height:1.4;text-align:right;color:var(--tx2)}
+#plan-info strong{color:var(--tx);font-size:12px}
+#plan-info span{display:block;margin-top:4px}
+
+#loading{position:absolute;inset:0;background:rgba(13,17,23,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:5000;gap:8px}
+#loading.h{display:none}
+.spin{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#lmsg{font-size:11px;color:var(--tx2)}
+
+#toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:11px;color:var(--tx);z-index:9999;opacity:0;transition:all .2s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── TILE LEGEND ── */
+.tleg{font-size:10px}
+.tleg-row{display:flex;align-items:center;gap:6px;padding:3px 0}
+.tleg-sw{width:14px;height:10px;border-radius:1px;flex-shrink:0;border:1px solid}
+
+#mc.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<header id="hdr">
+  <h1><span class="logo">SQ</span>Squadrats Route Planner</h1>
+  <div class="hpills">
+    <div class="hp"><span class="d dg"></span><span id="h-sq">0</span>&thinsp;SQ</div>
+    <div class="hp"><span class="d db"></span><span id="h-yard">0</span>&thinsp;Yard</div>
+    <div class="hp"><span class="d dy"></span><span id="h-uber">0</span>×<span id="h-uber2">0</span>&thinsp;Über</div>
+    <div class="hp"><span class="d dp"></span><span id="h-sqi">0</span>&thinsp;SQI</div>
+    <div class="hp"><span class="d do"></span><span id="h-new">0</span>&thinsp;nowe</div>
+    <div class="hp"><span class="d db"></span><span id="h-dist">0.0</span>&thinsp;km</div>
+  </div>
+  <button id="auth-btn" class="lo" onclick="handleAuth()">
+    <i class="ti ti-brand-strava"></i><span id="auth-lbl">Zaloguj Strava</span>
+  </button>
+</header>
+
+<div id="layout">
+
+<!-- SIDEBAR -->
+<aside id="sb">
+  <div id="sbt">
+    <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
+    <button class="tb"    onclick="swTab('sq',this)"><i class="ti ti-grid-dots"></i>Kwadraty</button>
+    <button class="tb"    onclick="swTab('hm',this)"><i class="ti ti-flame"></i>Heat</button>
+    <button class="tb"    onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
+  </div>
+
+  <!-- TAB: TRASA -->
+  <div id="tp-plan" class="tp on">
+   <div class="ps">
+    <p class="sl">Tryb edycji</p>
+    <div class="mgrid mb8">
+      <button class="mb2 on" id="mb-view"     onclick="setMode('view')"><i class="ti ti-hand"></i>Widok</button>
+      <button class="mb2"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i>Start</button>
+      <button class="mb2"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i>Meta</button>
+      <button class="mb2"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i>Punkt</button>
+    </div>
+
+    <p class="sl">Długość trasy</p>
+    <div class="rw mb8">
+      <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km'">
+      <span class="rv" id="dist-lbl">50 km</span>
+    </div>
+
+    <p class="sl">Optymalizacja</p>
+    <div class="rg mb8">
+      <label><input type="radio" name="opt" value="sq" checked><i class="ti ti-maximize" style="color:var(--green)"></i>Maks. nowe Squadrats</label>
+      <label><input type="radio" name="opt" value="sqi"><i class="ti ti-border-all" style="color:var(--blue)"></i>Maks. Squadratinhos</label>
+      <label><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Rozszerz Yard</label>
+      <label><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Popularne (heatmapa)</label>
+      <label><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Najkrótsza</label>
+    </div>
+
+    <p class="sl">Typ trasy</p>
+    <div class="rg mb8">
+      <label><input type="radio" name="loop" value="ab" checked>A → B</label>
+      <label><input type="radio" name="loop" value="loop">Pętla</label>
+    </div>
+
+    <p class="sl">Adresy Start / Meta</p>
+    <div class="crb">
+      <label>Start</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="start-addr" type="text" placeholder="Wpisz adres startu" onkeydown="if(event.key==='Enter') searchAddress('start')">
+        <button class="btn btn-b" style="width:auto;padding:7px 10px;flex-shrink:0" onclick="searchAddress('start')">Szukaj</button>
+      </div>
+      <label>Meta</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input id="end-addr" type="text" placeholder="Wpisz adres mety" onkeydown="if(event.key==='Enter') searchAddress('end')">
+        <button class="btn btn-b" style="width:auto;padding:7px 10px;flex-shrink:0" onclick="searchAddress('end')">Szukaj</button>
+      </div>
+    </div>
+
+    <p class="sl">Punkty</p>
+    <div class="wl" id="wl"><div class="hint">Wybierz Start i kliknij mapę</div></div>
+    <button class="btn btn-b mb8" onclick="setMode('waypoint')"><i class="ti ti-plus"></i>Dodaj punkt</button>
+
+    <button class="btn btn-g" onclick="calcRoute()"><i class="ti ti-route"></i>Oblicz trasę</button>
+    <button class="btn btn-x" onclick="clearRoute()"><i class="ti ti-trash"></i>Wyczyść trasę</button>
+   </div>
+  </div>
+
+  <!-- TAB: KWADRATY -->
+  <div id="tp-sq" class="tp">
+   <div class="ps">
+
+    <p class="sl">Squadrats (zoom 14)</p>
+    <div class="sgrid">
+      <div class="sc"><div class="sn ng" id="s-sq">0</div><div class="slb">Squadrats</div></div>
+      <div class="sc"><div class="sn no" id="s-sq-new">0</div><div class="slb">Nowe (trasa)</div></div>
+      <div class="sc"><div class="sn nb" id="s-yard">0</div><div class="slb">Yard</div></div>
+      <div class="sc"><div class="sn ny" id="s-uber">0<span id="s-uberN" style="font-size:9px"></span></div><div class="slb">Übersquadrat</div></div>
+    </div>
+
+    <p class="sl mt8">Squadratinhos (zoom 17)</p>
+    <div class="sgrid">
+      <div class="sc"><div class="sn ng" id="s-sqi">0</div><div class="slb">Squadratinhos</div></div>
+      <div class="sc"><div class="sn no" id="s-sqi-new">0</div><div class="slb">Nowe (trasa)</div></div>
+      <div class="sc"><div class="sn nb" id="s-yardi">0</div><div class="slb">Yardinho</div></div>
+      <div class="sc"><div class="sn ny" id="s-uberi">0<span id="s-uberiN" style="font-size:9px"></span></div><div class="slb">Übersquadratinho</div></div>
+    </div>
+
+    <p class="sl mt8">Warstwy</p>
+    <div class="lgrid">
+      <button class="lb on-g" id="lb-sq-own"  onclick="togLyr('sq-own',this,'g')"><i class="ti ti-square-filled"></i>Zdob.SQ</button>
+      <button class="lb on-o" id="lb-sq-new"  onclick="togLyr('sq-new',this,'o')"><i class="ti ti-square-plus"></i>Nowe SQ</button>
+      <button class="lb on-b" id="lb-sq-yard" onclick="togLyr('sq-yard',this,'b')"><i class="ti ti-layout-grid"></i>Yard</button>
+      <button class="lb on-y" id="lb-sq-uber" onclick="togLyr('sq-uber',this,'y')"><i class="ti ti-square-rotated"></i>Über</button>
+      <button class="lb on-g" id="lb-sqi-own"  onclick="togLyr('sqi-own',this,'g')"><i class="ti ti-border-all"></i>Zdob.SQI</button>
+      <button class="lb on-o" id="lb-sqi-new"  onclick="togLyr('sqi-new',this,'o')"><i class="ti ti-border-plus"></i>Nowe SQI</button>
+      <button class="lb" id="lb-sqi-yard" onclick="togLyr('sqi-yard',this,'b')"><i class="ti ti-border-outer"></i>Yardinho</button>
+      <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')"><i class="ti ti-border-style-2"></i>Über SQI</button>
+      <button class="lb" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><i class="ti ti-grid-dots"></i>Siatka14</button>
+      <button class="lb" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><i class="ti ti-grid-3x3"></i>Siatka17</button>
+    </div>
+
+    <p class="sl mt8">Legenda</p>
+    <div class="tleg">
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(0,230,118,.28);border-color:#00e676"></div>Squadrat zdobyty (zoom14)</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(255,107,53,.40);border-color:#ff6b35"></div>Nowy po trasie</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(88,166,255,.22);border-color:#58a6ff"></div>Yard (4 sąsiadów)</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(255,214,10,.18);border-color:#ffd60a"></div>Übersquadrat (max □)</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(145, 98, 186, .24);border-color:#9050c0"></div>Squadratinho zdob. (zoom17)</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(255, 216, 91, .46);border-color:#ffcd38"></div>Nowy SQI po trasie</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(88,166,255,.15);border-color:rgba(88,166,255,.5)"></div>Yardinho</div>
+      <div class="tleg-row"><div class="tleg-sw" style="background:rgba(255,214,10,.12);border-color:rgba(255,214,10,.5)"></div>Übersquadratinho</div>
+    </div>
+
+    <p class="sl mt12">Synchronizacja</p>
+    <div id="sync-progress">
+      <div id="sync-msg">Inicjalizacja…</div>
+      <div id="sync-bar-track"><div id="sync-bar-fill"></div></div>
+    </div>
+    <button class="btn btn-b" id="sync-btn" onclick="syncStrava()" disabled>
+      <i class="ti ti-refresh"></i>Synchronizuj z Strava
+    </button>
+    <button class="btn btn-b" onclick="g('gpx-in').click()"><i class="ti ti-file-import"></i>Importuj GPX</button>
+    <input type="file" id="gpx-in" accept=".gpx" multiple style="display:none" onchange="importGPX(event)">
+    <button class="btn btn-x" onclick="exportGPX()"><i class="ti ti-download"></i>Eksportuj trasę GPX</button>
+   </div>
+  </div>
+
+  <!-- TAB: HEATMAPA -->
+  <div id="tp-hm" class="tp">
+   <div class="ps">
+    <p class="sl">Strava Heatmapa</p>
+    <div style="font-size:10px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
+      F12 → Application → Cookies → strava.com. Skopiuj 3 wartości CloudFront. Tokeny ważne ~2 tyg.
+    </div>
+    <div class="crb">
+      <label>CloudFront-Key-Pair-Id</label><input type="text" id="hm-kp" placeholder="APKA..." oninput="hmChg()">
+      <label>CloudFront-Policy</label><input type="text" id="hm-pol" placeholder="eyJ..." oninput="hmChg()">
+      <label>CloudFront-Signature</label><input type="text" id="hm-sig" placeholder="..." oninput="hmChg()">
+    </div>
+    <div id="hm-st" style="font-size:10px;color:var(--tx3);margin-bottom:7px">Brak tokenów</div>
+    <div class="rg mb8">
+      <label><input type="radio" name="hma" value="ride" checked onchange="updHM()">🚴 Rowery</label>
+      <label><input type="radio" name="hma" value="run" onchange="updHM()">🏃 Bieganie</label>
+      <label><input type="radio" name="hma" value="all" onchange="updHM()">🌍 Wszystkie</label>
+    </div>
+    <div class="rg mb8">
+      <label><input type="radio" name="hmc" value="hot" checked onchange="updHM()">🔥 Hot</label>
+      <label><input type="radio" name="hmc" value="blue" onchange="updHM()">🔵 Blue</label>
+      <label><input type="radio" name="hmc" value="purple" onchange="updHM()">🟣 Purple</label>
+    </div>
+    <button class="btn btn-b" onclick="applyHM()"><i class="ti ti-check"></i>Zastosuj heatmapę</button>
+    <button class="btn btn-x" onclick="removeHM()"><i class="ti ti-eye-off"></i>Ukryj heatmapę</button>
+   </div>
+  </div>
+
+  <!-- TAB: OPCJE -->
+  <div id="tp-cfg" class="tp">
+   <div class="ps">
+    <p class="sl">Mapa bazowa</p>
+    <div class="rg mb8">
+      <label><input type="radio" name="bm" value="dark" checked onchange="chBase('dark')">🌑 Carto Dark</label>
+      <label><input type="radio" name="bm" value="osm" onchange="chBase('osm')">🗺️ OpenStreetMap</label>
+      <label><input type="radio" name="bm" value="topo" onchange="chBase('topo')">⛰️ OpenTopoMap</label>
+      <label><input type="radio" name="bm" value="cycle" onchange="chBase('cycle')">🚲 CyclOSM</label>
+    </div>
+    <p class="sl mt8">Squadrats — specyfikacja</p>
+    <div style="font-size:10px;color:var(--tx2);line-height:1.8;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px">
+      <b style="color:var(--green)">Squadrat</b> = OSM zoom <b>14</b> ≈ 1524 m<br>
+      <b style="color:var(--blue)">Squadratinho</b> = OSM zoom <b>17</b> ≈ 191 m<br>
+      <b style="color:var(--blue)">Yard</b>: każdy tile ma 4 sąsiadów (N,E,S,W)<br>
+      <b style="color:var(--yellow)">Übersquadrat</b>: największy kwadrat N×N<br>
+      Kafelki: OSM Slippy Map (Mercator)<br>
+      Baza: SQLite → <code style="font-size:9px">data/squadrats.db</code>
+    </div>
+    <p class="sl mt8">Skróty</p>
+    <div style="font-size:10px;color:var(--tx3);line-height:2">
+      <code>S</code> Start · <code>E</code> Meta · <code>W</code> Punkt · <code>Esc</code> Widok<br>
+      <code>Enter</code> Oblicz · <code>Del</code> Wyczyść trasę
+    </div>
+   </div>
+  </div>
+</aside>
+
+<!-- MAP -->
+<div id="mc">
+  <div id="map"></div>
+  <div id="mind"><i class="ti ti-hand" id="m-icon"></i><span id="m-txt">Tryb widoku</span></div>
+  <div id="zlvl">z12</div>
+  <div id="mtools">
+    <button class="mtb" onclick="map.zoomIn()" title="+"><i class="ti ti-plus"></i></button>
+    <button class="mtb" onclick="map.zoomOut()" title="-"><i class="ti ti-minus"></i></button>
+    <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
+    <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
+  </div>
+  <div id="ibar">
+    <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
+    <div class="im"><i class="ti ti-grid-dots"></i>SQ:&nbsp;<strong id="b-sq">—</strong></div>
+    <div class="im"><i class="ti ti-sparkles"></i>Nowe SQ:&nbsp;<strong id="b-new">—</strong></div>
+    <div class="im"><i class="ti ti-border-all"></i>Nowe SQI:&nbsp;<strong id="b-newi">—</strong></div>
+    <div class="im" style="margin-left:auto"><span id="b-coords" style="font-family:'JetBrains Mono',monospace;font-size:9px">—</span></div>
+  </div>
+  <div id="plan-info">
+    <div><strong id="b-plan-dist">Plan: —</strong></div>
+    <div id="b-plan-sq">Nowe SQ: 0</div>
+    <div id="b-plan-sqi">Nowe SQI: 0</div>
+  </div>
+  <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
+</div>
+
+</div>
+</div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  OSM TILE MATH (mirrors backend/src/tiles.js — keep in sync)
+// ═══════════════════════════════════════════════════════════════════════
+const Z_SQ=14, Z_SQI=17;
+
+function latLngToTile(lat,lng,z){
+  const n=1<<z;
+  const x=Math.floor((lng+180)/360*n);
+  const lr=lat*Math.PI/180;
+  const y=Math.floor((1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n);
+  return{x,y};
+}
+function tileNW(x,y,z){
+  const n=1<<z;
+  const lng=x/n*360-180;
+  const latRad=Math.atan(Math.sinh(Math.PI*(1-2*y/n)));
+  return{lat:latRad*180/Math.PI,lng};
+}
+function tileBounds(x,y,z){
+  const nw=tileNW(x,y,z), se=tileNW(x+1,y+1,z);
+  return[[se.lat,nw.lng],[nw.lat,se.lng]];
+}
+function tileKey(x,y){return x+'|'+y;}
+function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════
+let map, baseLayers={}, hmLayer=null;
+let mode='view', wpts=[], rLine=null, routeCoords=[];
+
+// In-memory tile sets (loaded from API on startup + refreshed after sync)
+let ownedSQ=new Set(), ownedSQI=new Set();
+// Computed sets (loaded from API)
+let yardTiles=new Set(), uberTiles=new Set();
+let yardiTiles=new Set(), uberiTiles=new Set();
+// New tiles from current route
+let newSQ=new Set(), newSQI=new Set();
+
+// Leaflet layer groups
+const LAYERS={};
+const VIS={
+  'sq-own':true,'sq-new':true,'sq-yard':true,'sq-uber':true,
+  'sqi-own':true,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
+  'grid14':false,'grid17':false
+};
+
+let statsData={}, toastTm=null, authenticated=false;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MAP INIT
+// ═══════════════════════════════════════════════════════════════════════
+async function initMap(){
+  map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([52.23,21.01],12);
+
+  baseLayers.dark =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',    {attribution:'© OSM © Carto',maxZoom:19});
+  baseLayers.osm  =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',               {attribution:'© OpenStreetMap',maxZoom:19});
+  baseLayers.topo =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',                 {attribution:'© OpenTopoMap',maxZoom:17});
+  baseLayers.cycle=L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
+  baseLayers.osm.addTo(map);
+
+  map.on('click',onMapClick);
+  map.on('mousemove',e=>{g('b-coords').textContent=e.latlng.lat.toFixed(5)+'°N '+e.latlng.lng.toFixed(5)+'°E';});
+  map.on('contextmenu',e=>{if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);});
+  map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();redrawAll();});
+
+  // Drag-drop GPX
+  const mc=g('mc');
+  mc.addEventListener('dragover',e=>{e.preventDefault();mc.classList.add('drag');});
+  mc.addEventListener('dragleave',()=>mc.classList.remove('drag'));
+  mc.addEventListener('drop',e=>{e.preventDefault();mc.classList.remove('drag');[...e.dataTransfer.files].filter(f=>f.name.endsWith('.gpx')).forEach(importGPXFile);});
+
+  // Keyboard
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT') return;
+    if(e.key==='s'||e.key==='S') setMode('start');
+    if(e.key==='e'||e.key==='E') setMode('end');
+    if(e.key==='w'||e.key==='W') setMode('waypoint');
+    if(e.key==='Escape') setMode('view');
+    if(e.key==='Enter') calcRoute();
+    if(e.key==='Delete') clearRoute();
+  });
+
+  await checkAuth();
+  await loadTilesFromDB();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LOAD TILES FROM API → memory
+// ═══════════════════════════════════════════════════════════════════════
+async function loadTilesFromDB(){
+  showLoad('Ładowanie kwadratów z bazy…');
+  try{
+    // Load SQ tiles
+    const sqRes=await fetch('/api/tiles/sq');
+    const sqRows=await sqRes.json();
+    ownedSQ.clear();
+    sqRows.forEach(r=>ownedSQ.add(tileKey(r.tx,r.ty)));
+
+    // Load SQI tiles
+    const sqiRes=await fetch('/api/tiles/sqi');
+    const sqiRows=await sqiRes.json();
+    ownedSQI.clear();
+    sqiRows.forEach(r=>ownedSQI.add(tileKey(r.tx,r.ty)));
+
+    // Load yard/uber
+    await refreshComputedLayers();
+    await refreshStats();
+    redrawAll();
+    hideLoad();
+    showToast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
+  }catch(e){
+    hideLoad();
+    console.error('Load error',e);
+  }
+}
+
+async function refreshComputedLayers(){
+  try{
+    const[yR,uR,yiR,uiR]=await Promise.all([
+      fetch('/api/tiles/yard').then(r=>r.json()),
+      fetch('/api/tiles/uber').then(r=>r.json()),
+      fetch('/api/tiles/yardinho').then(r=>r.json()),
+      fetch('/api/tiles/uberinho').then(r=>r.json()),
+    ]);
+    yardTiles.clear();  yR.tiles.forEach(t=>yardTiles.add(tileKey(t.tx,t.ty)));
+    uberTiles.clear();  uR.tiles.forEach(t=>uberTiles.add(tileKey(t.tx,t.ty)));
+    yardiTiles.clear(); yiR.tiles.forEach(t=>yardiTiles.add(tileKey(t.tx,t.ty)));
+    uberiTiles.clear(); uiR.tiles.forEach(t=>uberiTiles.add(tileKey(t.tx,t.ty)));
+  }catch(e){console.error('refreshComputedLayers',e);}
+}
+
+async function refreshStats(){
+  try{
+    const r=await fetch('/api/stats');
+    statsData=await r.json();
+    g('s-sq').textContent=statsData.sq||0;
+    g('s-yard').textContent=statsData.yard?.size||0;
+    g('s-uber').textContent=statsData.uber?.size||0;
+    g('s-uberN').textContent=statsData.uber?.size?` (${statsData.uber.size}×${statsData.uber.size})`:'';
+    g('s-sqi').textContent=statsData.sqi||0;
+    g('s-yardi').textContent=statsData.yardi?.size||0;
+    g('s-uberi').textContent=statsData.uberi?.size||0;
+    g('s-uberiN').textContent=statsData.uberi?.size?` (${statsData.uberi.size}×${statsData.uberi.size})`:'';
+    g('h-sq').textContent=statsData.sq||0;
+    g('h-yard').textContent=statsData.yard?.size||0;
+    g('h-uber').textContent=statsData.uber?.size||0;
+    g('h-uber2').textContent=statsData.uber?.size||0;
+    g('h-sqi').textContent=statsData.sqi||0;
+  }catch(e){console.error('refreshStats',e);}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LAYER RENDERING
+//  Uses Leaflet Canvas renderer for performance (preferCanvas:true above)
+// ═══════════════════════════════════════════════════════════════════════
+function clearLyr(name){
+  if(LAYERS[name]){map.removeLayer(LAYERS[name]);delete LAYERS[name];}
+}
+
+function renderSet(tileSet, z, fillColor, strokeColor, weight, name){
+  clearLyr(name);
+  if(!tileSet.size||!VIS[name]) return;
+
+  const bnd=map.getBounds();
+  const rects=[];
+
+  tileSet.forEach(k=>{
+    const{x,y}=parseKey(k);
+    const b=tileBounds(x,y,z);
+    // Viewport cull
+    if(b[1][0]<bnd.getSouth()||b[0][0]>bnd.getNorth()||
+       b[0][1]>bnd.getEast()||b[1][1]<bnd.getWest()) return;
+    rects.push(L.rectangle(b,{
+      color:strokeColor, weight,
+      fillColor, fillOpacity:1,
+      interactive:false, bubblingMouseEvents:false
+    }));
+  });
+
+  // Batch into single layer group
+  LAYERS[name]=L.layerGroup(rects,{pane:'overlayPane'}).addTo(map);
+}
+
+function redrawAll(){
+  renderSet(ownedSQ, Z_SQ,  'rgba(0,230,118,.28)',  '#00e676', 1.5,'sq-own');
+  renderSet(newSQ,   Z_SQ,  'rgba(255,107,53,.40)',  '#ff6b35', 2,  'sq-new');
+  renderSet(yardTiles,Z_SQ, 'rgba(88,166,255,.22)',  '#58a6ff', 1.5,'sq-yard');
+  renderSet(uberTiles,Z_SQ, 'rgba(255,214,10,.18)',  '#ffd60a', 2,  'sq-uber');
+  renderSet(ownedSQI,Z_SQI, 'rgba(145, 98, 186, .24)',   '#9050c0', 1.2,'sqi-own');
+  renderSet(newSQI,  Z_SQI, 'rgba(255, 216, 91, .55)',  '#ffcd38', 2,'sqi-new');
+  renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.15)', 'rgba(88,166,255,.5)',1,'sqi-yard');
+  renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.12)', 'rgba(255,214,10,.5)',1.5,'sqi-uber');
+  redrawGrid();
+}
+
+function redrawGrid(){
+  clearLyr('grid14'); clearLyr('grid17');
+  const z=map.getZoom(), bnd=map.getBounds();
+
+  if(VIS['grid14']&&z>=9){
+    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z_SQ);
+    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z_SQ);
+    const rects=[];
+    for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
+      if(ownedSQ.has(tileKey(x,y))) continue;
+      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'#30363d',weight:.5,fill:false,interactive:false}));
+    }
+    LAYERS['grid14']=L.layerGroup(rects).addTo(map);
+  }
+
+  if(VIS['grid17']&&z>=13){
+    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z_SQI);
+    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z_SQI);
+    const rects=[];
+    let cnt=0;
+    for(let x=t0.x;x<=t1.x;x++){
+      for(let y=t0.y;y<=t1.y;y++){
+        if(cnt++>5000) break;
+        if(ownedSQI.has(tileKey(x,y))) continue;
+        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'#1e2a33',weight:.3,fill:false,interactive:false}));
+      }
+    }
+    LAYERS['grid17']=L.layerGroup(rects).addTo(map);
+  }
+}
+
+function togLyr(name,btn,c){
+  VIS[name]=!VIS[name];
+  if(VIS[name]){
+    btn.className=`lb on-${c}`;
+    // Render only what's needed
+    const fn={'sq-own':()=>renderSet(ownedSQ,Z_SQ,'rgba(0,230,118,.28)','#00e676',1.5,name),
+      'sq-new':()=>renderSet(newSQ,Z_SQ,'rgba(255,107,53,.40)','#ff6b35',2,name),
+      'sq-yard':()=>renderSet(yardTiles,Z_SQ,'rgba(88,166,255,.22)','#58a6ff',1.5,name),
+      'sq-uber':()=>renderSet(uberTiles,Z_SQ,'rgba(255,214,10,.18)','#ffd60a',2,name),
+      'sqi-own':()=>renderSet(ownedSQI,Z_SQI,'rgba(145, 98, 186, .24)','rgba(144, 80, 192, .85)',1.2,name),
+      'sqi-new':()=>renderSet(newSQI,Z_SQI,'rgba(255, 216, 91, .46)','rgba(255, 205, 56, .95)',1.6,name),
+      'sqi-yard':()=>renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.15)','rgba(88,166,255,.5)',1,name),
+      'sqi-uber':()=>renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.12)','rgba(255,214,10,.5)',1.5,name),
+      'grid14':redrawGrid,'grid17':redrawGrid
+    };
+    fn[name]?.();
+  }else{
+    btn.className='lb';
+    clearLyr(name);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STRAVA SYNC (SSE)
+// ═══════════════════════════════════════════════════════════════════════
+async function syncStrava(){
+  if(!authenticated){toast('Zaloguj się przez Strava');return;}
+  g('sync-btn').disabled=true;
+  const prog=g('sync-progress');
+  prog.style.display='block';
+
+  const sse=new EventSource('/api/sync'); // POST via EventSource workaround
+  // Actually POST + SSE: use fetch with ReadableStream
+  sse.close();
+
+  // Use fetch + ReadableStream for SSE with POST
+  const res=await fetch('/api/sync',{method:'POST'});
+  const reader=res.body.getReader(), dec=new TextDecoder();
+  let buf='';
+
+  function updateBar(done,total){
+    const pct=total?Math.round(done/total*100):Math.min(done/10,90);
+    g('sync-bar-fill').style.width=pct+'%';
+  }
+
+  while(true){
+    const{done,value}=await reader.read();
+    if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    const lines=buf.split('\n');
+    buf=lines.pop();
+    for(const line of lines){
+      if(!line.startsWith('data:')) continue;
+      try{
+        const ev=JSON.parse(line.slice(5));
+        if(ev.phase==='fetch'){
+          g('sync-msg').textContent=`Pobieranie aktywności: ${ev.done}…`;
+          updateBar(ev.done,ev.total);
+        }else if(ev.phase==='process'){
+          g('sync-msg').textContent=`Przetwarzanie: ${ev.done}/${ev.total}`;
+          updateBar(ev.done,ev.total);
+        }else if(ev.phase==='done'){
+          g('sync-msg').textContent=`✅ Gotowe! +${ev.newSQ} SQ, +${ev.newSQI} SQI`;
+          g('sync-bar-fill').style.width='100%';
+          // Reload tiles from DB
+          await loadTilesFromDB();
+          toast(`Sync: ${ev.processed} aktywności · +${ev.newSQ} nowych SQ · +${ev.newSQI} nowych SQI`);
+        }else if(ev.phase==='error'){
+          g('sync-msg').textContent='❌ Błąd: '+ev.message;
+          toast('Błąd sync: '+ev.message);
+        }
+      }catch(e){}
+    }
+  }
+  g('sync-btn').disabled=false;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GPX IMPORT
+// ═══════════════════════════════════════════════════════════════════════
+function importGPX(event){
+  [...event.target.files].forEach(importGPXFile);
+  event.target.value='';
+}
+
+async function importGPXFile(file){
+  const text=await file.text();
+  showLoad('Importuję GPX…');
+  try{
+    const res=await fetch('/api/gpx/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gpxText:text})});
+    const d=await res.json();
+    if(!res.ok) throw new Error(d.error);
+    await loadTilesFromDB();
+    toast(`GPX: ${d.points} pts → +${d.newSQ} SQ, +${d.newSQI} SQI · łącznie ${d.totalSQ} SQ`);
+  }catch(e){toast('Błąd GPX: '+e.message);}
+  finally{hideLoad();}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ROUTING
+// ═══════════════════════════════════════════════════════════════════════
+function previewRoute(){
+  if(rLine){map.removeLayer(rLine);rLine=null;}
+  if(wpts.length<2){updDist(0);return;}
+  const pts=wpts.map(w=>w.marker.getLatLng());
+  rLine=L.polyline(pts,{color:'#58a6ff',weight:3,opacity:.5,dashArray:'7 5',interactive:false}).addTo(map);
+  updDist(compDist(pts));
+}
+
+async function calcRoute(){
+  if(wpts.length<2){toast('Dodaj start i metę!');return;}
+  const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
+  const opt=document.querySelector('input[name="opt"]:checked').value;
+  if(rLine){map.removeLayer(rLine);rLine=null;}
+  showLoad('Obliczam trasę…');
+
+  try{
+    const waypoints=wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng}));
+    const res=await fetch('/api/route/detour',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value)})
+    });
+    if(!res.ok) throw new Error('routing error '+res.status);
+    const data=await res.json();
+    if(!data.routes?.length) throw new Error('Brak trasy');
+
+    const route=data.routes[0];
+    routeCoords=route.geometry.coordinates.map(([lng,lat])=>({lat,lng}));
+    rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false}).addTo(map);
+
+    // Get new tiles for this route from server
+    const prvRes=await fetch('/api/route/preview-tiles',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({coords:routeCoords})
+    });
+    const prv=await prvRes.json();
+
+    newSQ.clear(); prv.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
+    newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
+
+    // Redraw new-tile layers
+    if(VIS['sq-new'])  renderSet(newSQ, Z_SQ,  'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
+    if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
+
+    const dist=route.distance/1000;
+    const mins=Math.round(route.duration/60);
+    updDist(dist);
+    g('b-plan-dist').textContent = `Plan: ${dist.toFixed(1)} km`;
+    g('b-plan-sq').textContent = `Nowe SQ: ${newSQ.size}`;
+    g('b-plan-sqi').textContent = `Nowe SQI: ${newSQI.size}`;
+    g('h-new').textContent=newSQ.size;
+    g('s-sq-new').textContent=newSQ.size;
+    g('s-sqi-new').textContent=newSQI.size;
+    g('b-sq').textContent=ownedSQ.size+newSQ.size;
+    g('b-new').textContent=newSQ.size;
+    g('b-newi').textContent=newSQI.size;
+    hideLoad();
+    toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI`);
+  }catch(e){hideLoad();toast('Błąd: '+e.message);}
+}
+
+function clearRoute(){
+  wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
+  if(rLine){map.removeLayer(rLine);rLine=null;}
+  routeCoords=[]; newSQ.clear(); newSQI.clear();
+  clearLyr('sq-new'); clearLyr('sqi-new');
+  renderWL(); previewRoute(); updDist(0);
+  g('b-plan-dist').textContent = 'Plan: —';
+  g('b-plan-sq').textContent = 'Nowe SQ: 0';
+  g('b-plan-sqi').textContent = 'Nowe SQI: 0';
+  g('b-sq').textContent='—'; g('b-new').textContent='—'; g('b-newi').textContent='—';
+  g('h-new').textContent='0'; g('s-sq-new').textContent='0'; g('s-sqi-new').textContent='0';
+  toast('Trasa wyczyszczona');
+}
+
+function exportGPX(){
+  const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng}));
+  if(!pts.length){toast('Brak trasy');return;}
+  let gpx=`<?xml version="1.0"?>\n<gpx version="1.1" creator="SquadratsPlanner">\n  <trk><trkseg>\n`;
+  pts.forEach(p=>{gpx+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trkpt>\n`;});
+  gpx+=`  </trkseg></trk>\n</gpx>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  a.download='squadrats_'+new Date().toISOString().slice(0,10)+'.gpx';
+  a.click();
+  toast('GPX wyeksportowany');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WAYPOINTS
+// ═══════════════════════════════════════════════════════════════════════
+function onMapClick(e){
+  if(mode==='view') return;
+  addWpt(e.latlng, mode==='waypoint'?'mid':mode);
+  if(mode==='start'||mode==='end') setMode('view');
+  renderWL(); previewRoute();
+}
+
+function addWpt(ll,type){
+  if(type==='start'||type==='end'){
+    const i=wpts.findIndex(w=>w.type===type);
+    if(i>=0){map.removeLayer(wpts[i].marker);wpts.splice(i,1);}
+  }
+  const mc2=wpts.filter(w=>w.type==='mid').length;
+  const lbl=type==='start'?'S':type==='end'?'E':String(mc2+1);
+  const clr=type==='start'?'#00e676':type==='end'?'#ff6b35':'#58a6ff';
+  const icon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+  const marker=L.marker(ll,{icon,draggable:true}).addTo(map);
+  marker.on('dragend',()=>{renderWL();previewRoute();});
+  marker.on('contextmenu',()=>{const i=wpts.findIndex(w=>w.marker===marker);if(i>=0){map.removeLayer(marker);wpts.splice(i,1);renderWL();previewRoute();}});
+  const wp={type,marker};
+  if(type==='start') wpts.unshift(wp);
+  else if(type==='end') wpts.push(wp);
+  else{const ei=wpts.findIndex(w=>w.type==='end');if(ei>=0)wpts.splice(ei,0,wp);else wpts.push(wp);}
+}
+
+async function searchAddress(type){
+  const input = g(type==='start' ? 'start-addr' : 'end-addr');
+  const query = input?.value.trim();
+  if(!query){toast('Wpisz adres');return;}
+  showLoad('Wyszukuję adres…');
+  try{
+    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+    const res = await fetch(url,{headers:{'Accept':'application/json'}});
+    const data = await res.json();
+    if(!data || !data.length){toast('Nie znaleziono adresu');return;}
+    const place = data[0];
+    const ll = { lat: parseFloat(place.lat), lng: parseFloat(place.lon) };
+    addWpt(ll, type);
+    renderWL();
+    previewRoute();
+    map.setView([ll.lat, ll.lng], 14);
+    toast(`${type==='start' ? 'Start' : 'Meta'} ustawiony: ${place.display_name}`);
+  }catch(e){toast('Błąd geokodowania');
+  }finally{hideLoad();}
+}
+
+function removeWptI(i){map.removeLayer(wpts[i].marker);wpts.splice(i,1);renderWL();previewRoute();}
+window.removeWptI=removeWptI;
+
+function renderWL(){
+  const el=g('wl');
+  if(!wpts.length){el.innerHTML='<div class="hint">Wybierz Start i kliknij mapę</div>';return;}
+  let mc2=0;
+  el.innerHTML=wpts.map((w,i)=>{
+    const ll=w.marker.getLatLng();
+    let tc,tl;
+    if(w.type==='start'){tc='ws';tl='S';}else if(w.type==='end'){tc='we';tl='E';}else{mc2++;tc='wm';tl=mc2;}
+    return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc">${ll.lat.toFixed(4)}°N ${ll.lng.toFixed(4)}°E</div><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HEATMAP
+// ═══════════════════════════════════════════════════════════════
+function hmChg(){
+  const ok=v('hm-kp')&&v('hm-pol')&&v('hm-sig');
+  g('hm-st').textContent=ok?'✅ Gotowe — kliknij Zastosuj':'Uzupełnij wszystkie 3 pola';
+  g('hm-st').style.color=ok?'var(--green)':'var(--tx3)';
+}
+function applyHM(){
+  const kp=v('hm-kp'),pol=v('hm-pol'),sig=v('hm-sig');
+  if(!kp||!pol||!sig){toast('Uzupełnij tokeny');return;}
+  removeHM(); updHM(); toast('✅ Heatmapa Strava załadowana');
+}
+function updHM(){
+  const kp=v('hm-kp'),pol=v('hm-pol'),sig=v('hm-sig');
+  if(!kp||!pol||!sig) return;
+  if(hmLayer) map.removeLayer(hmLayer);
+  const act=document.querySelector('input[name="hma"]:checked').value;
+  const col=document.querySelector('input[name="hmc"]:checked').value;
+  const url=`https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png?Key-Pair-Id=${encodeURIComponent(kp)}&Policy=${encodeURIComponent(pol)}&Signature=${encodeURIComponent(sig)}`;
+  hmLayer=L.tileLayer(url,{subdomains:'abc',maxZoom:16,opacity:.7,attribution:'© Strava'}).addTo(map);
+}
+function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════════════════════
+async function checkAuth(){
+  try{
+    const r=await fetch('/api/auth-status');
+    const d=await r.json();
+    setAuth(d.authenticated,d.athlete);
+  }catch(e){}
+}
+function setAuth(ok,athlete){
+  authenticated=ok;
+  const btn=g('auth-btn');
+  g('sync-btn').disabled=!ok;
+  if(ok&&athlete){
+    btn.className='li';
+    g('auth-lbl').textContent=athlete.firstname+' '+athlete.lastname;
+  }else{
+    btn.className='lo';
+    g('auth-lbl').textContent='Zaloguj Strava';
+  }
+}
+function handleAuth(){
+  if(authenticated) fetch('/api/logout',{method:'POST'}).then(()=>setAuth(false,null));
+  else window.location.href='/auth/strava';
+}
+const up=new URLSearchParams(window.location.search);
+if(up.get('auth')==='success') history.replaceState({},'','/');
+if(up.get('auth')==='error'){setTimeout(()=>toast('Błąd logowania: '+up.get('msg')),400);history.replaceState({},'','/');}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function setMode(m){
+  mode=m;
+  document.querySelectorAll('.mb2').forEach(b=>b.classList.remove('on'));
+  const b=g('mb-'+m); if(b) b.classList.add('on');
+  const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku'};
+  const ics={start:'ti-map-pin',end:'ti-flag',waypoint:'ti-point',view:'ti-hand'};
+  g('m-txt').textContent=labs[m]||m;
+  g('m-icon').className='ti '+(ics[m]||'ti-hand');
+  map.getContainer().style.cursor=m==='view'?'':'crosshair';
+}
+
+function swTab(id,btn){
+  document.querySelectorAll('.tp').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tb').forEach(b=>b.classList.remove('on'));
+  g('tp-'+id).classList.add('on');
+  btn.classList.add('on');
+}
+
+function chBase(n){Object.values(baseLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l);});baseLayers[n]?.addTo(map);}
+
+function fitAll(){
+  if(wpts.length){map.fitBounds(L.latLngBounds(wpts.map(w=>w.marker.getLatLng())),{padding:[50,50]});return;}
+  if(ownedSQ.size){
+    let s=Infinity,n=-Infinity,w2=Infinity,e=-Infinity;
+    ownedSQ.forEach(k=>{const{x,y}=parseKey(k);const b=tileBounds(x,y,Z_SQ);if(b[0][0]<s)s=b[0][0];if(b[1][0]>n)n=b[1][0];if(b[0][1]<w2)w2=b[0][1];if(b[1][1]>e)e=b[1][1];});
+    map.fitBounds([[s,w2],[n,e]],{padding:[30,30]});
+  }
+}
+
+function locateMe(){map.locate({setView:true,maxZoom:14});map.once('locationfound',e=>toast(`📍 ${e.latlng.lat.toFixed(4)}°N ${e.latlng.lng.toFixed(4)}°E`));}
+function haversine(a,b){const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function compDist(pts){let d=0;for(let i=0;i<pts.length-1;i++)d+=(pts[i].distanceTo?pts[i].distanceTo(pts[i+1])/1000:haversine(pts[i],pts[i+1]));return d;}
+function updDist(km){g('h-dist').textContent=km.toFixed(1);g('b-dist').textContent=km>0?km.toFixed(1)+' km':'—';}
+function showLoad(msg){g('lmsg').textContent=msg||'…';g('loading').classList.remove('h');}
+function hideLoad(){g('loading').classList.add('h');}
+function v(id){return document.getElementById(id)?.value.trim()||'';}
+function g(id){return document.getElementById(id);}
+function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTm);toastTm=setTimeout(()=>t.classList.remove('on'),5000);}
+
+window.addEventListener('DOMContentLoaded',initMap);
+</script>
+</body>
+</html>

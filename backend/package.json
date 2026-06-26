@@ -1,0 +1,15 @@
+{
+  "name": "squadrats-backend",
+  "version": "2.0.0",
+  "description": "Squadrats Route Planner — backend with SQLite persistence",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "better-sqlite3": "^9.6.0",
+    "express": "^4.19.2"
+  }
+}

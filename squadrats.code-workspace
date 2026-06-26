@@ -1,0 +1,72 @@
+{
+  "folders": [
+    { "name": "squadrats-planner", "path": "." }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2,
+    "files.exclude": {
+      "**/node_modules": true,
+      "data/*.db-wal": true,
+      "data/*.db-shm": true
+    },
+    "docker.defaultRegistryPath": "",
+    "remote.containers.defaultExtensions": [
+      "ms-vscode.vscode-node-debug2"
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-azuretools.vscode-docker",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "alexcvzz.vscode-sqlite",
+      "ms-vscode-remote.remote-containers"
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Attach to Backend (Docker)",
+        "type": "node",
+        "request": "attach",
+        "port": 9229,
+        "address": "localhost",
+        "localRoot": "${workspaceFolder}/backend",
+        "remoteRoot": "/app",
+        "skipFiles": ["<node_internals>/**"]
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Docker: Start",
+        "type": "shell",
+        "command": "docker compose up --build",
+        "group": { "kind": "build", "isDefault": true },
+        "presentation": { "reveal": "always", "panel": "new" }
+      },
+      {
+        "label": "Docker: Stop",
+        "type": "shell",
+        "command": "docker compose down",
+        "presentation": { "reveal": "always", "panel": "shared" }
+      },
+      {
+        "label": "Docker: Logs",
+        "type": "shell",
+        "command": "docker compose logs -f backend",
+        "presentation": { "reveal": "always", "panel": "new" }
+      },
+      {
+        "label": "Docker: Rebuild",
+        "type": "shell",
+        "command": "docker compose down && docker compose up --build --force-recreate",
+        "presentation": { "reveal": "always", "panel": "new" }
+      }
+    ]
+  }
+}
