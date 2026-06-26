@@ -11,12 +11,9 @@ spec:
       storage: 2Gi
 ---
 # ── Deployment — BRouter routing engine ────────────────────────────────────
-# InitContainer downloads OSM segment files for Poland on first start.
-# Segments are cached in the PVC — subsequent restarts skip the download.
-#
-# NOTE: If your OCP enforces runAsNonRoot, grant the anyuid SCC to the
-# service account:  oc adm policy add-scc-to-serviceaccount anyuid \
-#                     -z default -n squadrats
+# InitContainer downloads OSM rd5 segment files for Poland on first start.
+# Files are cached in the PVC — subsequent restarts skip the download.
+# Runs fully non-root to satisfy OCP PodSecurity restricted policy.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,11 +29,19 @@ spec:
       labels:
         app: squadrats-brouter
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       initContainers:
         - name: download-segments
           image: alpine:3.19
           securityContext:
-            runAsUser: 0
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           command:
             - sh
             - -c
@@ -68,6 +73,10 @@ spec:
       containers:
         - name: brouter
           image: abrensch/brouter
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 17777
           volumeMounts:
@@ -87,15 +96,15 @@ spec:
             httpGet:
               path: /brouter?lonlats=21.012,52.229|21.015,52.232&profile=fastbike&alternativeidx=0&format=geojson
               port: 17777
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 15
             timeoutSeconds: 10
-            failureThreshold: 5
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /brouter?lonlats=21.012,52.229|21.015,52.232&profile=fastbike&alternativeidx=0&format=geojson
               port: 17777
-            initialDelaySeconds: 60
+            initialDelaySeconds: 90
             periodSeconds: 30
             timeoutSeconds: 10
       volumes:
