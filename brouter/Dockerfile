@@ -29,7 +29,9 @@ USER 1001
 
 EXPOSE 17777
 
-# Profiles are bundled in /opt/brouter/profiles2 from the release zip (no separate download needed)
+# Use -cp with lib/* so all dependencies are on classpath, then call RouteServer directly.
+# Cannot use -jar: manifest Main-Class is BRouter (CLI mode), not RouteServer (HTTP server).
 CMD ["sh", "-c", \
-     "exec java -Xmx512m -Xms128m -jar /opt/brouter/brouter.jar \
+     "exec java -Xmx512m -Xms128m -cp '/opt/brouter/brouter.jar:/opt/brouter/lib/*' \
+      btools.server.RouteServer \
       /brouter-data/segments4 /opt/brouter/profiles2 /opt/brouter/profiles2 17777 1"]
