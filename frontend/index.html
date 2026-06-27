@@ -208,6 +208,21 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .auth-strava-toggle:hover{background:var(--hover)}
 .auth-strava-body{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:10px}
 
+/* ── SOCIAL LOGIN ── */
+.auth-or{display:flex;align-items:center;gap:10px;margin:16px 0 12px;font-size:10px;color:var(--tx3)}
+.auth-or::before,.auth-or::after{content:'';flex:1;height:1px;background:var(--border)}
+.social-btns{display:flex;flex-direction:column;gap:7px}
+.social-btn{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:9px 14px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--card);color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
+.social-btn:hover{border-color:var(--bhi);background:var(--hover)}
+.social-btn i{font-size:15px}
+.social-btn.google i{color:#ea4335}
+.social-btn.facebook i{color:#1877f2}
+.social-btn.apple i{color:var(--tx)}
+.oauth-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--card);border:1px solid var(--border)}
+.oauth-badge.google{color:#ea4335;border-color:#ea433530}
+.oauth-badge.facebook{color:#1877f2;border-color:#1877f230}
+.oauth-badge.apple{color:var(--tx2);border-color:var(--border2)}
+
 /* ── USER MENU ── */
 #user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
 #user-menu-btn{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:4px 10px 4px 5px;cursor:pointer;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;transition:all .15s}
@@ -595,6 +610,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div id="reg-err" class="auth-err"></div>
       <button type="submit" class="auth-submit"><i class="ti ti-user-plus"></i> Zarejestruj się</button>
     </form>
+
+    <!-- SOCIAL LOGIN -->
+    <div id="social-section" style="display:none">
+      <div class="auth-or">lub</div>
+      <div class="social-btns">
+        <button id="btn-google"   class="social-btn google"   style="display:none" onclick="window.location.href='/auth/google'"><i class="ti ti-brand-google"></i>Kontynuuj z Google</button>
+        <button id="btn-facebook" class="social-btn facebook" style="display:none" onclick="window.location.href='/auth/facebook'"><i class="ti ti-brand-facebook"></i>Kontynuuj z Facebook</button>
+        <button id="btn-apple"    class="social-btn apple"    style="display:none" onclick="window.location.href='/auth/apple'"><i class="ti ti-brand-apple"></i>Kontynuuj z Apple</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -616,13 +641,9 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
           <span style="color:var(--tx3)">Email</span><span id="prof-email" style="color:var(--tx2)"></span></div>
       </div>
 
-      <div class="sl mt8">Zmień hasło</div>
-      <div class="crb" style="margin-bottom:12px">
-        <label>Obecne hasło</label><input id="prof-pass-cur" type="password">
-        <label>Nowe hasło</label><input id="prof-pass-new" type="password">
-        <label>Powtórz nowe hasło</label><input id="prof-pass-new2" type="password">
-        <div id="prof-pass-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
-        <button class="btn btn-b" style="margin-top:6px" onclick="changePassword()"><i class="ti ti-key"></i>Zmień hasło</button>
+      <div class="sl mt8">Hasło</div>
+      <div class="crb" style="margin-bottom:12px" id="prof-pass-section">
+        <!-- filled dynamically based on has_password / oauth_provider -->
       </div>
 
       <div class="sl mt8">Konfiguracja Strava API</div>
@@ -1369,6 +1390,7 @@ function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
 // ═══════════════════════════════════════════════════════════════════════
 const _up=new URLSearchParams(window.location.search);
 if(_up.get('auth')==='strava-ok'){history.replaceState({},'','/');setTimeout(()=>toast('✅ Strava połączona!'),400);}
+if(_up.get('auth')==='ok'){history.replaceState({},'','/');}
 if(_up.get('auth')==='error'){setTimeout(()=>toast('❌ Błąd: '+_up.get('msg')),400);history.replaceState({},'','/');}
 if(_up.get('error')==='strava-config-missing'){setTimeout(()=>toast('⚠️ Dodaj Client ID i Secret Strava w profilu'),400);history.replaceState({},'','/');}
 
@@ -1381,9 +1403,22 @@ async function checkAuth(){
   }catch(e){showAuthGate();}
 }
 
+async function loadProviders(){
+  try{
+    const r=await fetch('/api/auth/providers');
+    const p=await r.json();
+    let any=false;
+    if(p.google){g('btn-google').style.display='flex';any=true;}
+    if(p.facebook){g('btn-facebook').style.display='flex';any=true;}
+    if(p.apple){g('btn-apple').style.display='flex';any=true;}
+    if(any) g('social-section').style.display='block';
+  }catch(_){}
+}
+
 function showAuthGate(){
   g('auth-gate').style.display='flex';
   g('reg-app-domain').textContent=location.hostname;
+  loadProviders();
   hideLoad();
 }
 
@@ -1485,6 +1520,33 @@ async function doLogout(){
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
 
+const OAUTH_ICONS={google:'ti-brand-google',facebook:'ti-brand-facebook',apple:'ti-brand-apple'};
+const OAUTH_LABELS={google:'Google',facebook:'Facebook',apple:'Apple'};
+
+function renderPasswordSection(){
+  const s=g('prof-pass-section');
+  if(!currentUser)return;
+  if(currentUser.oauth_provider&&!currentUser.has_password){
+    const prov=currentUser.oauth_provider;
+    s.innerHTML=`
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:11px;color:var(--tx2)">
+        <span class="oauth-badge ${prov}"><i class="ti ${OAUTH_ICONS[prov]||'ti-login'}"></i>${OAUTH_LABELS[prov]||prov}</span>
+        Logujesz się przez ${OAUTH_LABELS[prov]||prov} — możesz ustawić hasło awaryjne:
+      </div>
+      <label>Nowe hasło (min. 6 znaków)</label><input id="prof-pass-new" type="password">
+      <label>Powtórz hasło</label><input id="prof-pass-new2" type="password">
+      <div id="prof-pass-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
+      <button class="btn btn-b" style="margin-top:6px" onclick="setFirstPassword()"><i class="ti ti-key"></i>Ustaw hasło</button>`;
+  }else{
+    s.innerHTML=`
+      <label>Obecne hasło</label><input id="prof-pass-cur" type="password">
+      <label>Nowe hasło</label><input id="prof-pass-new" type="password">
+      <label>Powtórz nowe hasło</label><input id="prof-pass-new2" type="password">
+      <div id="prof-pass-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
+      <button class="btn btn-b" style="margin-top:6px" onclick="changePassword()"><i class="ti ti-key"></i>Zmień hasło</button>`;
+  }
+}
+
 function openProfile(){
   if(!currentUser)return;
   g('prof-username').textContent=currentUser.username;
@@ -1494,8 +1556,8 @@ function openProfile(){
   g('prof-app-domain').textContent=location.hostname;
   g('prof-strava-id').value=currentUser.strava_client_id||'';
   g('prof-strava-secret').value='';
-  g('prof-pass-cur').value='';g('prof-pass-new').value='';g('prof-pass-new2').value='';
-  g('prof-pass-err').textContent='';g('prof-strava-err').textContent='';
+  g('prof-strava-err').textContent='';
+  renderPasswordSection();
   updateStravaStatus();
   g('profile-modal').style.display='flex';
 }
@@ -1535,6 +1597,23 @@ async function saveStravaCredentials(){
 function connectStrava(){
   if(!currentUser?.strava_configured){toast('Najpierw zapisz Client ID i Secret');return;}
   window.location.href='/auth/strava';
+}
+
+async function setFirstPassword(){
+  g('prof-pass-err').textContent='';
+  const nw=v('prof-pass-new'), nw2=v('prof-pass-new2');
+  if(!nw){g('prof-pass-err').textContent='Wpisz nowe hasło';return;}
+  if(nw!==nw2){g('prof-pass-err').textContent='Hasła nie są zgodne';return;}
+  if(nw.length<6){g('prof-pass-err').textContent='Hasło min. 6 znaków';return;}
+  try{
+    const r=await fetch('/api/profile/set-password',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({new_password:nw})});
+    const d=await r.json();
+    if(!r.ok){g('prof-pass-err').textContent=d.error||'Błąd';return;}
+    currentUser={...currentUser,has_password:true};
+    renderPasswordSection();
+    toast('✅ Hasło ustawione');
+  }catch(err){g('prof-pass-err').textContent='Błąd sieci';}
 }
 
 async function changePassword(){
@@ -1579,6 +1658,7 @@ function renderAdminUsers(users){
       <td style="font-weight:600;color:var(--tx)">${esc(u.username)}</td>
       <td style="font-size:10px">${u.email?esc(u.email):'<span style="color:var(--tx3)">—</span>'}</td>
       <td><span class="rbadge ${u.role==='admin'?'ra':'ru'}">${u.role==='admin'?'Admin':'User'}</span></td>
+      <td>${u.oauth_provider?`<span class="oauth-badge ${u.oauth_provider}"><i class="ti ${OAUTH_ICONS[u.oauth_provider]||'ti-login'}"></i>${OAUTH_LABELS[u.oauth_provider]||u.oauth_provider}</span>`:'<span style="color:var(--tx3)">Email</span>'}</td>
       <td>${u.strava_configured?(u.strava_connected?'<span style="color:var(--green)">✓ Połączona</span>':'<span style="color:var(--yellow)">Klucze OK</span>'):'<span style="color:var(--tx3)">Nie</span>'}</td>
       <td style="font-family:monospace;color:var(--tx2)">${u.sq_count||0}</td>
       <td style="font-size:10px;color:var(--tx3)">${(u.created_at||'').slice(0,10)||'—'}</td>
@@ -1593,7 +1673,7 @@ function renderAdminUsers(users){
     <div class="sl" style="margin-bottom:10px">Użytkownicy (${users.length})</div>
     <div style="overflow-x:auto">
     <table class="atab">
-      <thead><tr><th>#</th><th>Użytkownik</th><th>Email</th><th>Rola</th><th>Strava</th><th>SQ</th><th>Data</th><th>Akcje</th></tr></thead>
+      <thead><tr><th>#</th><th>Użytkownik</th><th>Email</th><th>Rola</th><th>Login</th><th>Strava</th><th>SQ</th><th>Data</th><th>Akcje</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 }

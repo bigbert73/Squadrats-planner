@@ -23,10 +23,12 @@ const SCHEMA_SQL = `
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     username             TEXT UNIQUE NOT NULL COLLATE NOCASE,
     email                TEXT UNIQUE COLLATE NOCASE,
-    password_hash        TEXT NOT NULL,
+    password_hash        TEXT,
     role                 TEXT NOT NULL DEFAULT 'user',
     strava_client_id     TEXT,
     strava_client_secret TEXT,
+    oauth_provider       TEXT,
+    oauth_id             TEXT,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),
     last_login           TEXT
   );
@@ -170,6 +172,44 @@ const hasUsers = db.prepare("SELECT count(*) as n FROM sqlite_master WHERE type=
 if (!hasUsers) runMigration();
 db.exec(SCHEMA_SQL);
 
+// ── OAuth migration (add oauth_provider/oauth_id, make password_hash nullable) ──
+(function migrateOAuth() {
+  const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
+  if (!cols.includes('oauth_provider')) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE users_oauth_tmp (
+          id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+          username             TEXT UNIQUE NOT NULL COLLATE NOCASE,
+          email                TEXT UNIQUE COLLATE NOCASE,
+          password_hash        TEXT,
+          role                 TEXT NOT NULL DEFAULT 'user',
+          strava_client_id     TEXT,
+          strava_client_secret TEXT,
+          oauth_provider       TEXT,
+          oauth_id             TEXT,
+          created_at           TEXT NOT NULL DEFAULT (datetime('now')),
+          last_login           TEXT
+        );
+        INSERT INTO users_oauth_tmp
+          (id,username,email,password_hash,role,strava_client_id,strava_client_secret,created_at,last_login)
+          SELECT id,username,email,password_hash,role,strava_client_id,strava_client_secret,created_at,last_login
+          FROM users;
+        DROP TABLE users;
+        ALTER TABLE users_oauth_tmp RENAME TO users;
+      `);
+      try {
+        db.exec("CREATE UNIQUE INDEX idx_users_oauth ON users(oauth_provider,oauth_id) WHERE oauth_provider IS NOT NULL");
+      } catch(_) {}
+    })();
+    console.log('[DB] Migracja: dodano kolumny OAuth (oauth_provider, oauth_id)');
+  } else {
+    try {
+      db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider,oauth_id) WHERE oauth_provider IS NOT NULL");
+    } catch(_) {}
+  }
+})();
+
 // ── Prepared statements ───────────────────────────────────────────────────────
 
 const q = {
@@ -177,13 +217,17 @@ const q = {
   getUserById:      db.prepare("SELECT * FROM users WHERE id = ?"),
   getUserByName:    db.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE"),
   getUserByEmail:   db.prepare("SELECT * FROM users WHERE email = ? COLLATE NOCASE"),
-  getAllUsers:       db.prepare("SELECT id,username,email,role,strava_client_id,created_at,last_login FROM users ORDER BY id"),
+  getAllUsers:       db.prepare("SELECT id,username,email,role,strava_client_id,oauth_provider,created_at,last_login FROM users ORDER BY id"),
   countUsers:       db.prepare("SELECT count(*) as n FROM users"),
   updateRole:       db.prepare("UPDATE users SET role = ? WHERE id = ?"),
   updateStrava:     db.prepare("UPDATE users SET strava_client_id = ?, strava_client_secret = ? WHERE id = ?"),
   updateLastLogin:  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?"),
   updatePassHash:   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
   deleteUser:       db.prepare("DELETE FROM users WHERE id = ?"),
+
+  getUserByOAuth:   db.prepare("SELECT * FROM users WHERE oauth_provider = ? AND oauth_id = ?"),
+  insertOAuthUser:  db.prepare("INSERT INTO users (username,email,password_hash,role,oauth_provider,oauth_id) VALUES (?,?,NULL,?,?,?)"),
+  linkOAuth:        db.prepare("UPDATE users SET oauth_provider=?, oauth_id=? WHERE id=?"),
 
   upsertToken:      db.prepare(`INSERT INTO strava_tokens (user_id,access_token,refresh_token,expires_at,athlete_id,athlete_json) VALUES (@user_id,@access_token,@refresh_token,@expires_at,@athlete_id,@athlete_json) ON CONFLICT(user_id) DO UPDATE SET access_token=excluded.access_token,refresh_token=excluded.refresh_token,expires_at=excluded.expires_at,athlete_id=excluded.athlete_id,athlete_json=excluded.athlete_json`),
   getToken:         db.prepare("SELECT * FROM strava_tokens WHERE user_id = ?"),
@@ -221,6 +265,7 @@ module.exports = {
   getUserById(id)          { return q.getUserById.get(id); },
   getUserByUsername(u)     { return q.getUserByName.get(u); },
   getUserByEmail(e)        { return q.getUserByEmail.get(e); },
+  getUserByOAuth(p, id)    { return q.getUserByOAuth.get(p, id); },
   getAllUsers()             { return q.getAllUsers.all(); },
   getUserCount()           { return q.countUsers.get().n; },
   updateUserRole(id, role) { q.updateRole.run(role, id); },
@@ -228,6 +273,12 @@ module.exports = {
   updateLastLogin(id)      { q.updateLastLogin.run(id); },
   updatePasswordHash(id, h){ q.updatePassHash.run(h, id); },
   deleteUser(id)           { q.deleteUser.run(id); },
+
+  createOAuthUser(provider, oauthId, email, username) {
+    const role = q.countUsers.get().n === 0 ? 'admin' : 'user';
+    return q.insertOAuthUser.run(username, email || null, role, provider, oauthId);
+  },
+  linkOAuth(userId, provider, oauthId) { q.linkOAuth.run(provider, oauthId, userId); },
 
   // Strava tokens
   getToken(userId)         { return q.getToken.get(userId); },
