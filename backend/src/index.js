@@ -194,8 +194,9 @@ async function fetchOsrmRoute(points) {
 
 async function fetchBRouterRoute(points, profile) {
   const lonlats = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join('|');
-  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson`;
-  const r = await axios.get(url, { timeout: 30000 });
+  // timeout=60 tells BRouter to allow up to 60s per request (default is 8s which kills long routes)
+  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson&timeout=60`;
+  const r = await axios.get(url, { timeout: 90000 });
   const feat = r.data?.features?.[0];
   if (!feat) throw new Error('BRouter: empty response');
   return {

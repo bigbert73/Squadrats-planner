@@ -22,6 +22,9 @@ RUN curl -fsSL "https://api.github.com/repos/abrensch/brouter/releases/latest" \
     echo "=== /opt/brouter ===" && ls -la /opt/brouter/ && \
     rm -rf /tmp/brouter.zip /tmp/brouter-dist /tmp/release.json
 
+# Custom Polish routing profile: trunk=forbidden(10000), cycleway preferred(0.7) over primary(1.6)
+COPY rowery-pl.brf /opt/brouter/profiles2/rowery-pl.brf
+
 # OCP: allow arbitrary UID
 RUN chgrp -R 0 /brouter-data /opt/brouter && chmod -R g=u /brouter-data /opt/brouter
 
