@@ -362,11 +362,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       </div>
     </div>
 
-    <div class="sl">Punkty</div>
-    <div class="wl" id="wl"><div class="hint">Wybierz Start i kliknij mapę</div></div>
-    <button class="btn btn-b mb8" onclick="setMode('waypoint')"><i class="ti ti-plus"></i>Dodaj punkt</button>
+    <button class="btn btn-g btn-primary" style="margin-top:10px" onclick="calcRoute()"><i class="ti ti-route"></i>Oblicz trasę</button>
 
-    <button class="btn btn-g btn-primary" onclick="calcRoute()"><i class="ti ti-route"></i>Oblicz trasę</button>
+    <div class="sl mt8">Punkty pośrednie</div>
+    <div class="wl" id="wl"><div class="hint">Kliknij mapę lub wpisz adres</div></div>
+    <button class="btn btn-b mb8" onclick="setMode('waypoint')"><i class="ti ti-plus"></i>Dodaj punkt</button>
     <button class="btn btn-x" onclick="clearRoute()"><i class="ti ti-trash"></i>Wyczyść trasę</button>
    </div>
   </div>
@@ -638,6 +638,24 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div class="sl mt8">Hasło</div>
       <div class="crb" style="margin-bottom:12px" id="prof-pass-section">
         <!-- filled dynamically based on has_password / oauth_provider -->
+      </div>
+
+      <div class="sl mt8">Punkt startowy (Home)</div>
+      <div class="crb" style="margin-bottom:12px">
+        <div style="font-size:10px;color:var(--tx2);margin-bottom:8px">
+          Domyślny punkt startu trasy — ustawiany automatycznie po zalogowaniu.
+        </div>
+        <label>Adres</label>
+        <div style="display:flex;gap:6px">
+          <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Mydlarska 15a" style="flex:1">
+          <button class="btn btn-b" style="width:auto;padding:7px 10px;flex-shrink:0" onclick="searchHomeAddr()"><i class="ti ti-search"></i></button>
+        </div>
+        <div id="prof-home-coords" style="font-size:10px;color:var(--tx3);margin-top:4px;min-height:16px"></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-b" style="flex:1" onclick="pickHomeFromMap()"><i class="ti ti-map-pin"></i>Wskaż na mapie</button>
+          <button class="btn btn-x" style="flex:1" onclick="clearHomePoint()"><i class="ti ti-x"></i>Usuń Home</button>
+        </div>
+        <div id="prof-home-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
       </div>
 
       <div class="sl mt8">Konfiguracja Strava API</div>
@@ -1445,6 +1463,8 @@ function onAuthSuccess(){
     hideLoad();
     setTimeout(()=>toast('Skonfiguruj API Strava w Profilu aby odblokować kwadraty 📐'),800);
   }
+  // Auto-place home point as route start
+  setTimeout(applyHomePoint, 300);
 }
 
 // ── Auth forms ────────────────────────────────────────────────────────────────
@@ -1521,6 +1541,71 @@ async function doLogout(){
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
 
+// ── Home point ────────────────────────────────────────────────────────────────
+
+let _homePicking=false;
+
+function updateHomeCoords(){
+  const el=g('prof-home-coords');
+  if(!el)return;
+  if(currentUser?.home_lat!=null){
+    el.innerHTML=`<i class="ti ti-map-pin" style="color:var(--green)"></i> ${currentUser.home_lat.toFixed(5)}, ${currentUser.home_lng.toFixed(5)}`;
+  }else{
+    el.textContent='Nie ustawiono';
+  }
+}
+
+async function saveHomePoint(lat,lng){
+  const r=await fetch('/api/profile/home',{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lat,lng})});
+  const d=await r.json();
+  if(!r.ok){if(g('prof-home-err'))g('prof-home-err').textContent=d.error||'Błąd';return;}
+  currentUser={...currentUser,...d.user};
+  updateHomeCoords();
+  toast('✅ Home point zapisany');
+}
+
+async function searchHomeAddr(){
+  g('prof-home-err').textContent='';
+  const q=v('prof-home-addr');
+  if(!q)return;
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`,
+      {headers:{'Accept':'application/json'}});
+    const data=await r.json();
+    if(!data.length){g('prof-home-err').textContent='Nie znaleziono adresu';return;}
+    const lat=parseFloat(data[0].lat),lng=parseFloat(data[0].lon);
+    await saveHomePoint(lat,lng);
+    g('prof-home-addr').value=data[0].display_name.split(',').slice(0,3).join(',');
+  }catch(e){g('prof-home-err').textContent='Błąd sieci';}
+}
+
+function pickHomeFromMap(){
+  closeProfile();
+  _homePicking=true;
+  toast('Kliknij na mapie aby ustawić Home point');
+  map.once('click',async e=>{
+    _homePicking=false;
+    await saveHomePoint(e.latlng.lat,e.latlng.lng);
+    openProfile();
+  });
+}
+
+async function clearHomePoint(){
+  const r=await fetch('/api/profile/home',{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({lat:null,lng:null})});
+  const d=await r.json();
+  if(r.ok){currentUser={...currentUser,...d.user};updateHomeCoords();toast('Home point usunięty');}
+}
+
+function applyHomePoint(){
+  if(!currentUser?.home_lat)return;
+  const ll={lat:currentUser.home_lat,lng:currentUser.home_lng};
+  addWpt(ll,'start');
+  renderWL();previewRoute();
+  map.panTo([ll.lat,ll.lng]);
+}
+
 const OAUTH_ICONS={google:'ti-brand-google',facebook:'ti-brand-facebook',apple:'ti-brand-apple'};
 const OAUTH_LABELS={google:'Google',facebook:'Facebook',apple:'Apple'};
 
@@ -1558,6 +1643,9 @@ function openProfile(){
   g('prof-strava-id').value=currentUser.strava_client_id||'';
   g('prof-strava-secret').value='';
   g('prof-strava-err').textContent='';
+  g('prof-home-addr').value='';
+  g('prof-home-err').textContent='';
+  updateHomeCoords();
   renderPasswordSection();
   updateStravaStatus();
   g('profile-modal').style.display='flex';

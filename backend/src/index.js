@@ -74,6 +74,8 @@ function safeUser(user) {
     last_login:        user.last_login,
     strava_connected:  !!tok,
     strava_athlete:    tok ? JSON.parse(tok.athlete_json || '{}') : null,
+    home_lat:          user.home_lat ?? null,
+    home_lng:          user.home_lng ?? null,
   };
 }
 
@@ -147,6 +149,14 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
     return res.status(401).json({ error: 'Nieprawidłowe obecne hasło' });
   db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
   res.json({ ok: true });
+});
+
+app.put('/api/profile/home', requireAuth, (req, res) => {
+  const { lat, lng } = req.body;
+  if (lat !== null && (typeof lat !== 'number' || typeof lng !== 'number'))
+    return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
+  db.setHomePoint(req.userId, lat ?? null, lng ?? null);
+  res.json({ user: safeUser(db.getUserById(req.userId)) });
 });
 
 app.put('/api/profile/set-password', requireAuth, async (req, res) => {

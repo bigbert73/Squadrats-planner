@@ -172,6 +172,12 @@ const hasUsers = db.prepare("SELECT count(*) as n FROM sqlite_master WHERE type=
 if (!hasUsers) runMigration();
 db.exec(SCHEMA_SQL);
 
+// ── Home point migration ───────────────────────────────────────────────────────
+(function migrateHomePoint() {
+  try { db.exec("ALTER TABLE users ADD COLUMN home_lat REAL"); } catch(_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN home_lng REAL"); } catch(_) {}
+})();
+
 // ── OAuth migration (add oauth_provider/oauth_id, make password_hash nullable) ──
 (function migrateOAuth() {
   const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
@@ -223,6 +229,7 @@ const q = {
   updateStrava:     db.prepare("UPDATE users SET strava_client_id = ?, strava_client_secret = ? WHERE id = ?"),
   updateLastLogin:  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?"),
   updatePassHash:   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
+  updateHome:       db.prepare("UPDATE users SET home_lat = ?, home_lng = ? WHERE id = ?"),
   deleteUser:       db.prepare("DELETE FROM users WHERE id = ?"),
 
   getUserByOAuth:   db.prepare("SELECT * FROM users WHERE oauth_provider = ? AND oauth_id = ?"),
@@ -272,6 +279,7 @@ module.exports = {
   updateStravaCredentials(id, cid, csec) { q.updateStrava.run(cid, csec, id); },
   updateLastLogin(id)      { q.updateLastLogin.run(id); },
   updatePasswordHash(id, h){ q.updatePassHash.run(h, id); },
+  setHomePoint(id, lat, lng){ q.updateHome.run(lat, lng, id); },
   deleteUser(id)           { q.deleteUser.run(id); },
 
   createOAuthUser(provider, oauthId, email, username) {
