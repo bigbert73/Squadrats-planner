@@ -216,12 +216,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .social-btn:hover{border-color:var(--bhi);background:var(--hover)}
 .social-btn i{font-size:15px}
 .social-btn.google i{color:#ea4335}
-.social-btn.facebook i{color:#1877f2}
-.social-btn.apple i{color:var(--tx)}
 .oauth-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:10px;background:var(--card);border:1px solid var(--border)}
 .oauth-badge.google{color:#ea4335;border-color:#ea433530}
-.oauth-badge.facebook{color:#1877f2;border-color:#1877f230}
-.oauth-badge.apple{color:var(--tx2);border-color:var(--border2)}
 
 /* ── USER MENU ── */
 #user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
@@ -615,9 +611,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <div id="social-section" style="display:none">
       <div class="auth-or">lub</div>
       <div class="social-btns">
-        <button id="btn-google"   class="social-btn google"   style="display:none" onclick="window.location.href='/auth/google'"><i class="ti ti-brand-google"></i>Kontynuuj z Google</button>
-        <button id="btn-facebook" class="social-btn facebook" style="display:none" onclick="window.location.href='/auth/facebook'"><i class="ti ti-brand-facebook"></i>Kontynuuj z Facebook</button>
-        <button id="btn-apple"    class="social-btn apple"    style="display:none" onclick="window.location.href='/auth/apple'"><i class="ti ti-brand-apple"></i>Kontynuuj z Apple</button>
+        <button id="btn-google" class="social-btn google" style="display:none" onclick="window.location.href='/auth/google'"><i class="ti ti-brand-google"></i>Kontynuuj z Google</button>
       </div>
     </div>
   </div>
@@ -1409,8 +1403,6 @@ async function loadProviders(){
     const p=await r.json();
     let any=false;
     if(p.google){g('btn-google').style.display='flex';any=true;}
-    if(p.facebook){g('btn-facebook').style.display='flex';any=true;}
-    if(p.apple){g('btn-apple').style.display='flex';any=true;}
     if(any) g('social-section').style.display='block';
   }catch(_){}
 }
