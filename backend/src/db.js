@@ -58,11 +58,8 @@ db.exec(`
     PRIMARY KEY (tx, ty)
   );
 
-  -- Index for fast bounding-box queries
-  CREATE INDEX IF NOT EXISTS idx_sq_tx  ON tiles_sq (tx);
-  CREATE INDEX IF NOT EXISTS idx_sq_ty  ON tiles_sq (ty);
-  CREATE INDEX IF NOT EXISTS idx_sqi_tx ON tiles_sqi (tx);
-  CREATE INDEX IF NOT EXISTS idx_sqi_ty ON tiles_sqi (ty);
+  -- PRIMARY KEY (tx, ty) already provides a composite B-tree covering bbox queries.
+  -- Single-column indexes on tx or ty alone are redundant and only add write overhead.
 `);
 
 // ── Prepared statements ───────────────────────────────────────────────────────
