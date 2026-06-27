@@ -464,8 +464,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
    <div class="ps">
     <div class="sl">Mapa bazowa</div>
     <div class="rg mb8">
-      <label><input type="radio" name="bm" value="dark"      checked onchange="chBase('dark')">🌑 Carto Dark</label>
-      <label><input type="radio" name="bm" value="osm"              onchange="chBase('osm')">🗺️ OpenStreetMap</label>
+      <label><input type="radio" name="bm" value="dark"             onchange="chBase('dark')">🌑 Carto Dark</label>
+      <label><input type="radio" name="bm" value="osm"       checked onchange="chBase('osm')">🗺️ OpenStreetMap</label>
       <label><input type="radio" name="bm" value="satellite"        onchange="chBase('satellite')">🛰️ Satelita (ESRI)</label>
       <label><input type="radio" name="bm" value="topo"             onchange="chBase('topo')">⛰️ OpenTopoMap</label>
       <label><input type="radio" name="bm" value="cycle"            onchange="chBase('cycle')">🚲 CyclOSM</label>
@@ -500,8 +500,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
       <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
       <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-      <button class="mtb on" data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
-      <button class="mtb"    data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map-2"></i></button>
+      <button class="mtb"    data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
+      <button class="mtb on" data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map"></i></button>
       <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
       <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
       <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
@@ -762,7 +762,7 @@ async function initMap(){
   baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri, i-cubed, USDA, USGS, AEX, GeoEye',maxZoom:19});
   baseLayers.topo     =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
   baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
-  baseLayers.dark.addTo(map);
+  baseLayers.osm.addTo(map);
 
   map.on('click',onMapClick);
   map.on('mousemove',e=>{g('b-coords').textContent=e.latlng.lat.toFixed(5)+'°N '+e.latlng.lng.toFixed(5)+'°E';});
