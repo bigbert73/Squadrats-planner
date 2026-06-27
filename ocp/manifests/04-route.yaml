@@ -8,6 +8,8 @@ kind: Route
 metadata:
   name: squadrats
   namespace: squadrats
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
 spec:
   to:
     kind: Service
