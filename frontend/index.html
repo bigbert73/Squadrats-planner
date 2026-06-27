@@ -817,17 +817,19 @@ function addKmMarkers(coords){
   for(let i=1;i<coords.length;i++){
     const a=coords[i-1], b=coords[i];
     const seg=L.latLng(a.lat,a.lng).distanceTo(L.latLng(b.lat,b.lng));
+    if(seg===0) continue;
     while(dist+seg>=nextKm*1000){
       const t=(nextKm*1000-dist)/seg;
       const lat=a.lat+t*(b.lat-a.lat);
       const lng=a.lng+t*(b.lng-a.lng);
+      const s='width:20px;height:20px;background:#ff4d4d;border:2px solid #fff;border-radius:50%;color:#fff;font-size:9px;font-weight:700;line-height:16px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.6);cursor:default';
       const icon=L.divIcon({
         className:'',
-        html:`<div class="km-marker">${nextKm}</div>`,
-        iconSize:[18,18],
-        iconAnchor:[9,9]
+        html:`<div style="${s}">${nextKm}</div>`,
+        iconSize:[20,20],
+        iconAnchor:[10,10]
       });
-      kmMarkers.push(L.marker([lat,lng],{icon,interactive:false,pane:'kmPane'}).addTo(map));
+      kmMarkers.push(L.marker([lat,lng],{icon,interactive:false,zIndexOffset:-100}).addTo(map));
       nextKm++;
     }
     dist+=seg;
