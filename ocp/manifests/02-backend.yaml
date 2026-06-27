@@ -98,7 +98,7 @@ spec:
               cpu: 500m
           readinessProbe:
             httpGet:
-              path: /api/auth-status
+              path: /api/health
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -106,7 +106,7 @@ spec:
             failureThreshold: 5
           livenessProbe:
             httpGet:
-              path: /api/auth-status
+              path: /api/health
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 30

@@ -186,6 +186,64 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #mc-left.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
 
 .km-marker{background:#ff4d4d;border:2px solid #fff;border-radius:50%;color:#fff;font-size:9px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.55);min-width:18px;height:18px;padding:0 2px;white-space:nowrap}
+
+/* ── AUTH GATE ── */
+#auth-gate{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;overflow-y:auto}
+.auth-card{background:var(--panel);border:1px solid var(--border2);border-radius:var(--r-lg);width:400px;max-width:95vw;padding:28px;margin:auto}
+.auth-logo{display:flex;justify-content:center;margin-bottom:14px}
+.auth-logo .logo{width:44px;height:44px;font-size:17px;border-radius:10px}
+.auth-card h2{font-size:15px;font-weight:600;text-align:center;margin-bottom:20px;color:var(--tx2)}
+.auth-tabs{display:flex;border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden;margin-bottom:18px}
+.auth-tab{flex:1;padding:9px;background:none;border:none;color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
+.auth-tab.on{background:var(--green);color:#07090f}
+.auth-field{margin-bottom:10px}
+.auth-field label{display:block;font-size:10px;color:var(--tx3);margin-bottom:4px;font-weight:500}
+.auth-field input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 10px;font-family:'Space Grotesk',sans-serif;font-size:12px;color:var(--tx);outline:none;transition:border-color .15s}
+.auth-field input:focus{border-color:var(--bhi);box-shadow:0 0 0 2px rgba(77,168,255,.12)}
+.auth-err{font-size:11px;color:var(--red);margin-bottom:8px;min-height:16px}
+.auth-submit{width:100%;padding:10px;background:linear-gradient(135deg,rgba(0,230,118,.18),rgba(34,211,238,.12));border:1px solid var(--green);border-radius:var(--r-sm);color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;margin-top:6px}
+.auth-submit:hover{background:linear-gradient(135deg,rgba(0,230,118,.28),rgba(34,211,238,.2));box-shadow:0 0 16px rgba(0,230,118,.2)}
+.auth-submit:disabled{opacity:.5;cursor:not-allowed}
+.auth-strava-toggle{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;font-size:11px;color:var(--tx2);margin-bottom:10px;user-select:none}
+.auth-strava-toggle:hover{background:var(--hover)}
+.auth-strava-body{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:10px}
+
+/* ── USER MENU ── */
+#user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
+#user-menu-btn{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:4px 10px 4px 5px;cursor:pointer;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;transition:all .15s}
+#user-menu-btn:hover{border-color:var(--bhi);background:var(--hover)}
+#user-avatar-btn{width:22px;height:22px;border-radius:50%;background:var(--green);color:#07090f;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+#user-dropdown{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);min-width:170px;z-index:500;box-shadow:0 8px 28px rgba(0,0,0,.45);overflow:hidden}
+.udrop-info{padding:10px 12px;border-bottom:1px solid var(--border)}
+.udrop-name{font-weight:600;color:var(--tx);font-size:12px;margin-bottom:2px}
+.udrop-role{font-size:10px;color:var(--tx3)}
+.udrop-btn{width:100%;text-align:left;padding:9px 12px;background:none;border:none;color:var(--tx2);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;transition:background .1s}
+.udrop-btn:hover{background:var(--hover);color:var(--tx)}
+.udrop-btn i{font-size:14px;width:16px}
+.udrop-sep{border:none;border-top:1px solid var(--border);margin:2px 0}
+.udrop-danger{color:var(--red)!important}
+.udrop-danger:hover{background:rgba(248,113,113,.08)!important}
+
+/* ── MODALS ── */
+.modal-overlay{position:fixed;inset:0;z-index:9800;background:rgba(7,9,15,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+#profile-modal,#admin-modal{position:fixed;inset:0;z-index:9800;background:rgba(7,9,15,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--panel);border:1px solid var(--border2);border-radius:var(--r-lg);max-height:92vh;overflow:hidden;display:flex;flex-direction:column}
+.modal-head{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;flex-shrink:0}
+.modal-close{margin-left:auto;background:none;border:none;color:var(--tx3);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;padding:2px}
+.modal-close:hover{color:var(--tx)}
+.modal-body{padding:16px;overflow-y:auto;flex:1}
+.modal-body::-webkit-scrollbar{width:3px}.modal-body::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── ADMIN TABLE ── */
+.atab{width:100%;border-collapse:collapse;font-size:11px}
+.atab th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border2);color:var(--tx3);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.atab td{padding:8px 8px;border-bottom:1px solid var(--border);color:var(--tx2);vertical-align:middle}
+.atab tr:hover td{background:var(--hover)}
+.rbadge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}
+.ra{background:rgba(0,230,118,.15);color:var(--green)}.ru{background:var(--card);color:var(--tx3)}
+.abtn{padding:3px 8px;font-size:10px;cursor:pointer;border-radius:3px;font-family:'Space Grotesk',sans-serif;transition:all .12s}
+.abtn-role{background:var(--card);border:1px solid var(--border);color:var(--tx2)}.abtn-role:hover{border-color:var(--bhi);color:var(--tx)}
+.abtn-del{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red);margin-left:4px}.abtn-del:hover{background:rgba(248,113,113,.2)}
 </style>
 </head>
 <body>
@@ -195,17 +253,32 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <header id="hdr">
   <h1><span class="logo">SQ</span>Squadrats Route Planner</h1>
   <div class="hdiv"></div>
-  <div class="hpills">
+  <div class="hpills" id="strava-pills" style="display:none">
     <div class="hp"><span class="d dg"></span><span id="h-sq">0</span>&thinsp;SQ</div>
     <div class="hp"><span class="d db"></span><span id="h-yard">0</span>&thinsp;Yard</div>
     <div class="hp"><span class="d dy"></span><span id="h-uber">0</span>×<span id="h-uber2">0</span>&thinsp;Über</div>
     <div class="hp"><span class="d dp"></span><span id="h-sqi">0</span>&thinsp;SQI</div>
     <div class="hp"><span class="d do"></span><span id="h-new">0</span>&thinsp;nowe</div>
-    <div class="hp"><span class="d db"></span><span id="h-dist">0.0</span>&thinsp;km</div>
   </div>
-  <button id="auth-btn" class="lo" onclick="handleAuth()">
-    <i class="ti ti-brand-strava"></i><span id="auth-lbl">Zaloguj Strava</span>
-  </button>
+  <div class="hp" style="margin-left:auto"><span class="d db"></span><span id="h-dist">0.0</span>&thinsp;km</div>
+  <!-- User menu -->
+  <div id="user-menu-wrap">
+    <button id="user-menu-btn" onclick="toggleUserMenu()">
+      <div id="user-avatar-btn">?</div>
+      <span id="user-name-btn">…</span>
+      <i class="ti ti-chevron-down" style="font-size:10px;color:var(--tx3)"></i>
+    </button>
+    <div id="user-dropdown">
+      <div class="udrop-info">
+        <div class="udrop-name" id="user-dropdown-name"></div>
+        <div class="udrop-role" id="user-dropdown-role"></div>
+      </div>
+      <button class="udrop-btn" onclick="openProfile();closeUserMenu()"><i class="ti ti-user"></i>Profil i Strava</button>
+      <button class="udrop-btn" id="admin-menu-btn" style="display:none" onclick="openAdmin();closeUserMenu()"><i class="ti ti-shield"></i>Panel admina</button>
+      <hr class="udrop-sep">
+      <button class="udrop-btn udrop-danger" onclick="doLogout()"><i class="ti ti-logout"></i>Wyloguj</button>
+    </div>
+  </div>
 </header>
 
 <div id="layout">
@@ -214,8 +287,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <aside id="sb">
   <div id="sbt">
     <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
-    <button class="tb"    onclick="swTab('sq',this)"><i class="ti ti-grid-dots"></i>Kwadraty</button>
-    <button class="tb"    onclick="swTab('hm',this)"><i class="ti ti-flame"></i>Heat</button>
+    <button class="tb" id="tab-sq-btn" onclick="swTab('sq',this)" style="display:none"><i class="ti ti-grid-dots"></i>Kwadraty</button>
+    <button class="tb" id="tab-hm-btn" onclick="swTab('hm',this)" style="display:none"><i class="ti ti-flame"></i>Heat</button>
     <button class="tb"    onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
   </div>
 
@@ -471,6 +544,124 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 </div>
 </div>
+<!-- AUTH GATE -->
+<div id="auth-gate" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo"><span class="logo">SQ</span></div>
+    <h2>Squadrats Route Planner</h2>
+    <div class="auth-tabs">
+      <button id="atp-login" class="auth-tab on" onclick="swAuthTab('login')">Logowanie</button>
+      <button id="atp-reg"   class="auth-tab"    onclick="swAuthTab('register')">Rejestracja</button>
+    </div>
+
+    <!-- LOGIN -->
+    <form id="form-login" onsubmit="doLogin(event)">
+      <div class="auth-field"><label>Nazwa użytkownika</label>
+        <input id="login-user" type="text" placeholder="admin" required autocomplete="username"></div>
+      <div class="auth-field"><label>Hasło</label>
+        <input id="login-pass" type="password" required autocomplete="current-password"></div>
+      <div id="login-err" class="auth-err"></div>
+      <button type="submit" class="auth-submit"><i class="ti ti-login"></i> Zaloguj się</button>
+    </form>
+
+    <!-- REGISTER -->
+    <form id="form-reg" style="display:none" onsubmit="doRegister(event)">
+      <div class="auth-field"><label>Nazwa użytkownika *</label>
+        <input id="reg-user" type="text" placeholder="min. 3 znaki" minlength="3" required autocomplete="username"></div>
+      <div class="auth-field"><label>Email (opcjonalny)</label>
+        <input id="reg-email" type="email" placeholder="twoj@email.com" autocomplete="email"></div>
+      <div class="auth-field"><label>Hasło * (min. 6 znaków)</label>
+        <input id="reg-pass" type="password" minlength="6" required autocomplete="new-password"></div>
+      <div class="auth-field"><label>Powtórz hasło *</label>
+        <input id="reg-pass2" type="password" required autocomplete="new-password"></div>
+      <div class="auth-strava-toggle" onclick="toggleRegStrava()">
+        <i class="ti ti-brand-strava" style="color:#fc4c02"></i>
+        <span>Konfiguracja Strava API</span>
+        <span style="font-size:10px;color:var(--tx3);flex:1">(opcjonalne)</span>
+        <i class="ti ti-chevron-down" id="reg-strava-chev"></i>
+      </div>
+      <div id="reg-strava-body" style="display:none">
+        <div class="auth-strava-body" style="font-size:10px;color:var(--tx2);line-height:1.9;margin-bottom:10px">
+          <b style="color:var(--green)">Jak uzyskać klucze API Strava?</b><br>
+          1. Przejdź na <a href="https://www.strava.com/settings/api" target="_blank" style="color:var(--blue)">strava.com/settings/api</a><br>
+          2. Utwórz aplikację — w polu <b>Authorization Callback Domain</b> wpisz: <code id="reg-app-domain" style="color:var(--yellow)"></code><br>
+          3. Skopiuj <b>Client ID</b> i <b>Client Secret</b> poniżej
+        </div>
+        <div class="auth-field"><label>Strava Client ID</label>
+          <input id="reg-strava-id" type="text" placeholder="np. 12345" autocomplete="off"></div>
+        <div class="auth-field"><label>Strava Client Secret</label>
+          <input id="reg-strava-secret" type="password" placeholder="abc123…" autocomplete="off"></div>
+      </div>
+      <div id="reg-err" class="auth-err"></div>
+      <button type="submit" class="auth-submit"><i class="ti ti-user-plus"></i> Zarejestruj się</button>
+    </form>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div id="profile-modal" style="display:none" onclick="if(event.target===this)closeProfile()">
+  <div class="modal-box" style="width:460px">
+    <div class="modal-head">
+      <i class="ti ti-user" style="color:var(--green)"></i> Profil użytkownika
+      <button class="modal-close" onclick="closeProfile()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="sl">Konto</div>
+      <div class="crb" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
+          <span style="color:var(--tx3)">Użytkownik</span><b id="prof-username" style="color:var(--tx)"></b></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
+          <span style="color:var(--tx3)">Rola</span><span id="prof-role"></span></div>
+        <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
+          <span style="color:var(--tx3)">Email</span><span id="prof-email" style="color:var(--tx2)"></span></div>
+      </div>
+
+      <div class="sl mt8">Zmień hasło</div>
+      <div class="crb" style="margin-bottom:12px">
+        <label>Obecne hasło</label><input id="prof-pass-cur" type="password">
+        <label>Nowe hasło</label><input id="prof-pass-new" type="password">
+        <label>Powtórz nowe hasło</label><input id="prof-pass-new2" type="password">
+        <div id="prof-pass-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
+        <button class="btn btn-b" style="margin-top:6px" onclick="changePassword()"><i class="ti ti-key"></i>Zmień hasło</button>
+      </div>
+
+      <div class="sl mt8">Konfiguracja Strava API</div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px;font-size:10px;color:var(--tx2);line-height:1.9">
+        <b style="color:var(--green)">Jak uzyskać klucze API Strava?</b><br>
+        1. Przejdź na <a href="https://www.strava.com/settings/api" target="_blank" style="color:var(--blue)">strava.com/settings/api</a><br>
+        2. Utwórz lub edytuj aplikację<br>
+        3. <b>Authorization Callback Domain</b>: <code id="prof-app-domain" style="color:var(--yellow)"></code><br>
+        4. Skopiuj <b>Client ID</b> i <b>Client Secret</b>
+      </div>
+      <div class="crb" style="margin-bottom:8px">
+        <label>Strava Client ID</label>
+        <input id="prof-strava-id" type="text" placeholder="np. 12345" autocomplete="off">
+        <label>Strava Client Secret</label>
+        <input id="prof-strava-secret" type="password" placeholder="abc123…" autocomplete="off">
+      </div>
+      <div id="prof-strava-err" style="font-size:10px;color:var(--red);margin-bottom:6px;min-height:14px"></div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-b" style="flex:1" onclick="saveStravaCredentials()"><i class="ti ti-device-floppy"></i>Zapisz</button>
+        <button class="btn btn-g" id="prof-connect-btn" style="flex:1" onclick="connectStrava()"><i class="ti ti-brand-strava"></i>Połącz ze Stravą</button>
+      </div>
+      <div id="prof-strava-status" style="font-size:11px;margin-top:8px;padding:7px 10px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border);min-height:32px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN MODAL -->
+<div id="admin-modal" style="display:none" onclick="if(event.target===this)closeAdmin()">
+  <div class="modal-box" style="width:680px;max-width:95vw">
+    <div class="modal-head">
+      <i class="ti ti-shield" style="color:var(--green)"></i> Panel Administratora
+      <button class="modal-close" onclick="closeAdmin()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="admin-users-list">Ładowanie…</div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -509,15 +700,11 @@ let kmMarkers=[], elevData=[], elevCursor=null;
 let svMode=false, svCovData=null, svMarker=null;
 let bikeProfile='standard';
 
-// In-memory tile sets (loaded from API on startup + refreshed after sync)
 let ownedSQ=new Set(), ownedSQI=new Set();
-// Computed sets (loaded from API)
 let yardTiles=new Set(), uberTiles=new Set();
 let yardiTiles=new Set(), uberiTiles=new Set();
-// New tiles from current route
 let newSQ=new Set(), newSQI=new Set();
 
-// Leaflet layer groups
 const LAYERS={};
 const VIS={
   'sq-own':true,'sq-new':true,'sq-yard':true,'sq-uber':true,
@@ -525,7 +712,8 @@ const VIS={
   'grid14':false,'grid17':false
 };
 
-let statsData={}, toastTm=null, authenticated=false;
+let statsData={}, toastTm=null;
+let currentUser=null;
 
 // ═══════════════════════════════════════════════════════════════════════
 //  MAP INIT
@@ -566,7 +754,6 @@ async function initMap(){
   });
 
   await checkAuth();
-  await loadTilesFromDB();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -735,7 +922,7 @@ function togLyr(name,btn,c){
 //  STRAVA SYNC (SSE)
 // ═══════════════════════════════════════════════════════════════════════
 async function syncStrava(){
-  if(!authenticated){toast('Zaloguj się przez Strava');return;}
+  if(!currentUser?.strava_connected){toast('Połącz konto Strava w Profilu');return;}
   g('sync-btn').disabled=true;
   const prog=g('sync-progress');
   prog.style.display='block';
@@ -1178,34 +1365,251 @@ function updHM(){
 function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
 
 // ═══════════════════════════════════════════════════════════════════════
-//  AUTH
+//  AUTH — LOGIN / REGISTER / USER MENU
 // ═══════════════════════════════════════════════════════════════════════
+const _up=new URLSearchParams(window.location.search);
+if(_up.get('auth')==='strava-ok'){history.replaceState({},'','/');setTimeout(()=>toast('✅ Strava połączona!'),400);}
+if(_up.get('auth')==='error'){setTimeout(()=>toast('❌ Błąd: '+_up.get('msg')),400);history.replaceState({},'','/');}
+if(_up.get('error')==='strava-config-missing'){setTimeout(()=>toast('⚠️ Dodaj Client ID i Secret Strava w profilu'),400);history.replaceState({},'','/');}
+
 async function checkAuth(){
   try{
-    const r=await fetch('/api/auth-status');
-    const d=await r.json();
-    setAuth(d.authenticated,d.athlete);
-  }catch(e){}
+    const r=await fetch('/api/auth/me');
+    if(r.status===401){showAuthGate();return;}
+    currentUser=await r.json();
+    onAuthSuccess();
+  }catch(e){showAuthGate();}
 }
-function setAuth(ok,athlete){
-  authenticated=ok;
-  const btn=g('auth-btn');
-  g('sync-btn').disabled=!ok;
-  if(ok&&athlete){
-    btn.className='li';
-    g('auth-lbl').textContent=athlete.firstname+' '+athlete.lastname;
+
+function showAuthGate(){
+  g('auth-gate').style.display='flex';
+  g('reg-app-domain').textContent=location.hostname;
+  hideLoad();
+}
+
+function onAuthSuccess(){
+  g('auth-gate').style.display='none';
+  // Update user menu
+  const av=currentUser.username[0].toUpperCase();
+  g('user-avatar-btn').textContent=av;
+  g('user-name-btn').textContent=currentUser.username;
+  g('user-dropdown-name').textContent=currentUser.username;
+  g('user-dropdown-role').textContent=currentUser.role==='admin'?'⚡ Administrator':'👤 Użytkownik';
+  if(currentUser.role==='admin') g('admin-menu-btn').style.display='flex';
+  // Update Strava-dependent UI
+  const stravaOk=currentUser.strava_configured;
+  g('tab-sq-btn').style.display=stravaOk?'':'none';
+  g('tab-hm-btn').style.display=stravaOk?'':'none';
+  g('strava-pills').style.display=stravaOk?'flex':'none';
+  // Sync button: visible only when connected
+  g('sync-btn').disabled=!currentUser.strava_connected;
+  if(stravaOk){
+    loadTilesFromDB();
   }else{
-    btn.className='lo';
-    g('auth-lbl').textContent='Zaloguj Strava';
+    hideLoad();
+    setTimeout(()=>toast('Skonfiguruj API Strava w Profilu aby odblokować kwadraty 📐'),800);
   }
 }
-function handleAuth(){
-  if(authenticated) fetch('/api/logout',{method:'POST'}).then(()=>setAuth(false,null));
-  else window.location.href='/auth/strava';
+
+// ── Auth forms ────────────────────────────────────────────────────────────────
+
+function swAuthTab(t){
+  g('form-login').style.display=t==='login'?'block':'none';
+  g('form-reg').style.display=t==='register'?'block':'none';
+  g('atp-login').classList.toggle('on',t==='login');
+  g('atp-reg').classList.toggle('on',t==='register');
 }
-const up=new URLSearchParams(window.location.search);
-if(up.get('auth')==='success') history.replaceState({},'','/');
-if(up.get('auth')==='error'){setTimeout(()=>toast('Błąd logowania: '+up.get('msg')),400);history.replaceState({},'','/');}
+
+function toggleRegStrava(){
+  const body=g('reg-strava-body');
+  const open=body.style.display==='none';
+  body.style.display=open?'block':'none';
+  g('reg-strava-chev').className='ti ti-chevron-'+(open?'up':'down');
+  if(open) g('reg-app-domain').textContent=location.hostname;
+}
+
+async function doLogin(e){
+  e.preventDefault();
+  g('login-err').textContent='';
+  const btn=e.target.querySelector('button[type=submit]');
+  btn.disabled=true;btn.textContent='Loguję…';
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:v('login-user'),password:v('login-pass')})});
+    const d=await r.json();
+    if(!r.ok){g('login-err').textContent=d.error||'Błąd logowania';return;}
+    currentUser=d.user;
+    onAuthSuccess();
+  }catch(err){g('login-err').textContent='Błąd sieci';}
+  finally{btn.disabled=false;btn.innerHTML='<i class="ti ti-login"></i> Zaloguj się';}
+}
+
+async function doRegister(e){
+  e.preventDefault();
+  g('reg-err').textContent='';
+  if(v('reg-pass')!==v('reg-pass2')){g('reg-err').textContent='Hasła nie są zgodne';return;}
+  const btn=e.target.querySelector('button[type=submit]');
+  btn.disabled=true;btn.textContent='Rejestruję…';
+  try{
+    const r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        username:v('reg-user'),password:v('reg-pass'),email:v('reg-email')||undefined,
+        strava_client_id:v('reg-strava-id')||undefined,
+        strava_client_secret:v('reg-strava-secret')||undefined
+      })});
+    const d=await r.json();
+    if(!r.ok){g('reg-err').textContent=d.error||'Błąd rejestracji';return;}
+    currentUser=d.user;
+    onAuthSuccess();
+  }catch(err){g('reg-err').textContent='Błąd sieci';}
+  finally{btn.disabled=false;btn.innerHTML='<i class="ti ti-user-plus"></i> Zarejestruj się';}
+}
+
+// ── User menu ─────────────────────────────────────────────────────────────────
+
+function toggleUserMenu(){
+  const d=g('user-dropdown');
+  d.style.display=d.style.display==='none'||!d.style.display?'block':'none';
+}
+function closeUserMenu(){g('user-dropdown').style.display='none';}
+document.addEventListener('click',e=>{
+  if(!g('user-menu-wrap')?.contains(e.target)) closeUserMenu();
+});
+
+async function doLogout(){
+  await fetch('/api/auth/logout',{method:'POST'});
+  currentUser=null;
+  showAuthGate();
+  toast('Wylogowano');
+}
+
+// ── Profile modal ─────────────────────────────────────────────────────────────
+
+function openProfile(){
+  if(!currentUser)return;
+  g('prof-username').textContent=currentUser.username;
+  g('prof-role').textContent=currentUser.role==='admin'?'⚡ Administrator':'👤 Użytkownik';
+  g('prof-role').style.color=currentUser.role==='admin'?'var(--green)':'var(--tx2)';
+  g('prof-email').textContent=currentUser.email||'—';
+  g('prof-app-domain').textContent=location.hostname;
+  g('prof-strava-id').value=currentUser.strava_client_id||'';
+  g('prof-strava-secret').value='';
+  g('prof-pass-cur').value='';g('prof-pass-new').value='';g('prof-pass-new2').value='';
+  g('prof-pass-err').textContent='';g('prof-strava-err').textContent='';
+  updateStravaStatus();
+  g('profile-modal').style.display='flex';
+}
+function closeProfile(){g('profile-modal').style.display='none';}
+
+function updateStravaStatus(){
+  const s=g('prof-strava-status');
+  if(!currentUser)return;
+  if(currentUser.strava_connected&&currentUser.strava_athlete){
+    const a=currentUser.strava_athlete;
+    const name=(a.firstname||'')+' '+(a.lastname||'');
+    s.innerHTML=`<span style="color:var(--green)">✅ Połączona</span> jako <b>${name.trim()||'Strava User'}</b>`;
+  }else if(currentUser.strava_configured){
+    s.innerHTML='<span style="color:var(--yellow)">⚠️ Klucze zapisane — kliknij <b>Połącz ze Stravą</b></span>';
+  }else{
+    s.innerHTML='<span style="color:var(--tx3)">Nie skonfigurowana — dodaj Client ID i Secret</span>';
+  }
+  g('prof-connect-btn').disabled=!currentUser.strava_configured;
+}
+
+async function saveStravaCredentials(){
+  g('prof-strava-err').textContent='';
+  try{
+    const r=await fetch('/api/profile/strava',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({strava_client_id:v('prof-strava-id'),strava_client_secret:v('prof-strava-secret')||undefined})});
+    const d=await r.json();
+    if(!r.ok){g('prof-strava-err').textContent=d.error||'Błąd';return;}
+    currentUser={...currentUser,...d.user};
+    updateStravaStatus();
+    g('tab-sq-btn').style.display=currentUser.strava_configured?'':'none';
+    g('tab-hm-btn').style.display=currentUser.strava_configured?'':'none';
+    g('strava-pills').style.display=currentUser.strava_configured?'flex':'none';
+    toast('✅ Konfiguracja Strava zapisana');
+  }catch(err){g('prof-strava-err').textContent='Błąd sieci';}
+}
+
+function connectStrava(){
+  if(!currentUser?.strava_configured){toast('Najpierw zapisz Client ID i Secret');return;}
+  window.location.href='/auth/strava';
+}
+
+async function changePassword(){
+  g('prof-pass-err').textContent='';
+  const cur=v('prof-pass-cur'), nw=v('prof-pass-new'), nw2=v('prof-pass-new2');
+  if(!cur||!nw){g('prof-pass-err').textContent='Wypełnij wszystkie pola';return;}
+  if(nw!==nw2){g('prof-pass-err').textContent='Hasła nie są zgodne';return;}
+  if(nw.length<6){g('prof-pass-err').textContent='Hasło min. 6 znaków';return;}
+  try{
+    const r=await fetch('/api/profile/password',{method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({current_password:cur,new_password:nw})});
+    const d=await r.json();
+    if(!r.ok){g('prof-pass-err').textContent=d.error||'Błąd';return;}
+    g('prof-pass-cur').value='';g('prof-pass-new').value='';g('prof-pass-new2').value='';
+    toast('✅ Hasło zmienione');
+  }catch(err){g('prof-pass-err').textContent='Błąd sieci';}
+}
+
+// ── Admin modal ───────────────────────────────────────────────────────────────
+
+async function openAdmin(){
+  g('admin-modal').style.display='flex';
+  g('admin-users-list').innerHTML='<div style="color:var(--tx3);padding:20px;text-align:center">Ładowanie…</div>';
+  try{
+    const r=await fetch('/api/admin/users');
+    const d=await r.json();
+    renderAdminUsers(d.users||[]);
+  }catch(e){g('admin-users-list').innerHTML='<div style="color:var(--red);padding:20px">Błąd ładowania</div>';}
+}
+function closeAdmin(){g('admin-modal').style.display='none';}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function renderAdminUsers(users){
+  if(!users.length){
+    g('admin-users-list').innerHTML='<div style="color:var(--tx3);padding:20px;text-align:center">Brak użytkowników</div>';
+    return;
+  }
+  const rows=users.map(u=>`
+    <tr>
+      <td style="color:var(--tx3);font-family:monospace">${u.id}</td>
+      <td style="font-weight:600;color:var(--tx)">${esc(u.username)}</td>
+      <td style="font-size:10px">${u.email?esc(u.email):'<span style="color:var(--tx3)">—</span>'}</td>
+      <td><span class="rbadge ${u.role==='admin'?'ra':'ru'}">${u.role==='admin'?'Admin':'User'}</span></td>
+      <td>${u.strava_configured?(u.strava_connected?'<span style="color:var(--green)">✓ Połączona</span>':'<span style="color:var(--yellow)">Klucze OK</span>'):'<span style="color:var(--tx3)">Nie</span>'}</td>
+      <td style="font-family:monospace;color:var(--tx2)">${u.sq_count||0}</td>
+      <td style="font-size:10px;color:var(--tx3)">${(u.created_at||'').slice(0,10)||'—'}</td>
+      <td>${u.id!==currentUser?.id?`
+        <button class="abtn abtn-role" onclick="adminToggleRole(${u.id},'${u.role==='admin'?'user':'admin'}')" title="${u.role==='admin'?'Usuń admina':'Nadaj admina'}">
+          ${u.role==='admin'?'↓ User':'↑ Admin'}
+        </button>
+        <button class="abtn abtn-del" onclick="adminDeleteUser(${u.id},'${esc(u.username)}')">Usuń</button>
+      `:'<span style="color:var(--tx3);font-size:10px">To Ty</span>'}</td>
+    </tr>`).join('');
+  g('admin-users-list').innerHTML=`
+    <div class="sl" style="margin-bottom:10px">Użytkownicy (${users.length})</div>
+    <div style="overflow-x:auto">
+    <table class="atab">
+      <thead><tr><th>#</th><th>Użytkownik</th><th>Email</th><th>Rola</th><th>Strava</th><th>SQ</th><th>Data</th><th>Akcje</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+async function adminToggleRole(id,newRole){
+  if(!confirm(`Zmienić rolę na "${newRole}"?`))return;
+  const r=await fetch(`/api/admin/users/${id}/role`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:newRole})});
+  if(r.ok){toast(`Rola zmieniona → ${newRole}`);openAdmin();}
+  else toast('Błąd: '+(await r.json()).error);
+}
+async function adminDeleteUser(id,username){
+  if(!confirm(`Usunąć użytkownika "${username}"?\nUsuwa też WSZYSTKIE jego dane (kwadraty, aktywności)!`))return;
+  const r=await fetch(`/api/admin/users/${id}`,{method:'DELETE'});
+  if(r.ok){toast(`Użytkownik ${username} usunięty`);openAdmin();}
+  else toast('Błąd: '+(await r.json()).error);
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  UI HELPERS
