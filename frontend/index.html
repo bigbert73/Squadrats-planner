@@ -1123,11 +1123,16 @@ function clearSVMarker(){
 }
 
 function updateSVMarker(lat,lng,heading){
-  const h=heading||0;
+  // cone only when heading is known (Maps JS API); circle-only for embed API
+  const hasHeading = heading!=null;
+  const h = hasHeading ? heading : 0;
+  const cone = hasHeading
+    ? `<path d="M0,0 L-11,-22 A24,24 0 0,1 11,-22 Z" fill="rgba(26,115,232,.35)" stroke="rgba(26,115,232,.75)" stroke-width="1.5"/>`
+    : '';
   const svg=`<svg width="44" height="44" viewBox="-22 -22 44 44" xmlns="http://www.w3.org/2000/svg">
     <defs><filter id="svsh"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="rgba(0,0,0,.45)"/></filter></defs>
-    <path d="M0,0 L-11,-22 A24,24 0 0,1 11,-22 Z" fill="rgba(26,115,232,.35)" stroke="rgba(26,115,232,.75)" stroke-width="1.5"/>
-    <circle cx="0" cy="0" r="10" fill="#1a73e8" stroke="white" stroke-width="3" filter="url(#svsh)"/>
+    ${cone}
+    <circle cx="0" cy="0" r="11" fill="#1a73e8" stroke="white" stroke-width="3" filter="url(#svsh)"/>
   </svg>`;
   const icon=L.divIcon({
     className:'',
@@ -1160,7 +1165,8 @@ async function openSV(lat,lng){
     if(d.url){
       g('sv-placeholder').style.display='none';
       g('sv-frame').style.display='block';
-      g('sv-frame').src=`/api/streetview/viewer?lat=${lat}&lng=${lng}`;
+      g('sv-frame').src=d.url;
+      updateSVMarker(lat,lng,null);
     }else{
       g('sv-frame').style.display='none';
       g('sv-placeholder').style.display='flex';
