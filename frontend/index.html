@@ -860,9 +860,21 @@ function addKmMarkers(coords){
 //  ELEVATION PROFILE
 // ═══════════════════════════════════════════════════════════════════════
 
-function buildElevData(coords){
+function buildElevData(coords, profile){
   elevData=[];
   if(!coords.length) return;
+  // Use BRouter elevProfile from backend (reliable) if available
+  if(profile && profile.length){
+    let prevDist=0;
+    elevData=profile.map((p,i)=>{
+      // Find closest coord by accumulated distance
+      const frac=Math.min(p.dist/(profile[profile.length-1].dist||1),1);
+      const ci=Math.round(frac*(coords.length-1));
+      return {dist:p.dist,elev:p.elev,lat:coords[ci].lat,lng:coords[ci].lng};
+    });
+    return;
+  }
+  // Fallback: try to use elevation from geometry coordinates
   let dist=0;
   for(let i=0;i<coords.length;i++){
     if(i>0) dist+=L.latLng(coords[i-1].lat,coords[i-1].lng).distanceTo(L.latLng(coords[i].lat,coords[i].lng))/1000;
@@ -1006,7 +1018,7 @@ async function calcRoute(){
     routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
     addKmMarkers(routeCoords);
-    buildElevData(routeCoords);
+    buildElevData(routeCoords, route.elevProfile||null);
     if(g('elev-panel').classList.contains('open')) drawElevChart();
 
     // Get new tiles for this route from server

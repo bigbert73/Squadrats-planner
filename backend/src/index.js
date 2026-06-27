@@ -199,6 +199,18 @@ async function fetchBRouterRoute(points, profile) {
   const r = await axios.get(url, { timeout: 90000 });
   const feat = r.data?.features?.[0];
   if (!feat) throw new Error('BRouter: empty response');
+
+  // Extract elevation profile from BRouter messages: [lon*1e6, lat*1e6, elev_m, seg_dist_m, ...]
+  let elevProfile = null;
+  const msgs = feat.properties?.messages;
+  if (Array.isArray(msgs) && msgs.length > 1) {
+    let cumDist = 0;
+    elevProfile = msgs.slice(1).map(row => {
+      cumDist += parseFloat(row[3]) / 1000;
+      return { dist: Math.round(cumDist * 100) / 100, elev: parseFloat(row[2]) };
+    });
+  }
+
   return {
     code: 'Ok',
     engine: 'brouter',
@@ -206,6 +218,7 @@ async function fetchBRouterRoute(points, profile) {
     routes: [{
       distance: parseFloat(feat.properties?.['track-length'] || 0),
       geometry: feat.geometry,
+      elevProfile
     }]
   };
 }
