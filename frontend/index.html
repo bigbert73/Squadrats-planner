@@ -1414,7 +1414,16 @@ function showAuthGate(){
   hideLoad();
 }
 
+function clearTileData(){
+  ownedSQ=new Set();ownedSQI=new Set();
+  yardTiles=new Set();uberTiles=new Set();
+  yardiTiles=new Set();uberiTiles=new Set();
+  newSQ=new Set();newSQI=new Set();
+  redrawAll();
+}
+
 function onAuthSuccess(){
+  clearTileData();
   g('auth-gate').style.display='none';
   // Update user menu
   const av=currentUser.username[0].toUpperCase();
