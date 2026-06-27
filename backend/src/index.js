@@ -33,6 +33,7 @@ app.use(express.static(FRONTEND));
 const db     = require('./db');
 const strava = require('./strava');
 const tiles  = require('./tiles');
+const oauth  = require('./oauth');
 const axios  = require('axios');
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
@@ -65,6 +66,8 @@ function safeUser(user) {
     username:          user.username,
     email:             user.email,
     role:              user.role,
+    has_password:      !!user.password_hash,
+    oauth_provider:    user.oauth_provider || null,
     strava_configured: !!(user.strava_client_id && user.strava_client_secret),
     strava_client_id:  user.strava_client_id,
     created_at:        user.created_at,
@@ -139,8 +142,18 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
   if (!current_password || !new_password) return res.status(400).json({ error: 'Wymagane oba hasła' });
   if (new_password.length < 6) return res.status(400).json({ error: 'Nowe hasło min. 6 znaków' });
   const user = db.getUserById(req.userId);
+  if (!user.password_hash) return res.status(400).json({ error: 'Konto social login nie ma hasła. Możesz ustawić nowe hasło bez podawania obecnego.' });
   if (!await bcrypt.compare(current_password, user.password_hash))
     return res.status(401).json({ error: 'Nieprawidłowe obecne hasło' });
+  db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
+  res.json({ ok: true });
+});
+
+app.put('/api/profile/set-password', requireAuth, async (req, res) => {
+  const { new_password } = req.body;
+  if (!new_password || new_password.length < 6) return res.status(400).json({ error: 'Hasło min. 6 znaków' });
+  const user = db.getUserById(req.userId);
+  if (user.password_hash) return res.status(400).json({ error: 'Konto ma już hasło. Użyj opcji zmiany hasła.' });
   db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
   res.json({ ok: true });
 });
@@ -150,6 +163,7 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = db.getAllUsers().map(u => ({
     ...u,
+    oauth_provider:    u.oauth_provider || null,
     strava_configured: !!(u.strava_client_id),
     strava_connected:  !!db.getToken(u.id),
     sq_count:          db.getSQCount(u.id),
@@ -177,6 +191,70 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
 // ── Health check (no auth — for OCP probes) ──────────────────────────────────
 
 app.get('/api/health', (req, res) => res.json({ ok: true, users: db.getUserCount() }));
+
+// ── OAuth providers (public — tells frontend which buttons to show) ────────────
+
+app.get('/api/auth/providers', (req, res) => {
+  res.json({
+    google:   !!process.env.GOOGLE_CLIENT_ID,
+    facebook: !!process.env.FACEBOOK_APP_ID,
+    apple:    !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_PRIVATE_KEY),
+  });
+});
+
+// ── Social OAuth flows ────────────────────────────────────────────────────────
+
+function oauthState() {
+  return jwt.sign({ t: Date.now() }, JWT_SECRET, { expiresIn: '10m' });
+}
+
+function oauthSuccess(res, user) {
+  db.updateLastLogin(user.id);
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
+  res.cookie('token', token, COOKIE_OPTS);
+  res.redirect('/?auth=ok');
+}
+
+function oauthError(res, err) {
+  console.error('[OAuth]', err);
+  res.redirect('/?auth=error&msg=' + encodeURIComponent(err.message || String(err)));
+}
+
+// Google
+app.get('/auth/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) return res.status(404).send('Google OAuth nie jest skonfigurowane');
+  res.redirect(oauth.googleAuthUrl(oauthState()));
+});
+app.get('/auth/google/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error) return oauthError(res, new Error(error));
+  try { oauthSuccess(res, await oauth.googleCallback(code)); }
+  catch (e) { oauthError(res, e); }
+});
+
+// Facebook
+app.get('/auth/facebook', (req, res) => {
+  if (!process.env.FACEBOOK_APP_ID) return res.status(404).send('Facebook OAuth nie jest skonfigurowane');
+  res.redirect(oauth.facebookAuthUrl(oauthState()));
+});
+app.get('/auth/facebook/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error) return oauthError(res, new Error(error));
+  try { oauthSuccess(res, await oauth.facebookCallback(code)); }
+  catch (e) { oauthError(res, e); }
+});
+
+// Apple (response_mode=form_post → callback is POST with URL-encoded body)
+app.get('/auth/apple', (req, res) => {
+  if (!process.env.APPLE_CLIENT_ID) return res.status(404).send('Apple Sign In nie jest skonfigurowane');
+  res.redirect(oauth.appleAuthUrl(oauthState()));
+});
+app.post('/auth/apple/callback', async (req, res) => {
+  const { code, id_token, user: userJson, error } = req.body;
+  if (error) return oauthError(res, new Error(error));
+  try { oauthSuccess(res, await oauth.appleCallback(code, id_token, userJson)); }
+  catch (e) { oauthError(res, e); }
+});
 
 // ── Strava OAuth ──────────────────────────────────────────────────────────────
 
