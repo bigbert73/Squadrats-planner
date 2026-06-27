@@ -45,15 +45,12 @@ spec:
           volumeMounts:
             - name: brouter-data
               mountPath: /brouter-data/segments4
-          env:
-            - name: JAVA_OPTS
-              value: "-Xmx512m -Xms128m"
           resources:
             requests:
-              memory: 256Mi
+              memory: 512Mi
               cpu: 100m
             limits:
-              memory: 768Mi
+              memory: 1Gi
               cpu: 500m
           readinessProbe:
             httpGet:
