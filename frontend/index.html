@@ -415,7 +415,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
       <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
       <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-      <button class="mtb" id="mtb-sv" onclick="toggleSV()" title="Street View — podgląd trasy"><i class="ti ti-street-view"></i></button>
+      <button class="mtb" id="mtb-sv" onclick="toggleSV()" title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
     </div>
     <div id="ibar">
       <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
@@ -433,7 +433,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   </div>
   <div id="sv-panel">
     <div id="sv-head">
-      <i class="ti ti-street-view" style="font-size:15px;color:var(--green)"></i>
+      <i class="ti ti-360" style="font-size:15px;color:var(--green)"></i>
       <span id="sv-loc" style="flex:1;font-size:10px;color:var(--tx2);font-family:'JetBrains Mono',monospace">Street View</span>
       <button onclick="toggleSV()" style="background:none;border:none;color:var(--tx3);cursor:pointer;padding:2px 5px;border-radius:3px;font-size:15px;line-height:1;display:flex;align-items:center" title="Zamknij"><i class="ti ti-x"></i></button>
     </div>
@@ -1102,7 +1102,7 @@ function toggleSV(){
   g('mc').classList.toggle('sv-active',svMode);
   if(svMode){
     map.getContainer().style.cursor='crosshair';
-    g('m-icon').className='ti ti-street-view';
+    g('m-icon').className='ti ti-360';
     g('m-txt').textContent='Street View — kliknij na mapie';
     if(routeCoords.length&&!svCovData) fetchSVCoverage();
     else if(svCovData) drawSVCoverage();
