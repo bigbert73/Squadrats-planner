@@ -177,6 +177,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .tleg-sw{width:14px;height:10px;border-radius:1px;flex-shrink:0;border:1px solid}
 
 #mc-left.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
+
+.km-marker{background:#ff4d4d;border:2px solid #fff;border-radius:50%;color:#fff;font-size:9px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.55);min-width:18px;height:18px;padding:0 2px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -483,6 +485,7 @@ function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
 // ═══════════════════════════════════════════════════════════════════════
 let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
+let kmMarkers=[];
 let svMode=false, svCovData=null;
 let bikeProfile='standard';
 
@@ -511,6 +514,7 @@ async function initMap(){
   map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([52.23,21.01],12);
   map.createPane('coveragePane'); map.getPane('coveragePane').style.zIndex='401';
   map.createPane('routePane');    map.getPane('routePane').style.zIndex='402';
+  map.createPane('kmPane');       map.getPane('kmPane').style.zIndex='403';
 
   baseLayers.dark     =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © Carto',maxZoom:19});
   baseLayers.osm      =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
@@ -801,11 +805,41 @@ function previewRoute(){
   updDist(compDist(pts));
 }
 
+function clearKmMarkers(){
+  kmMarkers.forEach(m=>map.removeLayer(m));
+  kmMarkers=[];
+}
+
+function addKmMarkers(coords){
+  clearKmMarkers();
+  if(coords.length<2) return;
+  let dist=0, nextKm=1;
+  for(let i=1;i<coords.length;i++){
+    const a=coords[i-1], b=coords[i];
+    const seg=L.latLng(a.lat,a.lng).distanceTo(L.latLng(b.lat,b.lng));
+    while(dist+seg>=nextKm*1000){
+      const t=(nextKm*1000-dist)/seg;
+      const lat=a.lat+t*(b.lat-a.lat);
+      const lng=a.lng+t*(b.lng-a.lng);
+      const icon=L.divIcon({
+        className:'',
+        html:`<div class="km-marker">${nextKm}</div>`,
+        iconSize:[18,18],
+        iconAnchor:[9,9]
+      });
+      kmMarkers.push(L.marker([lat,lng],{icon,interactive:false,pane:'kmPane'}).addTo(map));
+      nextKm++;
+    }
+    dist+=seg;
+  }
+}
+
 async function calcRoute(){
   if(wpts.length<2){toast('Dodaj start i metę!');return;}
   const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
   const opt=document.querySelector('input[name="opt"]:checked').value;
   if(rLine){map.removeLayer(rLine);rLine=null;}
+  clearKmMarkers();
   showLoad('Obliczam trasę…');
 
   try{
@@ -822,6 +856,7 @@ async function calcRoute(){
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates.map(([lng,lat])=>({lat,lng}));
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
+    addKmMarkers(routeCoords);
 
     // Get new tiles for this route from server
     const prvRes=await fetch('/api/route/preview-tiles',{
@@ -863,6 +898,7 @@ async function calcRoute(){
 function clearRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
+  clearKmMarkers();
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
   clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov');
   renderWL(); previewRoute(); updDist(0);
