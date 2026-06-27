@@ -88,6 +88,7 @@ app.post('/api/sync', async (req, res) => {
     const result = await strava.syncActivities((progress) => {
       send(progress);
     });
+    invalidateCache();
     send({ phase: 'done', ...result });
   } catch (e) {
     send({ phase: 'error', message: e.message });
@@ -96,75 +97,75 @@ app.post('/api/sync', async (req, res) => {
   }
 });
 
+// ── Tile + stats cache ────────────────────────────────────────────────────────
+//
+// computeUber runs a 4096×4096 DP loop — seconds of CPU that block the event
+// loop if called per-request.  Pre-compute everything once at startup and after
+// every sync; all endpoints then serve from memory in microseconds.
+
+let cache = null;
+
+function buildCache() {
+  const sqRows  = db.getAllTilesSQ();
+  const sqiRows = db.getAllTilesSQI();
+  const yard    = tiles.computeYard(sqRows);
+  const uber    = tiles.computeUber(sqRows);
+  const yardi   = tiles.computeYard(sqiRows);
+  const uberi   = tiles.computeUber(sqiRows);
+  cache = {
+    sqRows, sqiRows, yard, uber, yardi, uberi,
+    stats: {
+      sq:         db.getSQCount(),
+      sqi:        db.getSQICount(),
+      activities: db.getActivityCount(),
+      yard:       { size: yard.size },
+      uber:       { size: uber.size },
+      yardi:      { size: yardi.size },
+      uberi:      { size: uberi.size },
+    },
+  };
+  console.log(`Cache built — SQ:${cache.stats.sq} SQI:${cache.stats.sqi} yard:${yard.size} uber:${uber.size}`);
+}
+
+function invalidateCache() { cache = null; }
+
+function getCache() {
+  if (!cache) buildCache();
+  return cache;
+}
+
+// Pre-build cache after startup so probes don't trigger heavy computation
+setImmediate(() => {
+  try { buildCache(); } catch (e) { console.error('Cache build failed:', e.message); }
+});
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
-// Cache computed yard/uber (expensive — recompute only after sync or import)
-let statsCache = null;
-
-function invalidateCache() { statsCache = null; }
-
-app.get('/api/stats', async (req, res) => {
-  if (!statsCache) {
-    const sqRows  = db.getAllTilesSQ();
-    const sqiRows = db.getAllTilesSQI();
-    const yard    = tiles.computeYard(sqRows);
-    const uber    = tiles.computeUber(sqRows);
-    const yardi   = tiles.computeYard(sqiRows);
-    const uberi   = tiles.computeUber(sqiRows);
-    statsCache = {
-      sq:    db.getSQCount(),
-      sqi:   db.getSQICount(),
-      activities: db.getActivityCount(),
-      yard:  { size: yard.size },
-      uber:  { size: uber.size },
-      yardi: { size: yardi.size },
-      uberi: { size: uberi.size },
-    };
-  }
-  res.json(statsCache);
+app.get('/api/stats', (req, res) => {
+  res.json(getCache().stats);
 });
 
 // ── Tile endpoints ────────────────────────────────────────────────────────────
 
-// Bounding-box query params: ?x0=&x1=&y0=&y1= (tile coords, optional)
 function parseBbox(q) {
-  if (q.x0 !== undefined) {
-    return [+q.x0, +q.x1, +q.y0, +q.y1];
-  }
+  if (q.x0 !== undefined) return [+q.x0, +q.x1, +q.y0, +q.y1];
   return null;
 }
 
 app.get('/api/tiles/sq', (req, res) => {
   const bbox = parseBbox(req.query);
-  const rows = bbox ? db.getTilesSQBbox(...bbox) : db.getAllTilesSQ();
-  res.json(rows);
+  res.json(bbox ? db.getTilesSQBbox(...bbox) : getCache().sqRows);
 });
 
 app.get('/api/tiles/sqi', (req, res) => {
   const bbox = parseBbox(req.query);
-  const rows = bbox ? db.getTilesSQIBbox(...bbox) : db.getAllTilesSQI();
-  res.json(rows);
+  res.json(bbox ? db.getTilesSQIBbox(...bbox) : getCache().sqiRows);
 });
 
-app.get('/api/tiles/yard', (req, res) => {
-  const yard = tiles.computeYard(db.getAllTilesSQ());
-  res.json(yard);
-});
-
-app.get('/api/tiles/uber', (req, res) => {
-  const uber = tiles.computeUber(db.getAllTilesSQ());
-  res.json(uber);
-});
-
-app.get('/api/tiles/yardinho', (req, res) => {
-  const yard = tiles.computeYard(db.getAllTilesSQI());
-  res.json(yard);
-});
-
-app.get('/api/tiles/uberinho', (req, res) => {
-  const uber = tiles.computeUber(db.getAllTilesSQI());
-  res.json(uber);
-});
+app.get('/api/tiles/yard',     (req, res) => res.json(getCache().yard));
+app.get('/api/tiles/uber',     (req, res) => res.json(getCache().uber));
+app.get('/api/tiles/yardinho', (req, res) => res.json(getCache().yardi));
+app.get('/api/tiles/uberinho', (req, res) => res.json(getCache().uberi));
 
 // ── Route (OSRM proxy) ────────────────────────────────────────────────────────
 
