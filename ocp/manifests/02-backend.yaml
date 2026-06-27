@@ -91,10 +91,10 @@ spec:
               mountPath: /app/data
           resources:
             requests:
-              memory: 128Mi
+              memory: 256Mi
               cpu: 100m
             limits:
-              memory: 512Mi
+              memory: 1Gi
               cpu: 500m
           readinessProbe:
             httpGet:
@@ -102,12 +102,16 @@ spec:
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 5
           livenessProbe:
             httpGet:
               path: /api/auth-status
               port: 3000
             initialDelaySeconds: 20
             periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
       volumes:
         - name: data
           persistentVolumeClaim:

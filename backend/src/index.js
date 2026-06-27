@@ -387,6 +387,37 @@ app.get('/api/streetview/embed-url', (req, res) => {
   res.json({ url });
 });
 
+// ── Street View interactive viewer — Maps JS API + postMessage position updates
+app.get('/api/streetview/viewer', (req, res) => {
+  const { lat, lng } = req.query;
+  const key = process.env.GOOGLE_MAPS_KEY;
+  if (!key || !lat || !lng) return res.status(404).send('No API key');
+  const la = parseFloat(lat).toFixed(6);
+  const ln = parseFloat(lng).toFixed(6);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>*{margin:0;padding:0}html,body,#sv{width:100%;height:100vh;overflow:hidden}</style></head>
+<body><div id="sv"></div><script>
+function svInit(){
+  var pano=new google.maps.StreetViewPanorama(document.getElementById('sv'),{
+    position:{lat:${la},lng:${ln}},
+    pov:{heading:0,pitch:0},
+    addressControl:false,showRoadLabels:true,motionTracking:false
+  });
+  function send(){
+    var pos=pano.getPosition();
+    if(!pos)return;
+    var pov=pano.getPov();
+    window.parent.postMessage({type:'sv-update',lat:pos.lat(),lng:pos.lng(),heading:pov.heading},'*');
+  }
+  pano.addListener('position_changed',send);
+  pano.addListener('pov_changed',send);
+}
+<\/script>
+<script src="https://maps.googleapis.com/maps/api/js?key=${key}&callback=svInit" async defer><\/script>
+</body></html>`);
+});
+
 // ── Street View coverage (requires GOOGLE_MAPS_KEY env var) ──────────────────
 app.post('/api/streetview/coverage', async (req, res) => {
   const { points } = req.body;
