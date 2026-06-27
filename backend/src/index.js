@@ -196,9 +196,7 @@ app.get('/api/health', (req, res) => res.json({ ok: true, users: db.getUserCount
 
 app.get('/api/auth/providers', (req, res) => {
   res.json({
-    google:   !!process.env.GOOGLE_CLIENT_ID,
-    facebook: !!process.env.FACEBOOK_APP_ID,
-    apple:    !!(process.env.APPLE_CLIENT_ID && process.env.APPLE_PRIVATE_KEY),
+    google: !!process.env.GOOGLE_CLIENT_ID,
   });
 });
 
@@ -229,30 +227,6 @@ app.get('/auth/google/callback', async (req, res) => {
   const { code, error } = req.query;
   if (error) return oauthError(res, new Error(error));
   try { oauthSuccess(res, await oauth.googleCallback(code)); }
-  catch (e) { oauthError(res, e); }
-});
-
-// Facebook
-app.get('/auth/facebook', (req, res) => {
-  if (!process.env.FACEBOOK_APP_ID) return res.status(404).send('Facebook OAuth nie jest skonfigurowane');
-  res.redirect(oauth.facebookAuthUrl(oauthState()));
-});
-app.get('/auth/facebook/callback', async (req, res) => {
-  const { code, error } = req.query;
-  if (error) return oauthError(res, new Error(error));
-  try { oauthSuccess(res, await oauth.facebookCallback(code)); }
-  catch (e) { oauthError(res, e); }
-});
-
-// Apple (response_mode=form_post → callback is POST with URL-encoded body)
-app.get('/auth/apple', (req, res) => {
-  if (!process.env.APPLE_CLIENT_ID) return res.status(404).send('Apple Sign In nie jest skonfigurowane');
-  res.redirect(oauth.appleAuthUrl(oauthState()));
-});
-app.post('/auth/apple/callback', async (req, res) => {
-  const { code, id_token, user: userJson, error } = req.body;
-  if (error) return oauthError(res, new Error(error));
-  try { oauthSuccess(res, await oauth.appleCallback(code, id_token, userJson)); }
   catch (e) { oauthError(res, e); }
 });
 
