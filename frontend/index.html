@@ -137,6 +137,13 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #mc-left{flex:1;position:relative;overflow:hidden}
 #mc.sv-active #mc-left{flex:0 0 50%;min-width:300px}
 #map{width:100%;height:100%;background:#07090f}
+#elev-panel{display:none;position:absolute;bottom:0;left:0;right:0;height:32%;z-index:450;background:rgba(13,17,23,.93);backdrop-filter:blur(6px);border-top:1px solid var(--border);flex-direction:column;pointer-events:auto}
+#elev-panel.open{display:flex}
+#elev-head{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--tx2)}
+#elev-stats{flex:1;display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3)}
+#elev-wrap{flex:1;position:relative;overflow:hidden;cursor:crosshair}
+#elev-svg{width:100%;height:100%;display:block}
+#elev-tip{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.85);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--tx);pointer-events:none;white-space:nowrap;display:none}
 #sv-panel{display:none;flex-direction:column;background:var(--bg);border-left:2px solid var(--green);flex-shrink:0;width:50%}
 #mc.sv-active #sv-panel{display:flex}
 #sv-head{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--border);padding:6px 10px;flex-shrink:0}
@@ -415,7 +422,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
       <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
       <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-      <button class="mtb" id="mtb-sv" onclick="toggleSV()" title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
+      <button class="mtb" id="mtb-sv"   onclick="toggleSV()"   title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
+      <button class="mtb" id="mtb-elev" onclick="toggleElev()" title="Profil wysokościowy trasy"><i class="ti ti-chart-area-line"></i></button>
     </div>
     <div id="ibar">
       <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
@@ -430,6 +438,18 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div id="b-plan-sqi">Nowe SQI: 0</div>
     </div>
     <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
+    <div id="elev-panel">
+      <div id="elev-head">
+        <i class="ti ti-chart-area-line" style="color:var(--green)"></i>
+        <span style="font-weight:600;color:var(--tx)">Profil wysokościowy</span>
+        <div id="elev-stats"></div>
+        <button onclick="toggleElev()" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:15px;line-height:1;display:flex;align-items:center;padding:2px 4px" title="Zamknij"><i class="ti ti-x"></i></button>
+      </div>
+      <div id="elev-wrap">
+        <svg id="elev-svg" preserveAspectRatio="none"></svg>
+        <div id="elev-tip"></div>
+      </div>
+    </div>
   </div>
   <div id="sv-panel">
     <div id="sv-head">
@@ -485,7 +505,7 @@ function parseKey(k){const[x,y]=k.split('|').map(Number);return{x,y};}
 // ═══════════════════════════════════════════════════════════════════════
 let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
-let kmMarkers=[];
+let kmMarkers=[], elevData=[], elevCursor=null;
 let svMode=false, svCovData=null, svMarker=null;
 let bikeProfile='standard';
 
@@ -836,6 +856,132 @@ function addKmMarkers(coords){
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+//  ELEVATION PROFILE
+// ═══════════════════════════════════════════════════════════════════════
+
+function buildElevData(coords){
+  elevData=[];
+  if(!coords.length) return;
+  let dist=0;
+  for(let i=0;i<coords.length;i++){
+    if(i>0) dist+=L.latLng(coords[i-1].lat,coords[i-1].lng).distanceTo(L.latLng(coords[i].lat,coords[i].lng))/1000;
+    elevData.push({dist,elev:coords[i].elev??0,lat:coords[i].lat,lng:coords[i].lng});
+  }
+}
+
+function clearElevCursor(){
+  if(elevCursor){map.removeLayer(elevCursor);elevCursor=null;}
+}
+
+function toggleElev(){
+  const p=g('elev-panel');
+  const on=!p.classList.contains('open');
+  p.classList.toggle('open',on);
+  g('mtb-elev').classList.toggle('on',on);
+  if(on&&elevData.length) drawElevChart();
+  map.invalidateSize();
+  if(!on) clearElevCursor();
+}
+
+function drawElevChart(){
+  const svg=g('elev-svg');
+  const wrap=g('elev-wrap');
+  const W=wrap.clientWidth||800, H=wrap.clientHeight||120;
+  if(!elevData.length){svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" fill="#666" font-size="12">Brak danych wysokościowych (OSRM)</text>';return;}
+
+  // Check if elevation data is meaningful (BRouter provides it, OSRM gives 0)
+  const hasElev=elevData.some(p=>p.elev>0);
+  if(!hasElev){svg.innerHTML=`<text x="50%" y="50%" text-anchor="middle" fill="#666" font-size="12" font-family="sans-serif">Dane wysokościowe dostępne tylko dla tras BRouter</text>`;return;}
+
+  const PAD={t:10,r:8,b:28,l:44};
+  const cw=W-PAD.l-PAD.r, ch=H-PAD.t-PAD.b;
+  const totalDist=elevData[elevData.length-1].dist;
+  const elevs=elevData.map(p=>p.elev);
+  const minE=Math.min(...elevs), maxE=Math.max(...elevs);
+  const rangeE=Math.max(maxE-minE,10);
+  const ascent=elevData.reduce((a,p,i)=>i>0&&p.elev>elevData[i-1].elev?a+(p.elev-elevData[i-1].elev):a,0);
+
+  const xs=d=>PAD.l+d/totalDist*cw;
+  const ys=e=>PAD.t+ch-(e-minE)/rangeE*ch;
+
+  // Sample for performance
+  const step=Math.max(1,Math.floor(elevData.length/600));
+  const pts=elevData.filter((_,i)=>i%step===0||i===elevData.length-1);
+
+  const line=pts.map((p,i)=>(i===0?'M':'L')+xs(p.dist).toFixed(1)+','+ys(p.elev).toFixed(1)).join(' ');
+  const area=line+' L'+xs(totalDist).toFixed(1)+','+(PAD.t+ch)+' L'+PAD.l+','+(PAD.t+ch)+' Z';
+
+  // Y axis ticks
+  const tickCount=4;
+  let yticks='';
+  for(let i=0;i<=tickCount;i++){
+    const e=minE+rangeE*i/tickCount;
+    const y=ys(e);
+    yticks+=`<line x1="${PAD.l-4}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="#333" stroke-width="1"/>
+    <text x="${PAD.l-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#666" font-size="9">${Math.round(e)}</text>`;
+  }
+  // X axis ticks (every ~10km)
+  const kmStep=totalDist<=20?2:totalDist<=60?5:totalDist<=150?10:20;
+  let xticks='';
+  for(let km=0;km<=totalDist;km+=kmStep){
+    const x=xs(km);
+    xticks+=`<line x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${PAD.t+ch+4}" stroke="#333" stroke-width="1"/>
+    <text x="${x.toFixed(1)}" y="${H-8}" text-anchor="middle" fill="#666" font-size="9">${km}km</text>`;
+  }
+
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.innerHTML=`
+    <defs>
+      <linearGradient id="eg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1a73e8" stop-opacity=".7"/>
+        <stop offset="100%" stop-color="#1a73e8" stop-opacity=".05"/>
+      </linearGradient>
+    </defs>
+    ${yticks}${xticks}
+    <path d="${area}" fill="url(#eg)"/>
+    <path d="${line}" fill="none" stroke="#4fa3ff" stroke-width="1.5"/>
+    <text x="${PAD.l}" y="${PAD.t-1}" fill="#888" font-size="9" font-family="monospace">m n.p.m.</text>`;
+
+  // Stats
+  const statsEl=g('elev-stats');
+  if(statsEl) statsEl.innerHTML=
+    `<span>↑ wznios: <b style="color:#4fa3ff">${Math.round(ascent)} m</b></span>`+
+    `<span>max: <b style="color:#4fa3ff">${Math.round(maxE)} m</b></span>`+
+    `<span>min: <b style="color:#888">${Math.round(minE)} m</b></span>`;
+
+  // Hover interaction
+  wrap.onmousemove=e=>{
+    const r=wrap.getBoundingClientRect();
+    const mx=e.clientX-r.left;
+    const dist=(mx-PAD.l)/cw*totalDist;
+    if(dist<0||dist>totalDist) return;
+    const idx=elevData.reduce((best,p,i)=>Math.abs(p.dist-dist)<Math.abs(elevData[best].dist-dist)?i:best,0);
+    const pt=elevData[idx];
+    const x=xs(pt.dist), y=ys(pt.elev);
+    // cursor line
+    const old=svg.querySelector('.ev-cursor');
+    if(old) old.remove();
+    svg.insertAdjacentHTML('beforeend',
+      `<g class="ev-cursor"><line x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${PAD.t+ch}" stroke="#fff" stroke-width="1" stroke-dasharray="3 2" opacity=".6"/>
+       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="#4fa3ff" stroke-width="2"/></g>`);
+    // tooltip
+    const tip=g('elev-tip');
+    tip.style.display='block';
+    tip.style.left=(x/W*100).toFixed(1)+'%';
+    tip.textContent=`${pt.dist.toFixed(1)} km · ${Math.round(pt.elev)} m`;
+    // map cursor
+    clearElevCursor();
+    const ci=L.divIcon({className:'',html:'<div style="width:10px;height:10px;background:#fff;border:2px solid #4fa3ff;border-radius:50%;margin:-5px 0 0 -5px"></div>',iconSize:[0,0]});
+    elevCursor=L.marker([pt.lat,pt.lng],{icon:ci,interactive:false,zIndexOffset:600}).addTo(map);
+  };
+  wrap.onmouseleave=()=>{
+    const old=svg.querySelector('.ev-cursor'); if(old) old.remove();
+    g('elev-tip').style.display='none';
+    clearElevCursor();
+  };
+}
+
 async function calcRoute(){
   if(wpts.length<2){toast('Dodaj start i metę!');return;}
   const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
@@ -856,9 +1002,11 @@ async function calcRoute(){
     if(!data.routes?.length) throw new Error('Brak trasy');
 
     const route=data.routes[0];
-    routeCoords=route.geometry.coordinates.map(([lng,lat])=>({lat,lng}));
+    routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
     addKmMarkers(routeCoords);
+    buildElevData(routeCoords);
+    if(g('elev-panel').classList.contains('open')) drawElevChart();
 
     // Get new tiles for this route from server
     const prvRes=await fetch('/api/route/preview-tiles',{
@@ -901,6 +1049,8 @@ function clearRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
+  elevData=[]; clearElevCursor();
+  if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
   clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov');
   renderWL(); previewRoute(); updDist(0);
