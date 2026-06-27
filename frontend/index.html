@@ -1165,7 +1165,7 @@ async function openSV(lat,lng){
     if(d.url){
       g('sv-placeholder').style.display='none';
       g('sv-frame').style.display='block';
-      g('sv-frame').src=d.url;
+      g('sv-frame').src=`/api/streetview/viewer?lat=${lat}&lng=${lng}`;
       updateSVMarker(lat,lng,null);
     }else{
       g('sv-frame').style.display='none';
