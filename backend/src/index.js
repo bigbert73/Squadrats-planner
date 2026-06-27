@@ -200,6 +200,8 @@ async function fetchBRouterRoute(points, profile) {
   if (!feat) throw new Error('BRouter: empty response');
   return {
     code: 'Ok',
+    engine: 'brouter',
+    profile,
     routes: [{
       distance: parseFloat(feat.properties?.['track-length'] || 0),
       geometry: feat.geometry,
@@ -212,10 +214,11 @@ async function fetchRoute(points, bikeProfile) {
     try {
       return await fetchBRouterRoute(points, bikeProfile);
     } catch (e) {
-      console.warn(`BRouter (${bikeProfile}) unavailable, falling back to OSRM:`, e.message);
+      console.warn(`BRouter (${bikeProfile}) failed, falling back to OSRM:`, e.message);
     }
   }
-  return fetchOsrmRoute(points);
+  const data = await fetchOsrmRoute(points);
+  return { ...data, engine: 'osrm', profile: bikeProfile || 'standard' };
 }
 
 function routeDistanceKm(routeData) {
@@ -228,8 +231,9 @@ app.post('/api/route/detour', async (req, res) => {
   const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard' } = req.body;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
-  const ownedSQSet  = new Set(db.getAllTilesSQ().map(r => `${r.tx},${r.ty}`));
-  const ownedSQISet = new Set(db.getAllTilesSQI().map(r => `${r.tx},${r.ty}`));
+  const c = getCache();
+  const ownedSQSet  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
+  const ownedSQISet = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
 
   let pts = [...waypoints];
   const start = waypoints[0];
