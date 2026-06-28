@@ -278,6 +278,10 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #hdr h1 span:not(.logo){display:none}
 }
 
+/* ── SV ROUTE TOOLTIP ── */
+.leaflet-tooltip.sv-tip{background:rgba(13,17,23,.92);border:1px solid #3b82f6;color:#93c5fd;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;padding:3px 9px;border-radius:5px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 10px rgba(59,130,246,.3)}
+.leaflet-tooltip.sv-tip::before{border-top-color:#3b82f6}
+
 /* ── ROUTE SUMMARY / POI ── */
 .rs-sv-bar{height:6px;border-radius:3px;background:var(--card2);margin:6px 0 2px;overflow:hidden;display:flex}
 .rs-sv-fill{height:100%;background:#3b82f6;border-radius:3px;transition:width .4s}
@@ -2191,12 +2195,38 @@ function processSurfaceProfile(surfaceProfile, totalKm){
 // ═══════════════════════════════════════════════════════════════════════
 let svKmCovered=0;
 
+function makeSVPoly(latlngs){
+  const poly=L.polyline(latlngs,{color:'#3b82f6',weight:7,opacity:.95,interactive:true,pane:'routePane'});
+  poly.bindTooltip('<i class="ti ti-360"></i> Kliknij — otwórz Street View',{sticky:true,className:'sv-tip',offset:[12,0]});
+  poly.on('mouseover',()=>{
+    poly.setStyle({color:'#60a5fa',weight:10});
+    map.getContainer().style.cursor='pointer';
+  });
+  poly.on('mouseout',()=>{
+    poly.setStyle({color:'#3b82f6',weight:7});
+    map.getContainer().style.cursor=svMode?'crosshair':'';
+  });
+  poly.on('click',e=>{
+    L.DomEvent.stopPropagation(e);
+    if(!svMode){
+      svMode=true;
+      g('mtb-sv').classList.add('on');
+      g('mc').classList.add('sv-active');
+      map.getContainer().style.cursor='crosshair';
+      g('m-icon').className='ti ti-360';
+      g('m-txt').textContent='Street View — kliknij na mapie';
+      setTimeout(()=>map.invalidateSize(),60);
+    }
+    openSV(e.latlng.lat,e.latlng.lng);
+  });
+  return poly;
+}
+
 function drawSVColoredRoute(){
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearLyr('sv-cov');
   if(!routeCoords.length) return;
   if(!svCovData){
-    // No coverage data yet — draw plain red
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
     return;
   }
@@ -2209,17 +2239,17 @@ function drawSVColoredRoute(){
     const ok=si<svCovData.length?svCovData[si].ok:false;
     if(ok) coveredPts++;
     if(ok!==lastOk){
-      if(redSeg.length>1)  red.push(L.polyline(redSeg, {color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
-      if(blueSeg.length>1) blue.push(L.polyline(blueSeg,{color:'#3b82f6',weight:6,opacity:.95,interactive:false,pane:'routePane'}));
+      if(redSeg.length>1)  red.push(L.polyline(redSeg,{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
+      if(blueSeg.length>1) blue.push(makeSVPoly(blueSeg));
       redSeg=[]; blueSeg=[];
       lastOk=ok;
     }
     const ll=L.latLng(pt.lat,pt.lng);
-    if(ok){blueSeg.push(ll);if(redSeg.length) redSeg.push(ll);}  // overlap for seamless join
-    else  {redSeg.push(ll); if(blueSeg.length) blueSeg.push(ll);}
+    if(ok){blueSeg.push(ll);if(redSeg.length) redSeg.push(ll);}
+    else  {redSeg.push(ll);if(blueSeg.length) blueSeg.push(ll);}
   });
-  if(redSeg.length>1)  red.push(L.polyline(redSeg, {color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
-  if(blueSeg.length>1) blue.push(L.polyline(blueSeg,{color:'#3b82f6',weight:6,opacity:.95,interactive:false,pane:'routePane'}));
+  if(redSeg.length>1)  red.push(L.polyline(redSeg,{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
+  if(blueSeg.length>1) blue.push(makeSVPoly(blueSeg));
 
   // Combine into layerGroups stored in LAYERS
   if(red.length)  LAYERS['rt-red'] =L.layerGroup(red).addTo(map);
