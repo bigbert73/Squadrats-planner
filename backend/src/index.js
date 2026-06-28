@@ -285,7 +285,7 @@ function buildUserCache(userId) {
   const yard    = tiles.computeYard(sqRows);
   const uber    = tiles.computeUber(sqRows);
   const yardi   = tiles.computeYard(sqiRows);
-  const uberi   = { size: 0, tiles: [] }; // skip — SQI über requires impractical density
+  const uberi   = tiles.computeUber(sqiRows);
   const c = {
     sqRows, sqiRows, yard, uber, yardi, uberi,
     stats: {
