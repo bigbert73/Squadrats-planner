@@ -468,8 +468,11 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   const samePoint = tiles.haversineDistance(start, end) < 0.4;
 
   if (loop || samePoint) {
-    if (samePoint && waypoints.length === 2) pts = tiles.createLoopWaypoints(start, targetKm || 15);
-    else pts.push(pts[0]);
+    if (waypoints.length === 1 || (samePoint && waypoints.length === 2)) {
+      pts = tiles.createLoopWaypoints(start, targetKm || 15);
+    } else {
+      pts.push(pts[0]);
+    }
   }
 
   if (mode === 'shortest') {
