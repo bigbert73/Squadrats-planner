@@ -494,6 +494,45 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   return res.json(best.data);
 });
 
+// ── Komoot import ─────────────────────────────────────────────────────────────
+
+app.get('/api/komoot/tour', requireAuth, async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: 'Brak URL' });
+
+  const m = url.match(/komoot\.(?:com|de)\/(?:tour|t)\/(\d+)/i);
+  if (!m) return res.status(400).json({ error: 'Nieprawidłowy link. Przykład: https://www.komoot.com/tour/1234567890' });
+
+  const id = m[1];
+  try {
+    const r = await fetch(`https://www.komoot.com/api/v007/tours/${id}?_embedded=coordinates`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://www.komoot.com/',
+      }
+    });
+    if (!r.ok) {
+      const msg = (r.status === 401 || r.status === 403)
+        ? 'Trasa jest prywatna — wyeksportuj GPX z Komoot'
+        : `Błąd Komoot API (${r.status})`;
+      return res.status(r.status).json({ error: msg });
+    }
+    const d = await r.json();
+    const items = d._embedded?.coordinates?.items;
+    if (!items?.length) return res.status(404).json({ error: 'Brak punktów trasy w odpowiedzi Komoot' });
+
+    res.json({
+      name: d.name || `Trasa Komoot #${id}`,
+      distanceM: Math.round(d.distance || 0),
+      sport: d.sport || '',
+      coords: items.map(c => ({ lat: c.lat, lng: c.lng, elev: c.alt ?? 0 })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Błąd połączenia z Komoot: ' + e.message });
+  }
+});
+
 // ── GPX import ────────────────────────────────────────────────────────────────
 
 app.post('/api/gpx/import', requireAuth, (req, res) => {
