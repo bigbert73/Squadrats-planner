@@ -494,7 +494,6 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div class="loop-grp">
         <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
         <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex'"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
-        <label class="loop-opt" title="Greedy: jedź do najbliższego wolnego SQI, potem wróć do domu przez wolne SQI"><input type="radio" name="loop" value="kwadratownia" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='none'"><i class="ti ti-crosshair" style="font-size:12px"></i>Kwadratownia</label>
       </div>
       <label id="avoid-return-grp" class="opt-pill" style="display:none;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
         <input type="checkbox" id="avoid-return-cb">
@@ -533,6 +532,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
         <label class="opt-pill" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Pop.</label>
         <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
+        <label class="opt-pill" title="Kwadratownia: jedź do najbliższego wolnego SQI, wróć przez wolne SQI. Działa w A→B i Pętla."><input type="radio" name="opt" value="kwadratownia"><i class="ti ti-crosshair" style="color:var(--orange)"></i>Kwadratownia</label>
       </div>
       <div class="sb-sec" style="margin-top:10px"><i class="ti ti-cursor-text"></i>Tryb edycji</div>
       <div class="mode-row">
@@ -1512,11 +1512,10 @@ function drawElevChart(){
 async function calcRoute(){
   const loopVal=document.querySelector('input[name="loop"]:checked').value;
   const loop=loopVal==='loop';
-  const kwadratownia=loopVal==='kwadratownia';
-  const isLoopLike=loop||kwadratownia;
-  if(isLoopLike && wpts.length<1){toast('Dodaj punkt startu!');return;}
-  if(!isLoopLike && wpts.length<2){toast('Dodaj start i metę!');return;}
   const opt=document.querySelector('input[name="opt"]:checked').value;
+  const kwadratownia=opt==='kwadratownia';
+  if(loop && wpts.length<1){toast('Dodaj punkt startu!');return;}
+  if(!loop && wpts.length<2){toast('Dodaj start i metę!');return;}
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
   showLoad('Obliczam trasę…');
@@ -1526,7 +1525,7 @@ async function calcRoute(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop:isLoopLike,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked),kwadratownia})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked),kwadratownia})
     });
     if(!res.ok) throw new Error('routing error '+res.status);
     const data=await res.json();
