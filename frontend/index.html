@@ -2612,6 +2612,22 @@ async function importKomoot(){
     fetchSVCoverage();
     fetchPOI();
 
+    // Compute new SQ/SQI tiles (same endpoint as calcRoute)
+    const prv=await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})});
+    if(prv.ok){
+      const pd=await prv.json();
+      newSQ.clear(); pd.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
+      newSQI.clear(); pd.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
+      clearLyr('sq-new'); clearLyr('sqi-new');
+      renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
+      renderSet(newSQI,Z_SQI,'rgba(255,216,91,.55)','#ffcd38',2,'sqi-new');
+      g('h-new').textContent=newSQ.size+newSQI.size;
+      g('s-sq-new').textContent=newSQ.size;
+      g('s-sqi-new').textContent=newSQI.size;
+      g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
+      g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
+    }
+
     // Fit map to route bounds
     map.fitBounds(L.latLngBounds(routeCoords.map(p=>L.latLng(p.lat,p.lng))),{padding:[40,40]});
 
@@ -2620,7 +2636,7 @@ async function importKomoot(){
 
     const km=(d.distanceM/1000).toFixed(1);
     const sportLabel={'touringbicycle':'rower turystyczny','mtb':'MTB','racingbike':'szosa','hike':'pieszy','running':'bieg'}[d.sport]||d.sport;
-    toast(`✅ Komoot: „${d.name}" · ${km} km${sportLabel?' · '+sportLabel:''}`);
+    toast(`✅ Komoot: „${d.name}" · ${km} km · +${newSQ.size} SQ · +${newSQI.size} SQI${sportLabel?' · '+sportLabel:''}`);
   }catch(e){
     errEl.textContent=e.message;
     errEl.style.display='block';
