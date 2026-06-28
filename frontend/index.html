@@ -46,7 +46,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #sb-trigger{display:none;position:absolute;left:0;top:0;width:24px;height:100%;z-index:3400;cursor:pointer}
 #sb-trigger.active{display:block}
 /* pin button */
-#sb-pin{width:26px;height:26px;background:none;border:none;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:14px;transition:color .15s}
+#sb-pin{width:28px;height:28px;background:none;border:none;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:16px;transition:all .15s}
 #sb-pin:hover{color:var(--tx);background:var(--hover)}
 #sb-pin.pinned{color:var(--green)}
 #sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
@@ -2469,26 +2469,34 @@ function routeBbox(){
 
 async function fetchPOI(){
   clearPOI();
-  const bbox=routeBbox();
-  if(!bbox) return;
-  const bboxStr=`${bbox.s},${bbox.w},${bbox.n},${bbox.e}`;
+  if(!routeCoords.length) return;
 
-  // Build Overpass query
-  const filters=POI_CATS.flatMap(c=>c.tags.map(t=>{
-    const [k,v]=t.split('=');
-    return `node["${k}"="${v}"](${bboxStr});`;
-  })).join('\n');
-  const query=`[out:json][timeout:20];\n(\n${filters}\n);\nout body 200;`;
+  // Sample route to max 120 points to build a manageable corridor query
+  const maxPts=120;
+  const step=Math.max(1,Math.floor(routeCoords.length/maxPts));
+  const sample=routeCoords.filter((_,i)=>i%step===0||i===routeCoords.length-1);
+  const coords=sample.map(p=>`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(',');
+
+  // around:400 = 400m corridor along sampled route points
+  const A=`(around:400,${coords})`;
+  const query=`[out:json][timeout:60];
+(
+  node["amenity"~"^(restaurant|cafe|fast_food|bar|bakery|drinking_water|bicycle_repair_station|bicycle_rental)$"]${A};
+  node["shop"~"^(supermarket|convenience|bakery|sports|bicycle)$"]${A};
+  node["tourism"~"^(viewpoint|attraction|museum|artwork)$"]${A};
+  node["historic"~"^(castle|monument|church)$"]${A};
+);
+out body 600;`;
 
   const el=g('poi-list');
-  el.innerHTML='<div class="hint">Pobieranie punktów…</div>';
+  el.innerHTML='<div class="hint">Pobieranie punktów na trasie…</div>';
   g('poi-panel').style.display='block';
 
   try{
     const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(query)}`});
     const d=await r.json();
     if(!d.elements?.length){el.innerHTML='<div class="hint">Brak punktów na tej trasie</div>';return;}
-    renderPOI(d.elements, bbox, bboxStr);
+    renderPOI(d.elements);
   }catch(e){el.innerHTML='<div class="hint" style="color:var(--red)">Błąd pobierania POI</div>';}
 }
 
@@ -2509,12 +2517,11 @@ function ptOnRoute(lat,lng){
   return routeCoords.some(p=>Math.abs(p.lat-lat)<thresh&&Math.abs(p.lng-lng)<thresh);
 }
 
-function renderPOI(elements, bbox){
+function renderPOI(elements){
   const bycat={};
   POI_CATS.forEach(c=>{bycat[c.key]=[];});
   elements.forEach(el=>{
     if(!el.lat||!el.lon) return;
-    if(!ptOnRoute(el.lat,el.lon)) return;
     const cat=poiCatFor(el);
     if(!cat) return;
     if(!bycat[cat.key]) bycat[cat.key]=[];
