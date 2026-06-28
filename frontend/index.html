@@ -477,7 +477,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <input id="start-addr" type="text" placeholder="Skąd? Wpisz adres startu…" onkeydown="if(event.key==='Enter') searchAddress('start')">
         <button class="addr-srch" onclick="searchAddress('start')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
       </div>
-      <div class="addr-line">
+      <div class="addr-line" id="end-addr-line">
         <div class="addr-ico-n"><i class="ti ti-flag" style="color:var(--red)"></i></div>
         <input id="end-addr" type="text" placeholder="Dokąd? Wpisz adres mety…" onkeydown="if(event.key==='Enter') searchAddress('end')">
         <button class="addr-srch" onclick="searchAddress('end')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
@@ -492,8 +492,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <!-- 3. TYP TRASY + DŁUGOŚĆ -->
     <div class="route-meta">
       <div class="loop-grp">
-        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
-        <label class="loop-opt"><input type="radio" name="loop" value="loop"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none'"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
       </div>
       <div class="dist-grp">
         <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km'">
