@@ -2208,11 +2208,13 @@ async function fetchSVCoverage(){
   if(!routeCoords.length) return;
   const step=Math.max(1,Math.ceil(routeCoords.length/120));
   const pts=routeCoords.filter((_,i)=>i%step===0).map(p=>({lat:p.lat,lng:p.lng}));
+  showLoad('Sprawdzam pokrycie trasy przez Google Street View…');
   try{
     const res=await fetch('/api/streetview/coverage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts})});
     const d=await res.json();
     if(d.coverage){svCovData=d.coverage;svCovData._step=step;drawSVColoredRoute();}
   }catch(e){console.warn('SV coverage',e);}
+  finally{hideLoad();}
 }
 
 // ═══════════════════════════════════════════════════════════════════════
