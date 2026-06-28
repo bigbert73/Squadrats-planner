@@ -551,20 +551,42 @@ app.get('/api/streetview/viewer', (req, res) => {
   const la = parseFloat(lat).toFixed(6), ln = parseFloat(lng).toFixed(6);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>*{margin:0;padding:0}html,body,#sv{width:100%;height:100vh;overflow:hidden}</style></head>
-<body><div id="sv"></div><script>
+<style>
+*{margin:0;padding:0}html,body,#sv{width:100%;height:100vh;overflow:hidden}
+#no-sv{display:none;position:absolute;inset:0;background:#111928;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#93a8c0;font-family:sans-serif;font-size:13px;text-align:center;padding:20px}
+#no-sv svg{opacity:.4}
+#no-sv a{color:#4da8ff;font-size:12px;margin-top:4px}
+</style></head>
+<body>
+<div id="sv"></div>
+<div id="no-sv">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+  <span>Brak Street View w tym miejscu</span>
+  <a href="https://www.google.com/maps/@${la},${ln},3a,75y/" target="_blank">Otwórz Google Maps</a>
+</div>
+<script>
 function svInit(){
-  var pano=new google.maps.StreetViewPanorama(document.getElementById('sv'),{
-    position:{lat:${la},lng:${ln}},pov:{heading:0,pitch:0},
-    addressControl:false,showRoadLabels:true,motionTracking:false
+  var svc=new google.maps.StreetViewService();
+  svc.getPanorama({location:{lat:${la},lng:${ln}},radius:100,source:google.maps.StreetViewSource.OUTDOOR},function(data,status){
+    if(status===google.maps.StreetViewStatus.OK){
+      var pano=new google.maps.StreetViewPanorama(document.getElementById('sv'),{
+        pano:data.location.pano,pov:{heading:0,pitch:0},
+        addressControl:false,showRoadLabels:true,motionTracking:false
+      });
+      function send(){
+        var pos=pano.getPosition();if(!pos)return;
+        var pov=pano.getPov();
+        window.parent.postMessage({type:'sv-update',lat:pos.lat(),lng:pos.lng(),heading:pov.heading},'*');
+      }
+      pano.addListener('position_changed',send);
+      pano.addListener('pov_changed',send);
+      window.parent.postMessage({type:'sv-update',lat:data.location.latLng.lat(),lng:data.location.latLng.lng(),heading:0},'*');
+    }else{
+      document.getElementById('sv').style.display='none';
+      var el=document.getElementById('no-sv');el.style.display='flex';
+      window.parent.postMessage({type:'sv-no-coverage',lat:${la},lng:${ln}},'*');
+    }
   });
-  function send(){
-    var pos=pano.getPosition();if(!pos)return;
-    var pov=pano.getPov();
-    window.parent.postMessage({type:'sv-update',lat:pos.lat(),lng:pos.lng(),heading:pov.heading},'*');
-  }
-  pano.addListener('position_changed',send);
-  pano.addListener('pov_changed',send);
 }
 <\/script>
 <script src="https://maps.googleapis.com/maps/api/js?key=${key}&callback=svInit" async defer><\/script>

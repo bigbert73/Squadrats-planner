@@ -2220,6 +2220,19 @@ function updateSVMarker(lat,lng,heading){
 
 // Receive position+heading updates from the Street View iframe
 window.addEventListener('message',e=>{
+  if(e.data?.type==='sv-no-coverage'){
+    g('sv-frame').style.display='none';
+    const ph=g('sv-placeholder');
+    ph.style.display='flex';
+    const {lat,lng}=e.data;
+    ph.innerHTML=`<i class="ti ti-360-view" style="font-size:36px;opacity:.4"></i>
+      <span>Brak Street View w tym miejscu</span>
+      <a href="https://www.google.com/maps/@${lat.toFixed(6)},${lng.toFixed(6)},3a,75y/" target="_blank"
+         style="color:var(--blue);font-size:11px;display:inline-flex;align-items:center;gap:4px;margin-top:4px">
+        <i class="ti ti-external-link"></i> Otwórz Google Maps
+      </a>`;
+    return;
+  }
   if(e.data?.type!=='sv-update') return;
   const {lat,lng,heading}=e.data;
   updateSVMarker(lat,lng,heading);
