@@ -1929,6 +1929,7 @@ function toggleSV(){
     clearLyr('sv-cov');
     clearSVMarker();
     setMode(mode);
+    setTimeout(()=>map.invalidateSize(),60);
     return;
   }
   setTimeout(()=>map.invalidateSize(),60);
