@@ -231,6 +231,53 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .oauth-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:10px;background:#f1f5f9;border:1px solid #e5e7eb;color:#374151}
 .oauth-badge.google{color:#ea4335;border-color:#fca5a5;background:#fff1f2}
 
+/* ── MOBILE ── */
+#mob-menu-btn{display:none;width:34px;height:34px;background:var(--card);border:1px solid var(--border2);border-radius:var(--r-sm);color:var(--tx2);font-size:18px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+#mob-menu-btn:hover{color:var(--tx);border-color:var(--bhi)}
+#mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:3999;opacity:0;pointer-events:none;transition:opacity .25s}
+#mob-overlay.on{opacity:1;pointer-events:all}
+#mob-sb-close{display:none;width:30px;height:30px;background:none;border:none;color:var(--tx3);font-size:18px;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;border-radius:var(--r-sm)}
+#mob-sb-close:hover{color:var(--tx);background:var(--hover)}
+
+@media(max-width:768px){
+  /* header */
+  #mob-menu-btn{display:flex}
+  #hdr{padding:0 10px;gap:8px}
+  #hdr h1{font-size:12px}
+  .hdiv{display:none}
+  .hpills{overflow-x:auto;flex-wrap:nowrap;gap:3px;-webkit-overflow-scrolling:touch;max-width:calc(100vw - 170px)}
+  .hpills::-webkit-scrollbar{display:none}
+  .hp{font-size:9px;padding:2px 7px}
+  #mob-sb-close{display:flex}
+
+  /* sidebar drawer */
+  #sb{position:fixed;left:-100%;top:0;width:85vw;max-width:310px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none}
+  #sb.mob-open{left:0;box-shadow:6px 0 32px rgba(0,0,0,.6)}
+  #mob-overlay{display:block}
+
+  /* layout: map fills full space */
+  #layout{display:block;height:calc(100vh - 48px)}
+  #mc{height:100%;position:relative}
+
+  /* map UI tweaks */
+  #mtools{top:8px;right:8px;gap:3px}
+  .mtb{width:28px;height:28px;font-size:13px}
+  #plan-info{bottom:32px;right:6px;font-size:10px;padding:7px 9px;max-width:170px}
+  #ibar{padding:4px 10px;gap:8px;font-size:9px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #ibar::-webkit-scrollbar{display:none}
+  #mind{font-size:9px;padding:3px 10px;max-width:55vw}
+  #zlvl{top:auto;bottom:26px;right:6px}
+
+  /* user dropdown - prevent overflow */
+  #user-dropdown{right:0;min-width:150px}
+  #user-menu-btn span{display:none}
+}
+
+@media(max-width:400px){
+  .hpills{display:none}
+  #hdr h1 span:not(.logo){display:none}
+}
+
 /* ── USER MENU ── */
 #user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
 #user-menu-btn{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:4px 10px 4px 5px;cursor:pointer;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;transition:all .15s}
@@ -274,6 +321,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 <!-- HEADER -->
 <header id="hdr">
+  <button id="mob-menu-btn" onclick="toggleMobileMenu()" title="Menu"><i class="ti ti-menu-2"></i></button>
   <h1><span class="logo">SQ</span>Squadrats Route Planner</h1>
   <div class="hdiv"></div>
   <div class="hpills" id="strava-pills" style="display:none">
@@ -304,6 +352,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   </div>
 </header>
 
+<div id="mob-overlay" onclick="closeMobileMenu()"></div>
+
 <div id="layout">
 
 <!-- SIDEBAR -->
@@ -313,6 +363,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <button class="tb" id="tab-sq-btn" onclick="swTab('sq',this)" style="display:none"><i class="ti ti-grid-dots"></i>Kwadraty</button>
     <button class="tb" id="tab-hm-btn" onclick="swTab('hm',this)" style="display:none"><i class="ti ti-flame"></i>Heat</button>
     <button class="tb"    onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
+    <button id="mob-sb-close" onclick="closeMobileMenu()" title="Zamknij"><i class="ti ti-x"></i></button>
   </div>
 
   <!-- TAB: TRASA -->
@@ -844,7 +895,7 @@ async function initMap(){
   baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
   baseLayers.osm.addTo(map);
 
-  map.on('click',onMapClick);
+  map.on('click',e=>{if(g('sb').classList.contains('mob-open')){closeMobileMenu();return;}onMapClick(e);});
   map.on('mousemove',e=>{g('b-coords').textContent=e.latlng.lat.toFixed(5)+'°N '+e.latlng.lng.toFixed(5)+'°E';});
   map.on('contextmenu',e=>{if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);});
   map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();redrawAll();});
@@ -1907,6 +1958,18 @@ function showLoad(msg){g('lmsg').textContent=msg||'…';g('loading').classList.r
 function hideLoad(){g('loading').classList.add('h');}
 function v(id){return document.getElementById(id)?.value.trim()||'';}
 function g(id){return document.getElementById(id);}
+
+function toggleMobileMenu(){
+  const open=g('sb').classList.toggle('mob-open');
+  g('mob-overlay').classList.toggle('on',open);
+  if(open) setTimeout(()=>map.invalidateSize(),260);
+}
+function closeMobileMenu(){
+  g('sb').classList.remove('mob-open');
+  g('mob-overlay').classList.remove('on');
+  setTimeout(()=>map.invalidateSize(),260);
+}
+
 function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTm);toastTm=setTimeout(()=>t.classList.remove('on'),5000);}
 
 // ═══════════════════════════════════════════════════════════════════════
