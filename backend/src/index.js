@@ -331,6 +331,36 @@ app.post('/api/sync', requireAuth, async (req, res) => {
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
+// ── Frontend log telemetry ─────────────────────────────────────────────────
+
+const clientLogs = [];
+const MAX_LOGS = 500;
+
+app.post('/api/log', requireAuth, (req, res) => {
+  const { level = 'log', msg, data, url, line } = req.body || {};
+  const entry = {
+    t: new Date().toISOString(),
+    uid: req.userId,
+    level,
+    msg: String(msg || '').slice(0, 500),
+    data: data ? JSON.stringify(data).slice(0, 500) : undefined,
+    url: url ? String(url).slice(0, 200) : undefined,
+    line,
+  };
+  clientLogs.push(entry);
+  if (clientLogs.length > MAX_LOGS) clientLogs.shift();
+  if (level === 'error') console.error('[CLIENT]', entry.t, `uid=${entry.uid}`, entry.msg, entry.data || '');
+  res.json({ ok: true });
+});
+
+app.get('/api/log', requireAuth, (req, res) => {
+  if (req.userRole !== 'admin') return res.status(403).json({ error: 'forbidden' });
+  const n = parseInt(req.query.n) || 50;
+  res.json(clientLogs.slice(-n));
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 app.get('/api/stats', requireAuth, (req, res) => {
   res.json(getUserCache(req.userId).stats);
 });

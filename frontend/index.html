@@ -2120,6 +2120,22 @@ function hideLoad(){g('loading').classList.add('h');}
 function v(id){return document.getElementById(id)?.value.trim()||'';}
 function g(id){return document.getElementById(id);}
 
+// ── Remote telemetry ─────────────────────────────────────────────────────────
+function clog(level, msg, data){
+  try{ fetch('/api/log',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({level,msg:String(msg),data,url:location.href,line:null})}); }catch(_){}
+}
+(function(){
+  const _err=console.error.bind(console);
+  console.error=function(...a){_err(...a);clog('error',a.map(x=>x?.stack||String(x)).join(' '));};
+  window.addEventListener('error',e=>{
+    clog('error',`${e.message} @ ${e.filename}:${e.lineno}:${e.colno}`,{stack:e.error?.stack});
+  });
+  window.addEventListener('unhandledrejection',e=>{
+    clog('error','Unhandled rejection: '+(e.reason?.stack||String(e.reason)));
+  });
+})();
+
 // ── Sidebar pin / auto-hide (desktop only) ────────────────────────────────
 let sbPinned = localStorage.getItem('sbPinned') !== 'false'; // default: pinned
 let sbPeekTimer = null;
