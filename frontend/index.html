@@ -1492,7 +1492,7 @@ async function calcRoute(){
     g('b-plan-dist').textContent = `Plan: ${dist.toFixed(1)} km`;
     g('b-plan-sq').textContent = `Nowe SQ: ${newSQ.size}`;
     g('b-plan-sqi').textContent = `Nowe SQI: ${newSQI.size}`;
-    g('h-new').textContent=newSQ.size;
+    g('h-new').textContent=newSQ.size+newSQI.size;
     g('s-sq-new').textContent=newSQ.size;
     g('s-sqi-new').textContent=newSQI.size;
     g('b-sq').textContent=ownedSQ.size+newSQ.size;
@@ -2308,7 +2308,7 @@ function makeSVPoly(latlngs){
 
 function drawSVColoredRoute(){
   if(rLine){map.removeLayer(rLine);rLine=null;}
-  clearLyr('sv-cov');
+  clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue');
   if(!routeCoords.length) return;
   if(!svCovData){
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
