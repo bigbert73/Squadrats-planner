@@ -36,6 +36,6 @@ EXPOSE 17777
 # Use -cp with lib/* so all dependencies are on classpath, then call RouteServer directly.
 # Cannot use -jar: manifest Main-Class is BRouter (CLI mode), not RouteServer (HTTP server).
 CMD ["sh", "-c", \
-     "exec java -Xmx768m -Xms256m -cp '/opt/brouter/brouter.jar:/opt/brouter/lib/*' \
+     "exec java -Xmx900m -Xms384m -cp '/opt/brouter/brouter.jar:/opt/brouter/lib/*' \
       btools.server.RouteServer \
       /brouter-data/segments4 /opt/brouter/profiles2 /opt/brouter/profiles2 17777 60"]

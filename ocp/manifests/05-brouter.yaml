@@ -47,11 +47,11 @@ spec:
               mountPath: /brouter-data/segments4
           resources:
             requests:
-              memory: 512Mi
-              cpu: 100m
+              memory: 768Mi
+              cpu: 200m
             limits:
               memory: 1Gi
-              cpu: 500m
+              cpu: 1000m
           readinessProbe:
             httpGet:
               path: /brouter?lonlats=21.012,52.229|21.015,52.232&profile=fastbike&alternativeidx=0&format=geojson

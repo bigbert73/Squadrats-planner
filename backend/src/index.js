@@ -428,6 +428,15 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
+  // Long A→B route: straight-line >80km — skip iterative detour, one direct call.
+  // Detour algorithm is designed for loops/short routes; for 100km+ A→B it just
+  // adds unnecessary BRouter requests and unhelpful waypoints.
+  const directKm = tiles.haversineDistance(start, waypoints[waypoints.length - 1]);
+  if (!loop && !samePoint && directKm > 80) {
+    try { return res.json(await fetchRoute(pts, bikeProfile)); }
+    catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+  }
+
   const tolerance = 0.15, target = Math.max(0, targetKm);
   let routeData;
   try { routeData = await fetchRoute(pts, bikeProfile); }
@@ -446,7 +455,9 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   let best = { data: routeData, diff: Math.abs(baseKm - target) };
   let lo = baseKm, hi = target * 2, currentTarget = target, prevKm = baseKm;
 
-  for (let attempt = 0; attempt < 8; attempt++) {
+  // Fewer iterations for medium-long routes (>50km) — convergence is harder anyway
+  const maxAttempts = baseKm > 50 ? 3 : 8;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const detourPts = tiles.buildDetourWaypoints(pts, ownedSQSet, ownedSQISet, mode, currentTarget / roadFactor);
     if (detourPts.length < 2) break;
     let dd;
