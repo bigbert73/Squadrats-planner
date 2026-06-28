@@ -492,9 +492,13 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <!-- 3. TYP TRASY + DŁUGOŚĆ -->
     <div class="route-meta">
       <div class="loop-grp">
-        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
-        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none'"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex'"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
       </div>
+      <label id="avoid-return-grp" class="opt-pill" style="display:none;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
+        <input type="checkbox" id="avoid-return-cb">
+        <i class="ti ti-arrows-split-2"></i> Różne drogi tam i z powrotem
+      </label>
       <div class="dist-grp">
         <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km'">
         <span class="dist-val" id="dist-lbl">50 km</span>
@@ -1514,7 +1518,7 @@ async function calcRoute(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked)})
     });
     if(!res.ok) throw new Error('routing error '+res.status);
     const data=await res.json();
