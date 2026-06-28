@@ -147,35 +147,50 @@ function decodePolyline(str) {
 // The Yard is the LARGEST connected component of such "complete" tiles.
 
 function computeYard(tileRows) {
-  // Build a Set of "x,y" keys
-  const owned = new Set(tileRows.map(r => `${r.tx},${r.ty}`));
+  if (!tileRows.length) return { size: 0, tiles: [] };
 
-  // Find tiles with all 4 neighbours
-  const complete = new Set();
-  for (const key of owned) {
-    const [x, y] = key.split(',').map(Number);
-    if (owned.has(`${x},${y-1}`) && owned.has(`${x},${y+1}`) &&
-        owned.has(`${x-1},${y}`) && owned.has(`${x+1},${y}`)) {
-      complete.add(key);
+  // Encode each tile as a BigInt key to avoid string allocations in hot loops
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const r of tileRows) {
+    if (r.tx < minX) minX = r.tx; if (r.tx > maxX) maxX = r.tx;
+    if (r.ty < minY) minY = r.ty; if (r.ty > maxY) maxY = r.ty;
+  }
+  const W = maxX - minX + 1;
+  const H = maxY - minY + 1;
+
+  // Flat Uint8Array: owned[dy*W+dx] = 1 if tile present
+  const owned = new Uint8Array(W * H);
+  for (const r of tileRows) owned[(r.ty - minY) * W + (r.tx - minX)] = 1;
+
+  // Find complete tiles (all 4 cardinal neighbours present)
+  const complete = new Uint8Array(W * H);
+  let anyComplete = false;
+  for (let dy = 1; dy < H - 1; dy++) {
+    for (let dx = 1; dx < W - 1; dx++) {
+      const i = dy * W + dx;
+      if (owned[i] && owned[i - W] && owned[i + W] && owned[i - 1] && owned[i + 1]) {
+        complete[i] = 1; anyComplete = true;
+      }
     }
   }
-  if (!complete.size) return { size: 0, tiles: [] };
+  if (!anyComplete) return { size: 0, tiles: [] };
 
-  // BFS connected components
-  const visited = new Set();
+  // BFS connected components — track indices, not strings
+  const visited = new Uint8Array(W * H);
   let best = [];
 
-  for (const start of complete) {
-    if (visited.has(start)) continue;
+  for (let si = 0; si < W * H; si++) {
+    if (!complete[si] || visited[si]) continue;
     const comp = [];
-    const queue = [start];
+    const queue = [si];
+    visited[si] = 1;
     while (queue.length) {
-      const k = queue.shift();
-      if (visited.has(k) || !complete.has(k)) continue;
-      visited.add(k); comp.push(k);
-      const [x, y] = k.split(',').map(Number);
-      for (const nk of [`${x},${y-1}`,`${x},${y+1}`,`${x-1},${y}`,`${x+1},${y}`]) {
-        if (!visited.has(nk) && complete.has(nk)) queue.push(nk);
+      const i = queue.pop();
+      comp.push(i);
+      for (const ni of [i - W, i + W, i - 1, i + 1]) {
+        if (ni >= 0 && ni < W * H && complete[ni] && !visited[ni]) {
+          visited[ni] = 1; queue.push(ni);
+        }
       }
     }
     if (comp.length > best.length) best = comp;
@@ -183,45 +198,45 @@ function computeYard(tileRows) {
 
   return {
     size:  best.length,
-    tiles: best.map(k => { const [x,y]=k.split(',').map(Number); return {tx:x,ty:y}; }),
+    tiles: best.map(i => ({ tx: minX + (i % W), ty: minY + Math.floor(i / W) })),
   };
 }
 
 // ── Übersquadrat algorithm ──────────────────────────────────────────────────
 //
 // Largest axis-aligned square sub-grid fully filled with visited tiles.
-// Classic 2-D DP solution: O(W×H) time and space where W,H are bounding-box dims.
-//
-// For very sparse world-wide data the bounding box can be huge.
-// We cap the DP at 4096×4096 tiles (safe — user's tiles cluster regionally).
+// Classic 2-D DP on a flat Uint16Array — avoids string-key Set lookups.
+// Bounding box is capped at 2048×2048 to keep it fast for world-wide tracks.
 
 function computeUber(tileRows) {
   if (!tileRows.length) return { size: 0, tiles: [] };
 
-  // Build owned set + bounding box
-  const owned = new Set(tileRows.map(r => `${r.tx},${r.ty}`));
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const r of tileRows) {
     if (r.tx < minX) minX = r.tx; if (r.tx > maxX) maxX = r.tx;
     if (r.ty < minY) minY = r.ty; if (r.ty > maxY) maxY = r.ty;
   }
 
-  const W = Math.min(maxX - minX + 1, 4096);
-  const H = Math.min(maxY - minY + 1, 4096);
+  const W = Math.min(maxX - minX + 1, 2048);
+  const H = Math.min(maxY - minY + 1, 2048);
 
-  // dp[row][col] = side of largest all-owned square with bottom-right here
-  const dp = new Array(H + 1).fill(null).map(() => new Uint16Array(W + 1));
+  // Flat owned bitmap
+  const owned = new Uint8Array(W * H);
+  for (const r of tileRows) {
+    const dx = r.tx - minX, dy = r.ty - minY;
+    if (dx >= 0 && dx < W && dy >= 0 && dy < H) owned[dy * W + dx] = 1;
+  }
+
+  // Flat DP array: dp[(row)*(W+1)+col]
+  const dp = new Uint16Array((H + 1) * (W + 1));
   let bestSide = 0, bestCol = 0, bestRow = 0;
 
   for (let row = 1; row <= H; row++) {
     for (let col = 1; col <= W; col++) {
-      if (owned.has(`${minX+col-1},${minY+row-1}`)) {
-        dp[row][col] = Math.min(dp[row-1][col], dp[row][col-1], dp[row-1][col-1]) + 1;
-        if (dp[row][col] > bestSide) {
-          bestSide = dp[row][col];
-          bestCol  = col;
-          bestRow  = row;
-        }
+      if (owned[(row - 1) * W + (col - 1)]) {
+        const v = Math.min(dp[(row-1)*(W+1)+col], dp[row*(W+1)+col-1], dp[(row-1)*(W+1)+col-1]) + 1;
+        dp[row*(W+1)+col] = v;
+        if (v > bestSide) { bestSide = v; bestCol = col; bestRow = row; }
       }
     }
   }
