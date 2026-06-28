@@ -37,9 +37,19 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #auth-btn.li:hover{background:rgba(0,230,118,.2);box-shadow:0 0 10px rgba(0,230,118,.25)}
 
 /* ── LAYOUT ── */
-#layout{display:flex;flex:1;overflow:hidden}
-#sb{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
-#sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+#layout{display:flex;flex:1;overflow:hidden;position:relative}
+#sb{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
+/* auto-hide mode: sidebar floats over map */
+#sb.sb-autohide{position:absolute;left:0;top:0;height:100%;z-index:3500;transform:translateX(-100%);box-shadow:none}
+#sb.sb-autohide.sb-peek{transform:translateX(0);box-shadow:6px 0 28px rgba(0,0,0,.55)}
+/* trigger zone — invisible strip on left edge */
+#sb-trigger{display:none;position:absolute;left:0;top:0;width:18px;height:100%;z-index:3400;cursor:pointer}
+#sb.sb-autohide~#sb-trigger,#sb-trigger.active{display:block}
+/* pin button */
+#sb-pin{width:26px;height:26px;background:none;border:none;color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:14px;transition:color .15s}
+#sb-pin:hover{color:var(--tx);background:var(--hover)}
+#sb-pin.pinned{color:var(--green)}
+#sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
 .tb{flex:1;padding:9px 3px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
 .tb i{font-size:13px}.tb.on{color:var(--green);border-bottom-color:var(--green)}.tb:hover:not(.on){color:var(--tx);background:var(--hover)}
 .tp{display:none;flex-direction:column;flex:1;overflow:hidden}.tp.on{display:flex}
@@ -250,9 +260,13 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   .hp{font-size:9px;padding:2px 7px}
   #mob-sb-close{display:flex}
 
-  /* sidebar drawer */
-  #sb{position:fixed;left:-100%;top:0;width:85vw;max-width:310px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none}
-  #sb.mob-open{left:0;box-shadow:6px 0 32px rgba(0,0,0,.6)}
+  /* hide desktop-only controls */
+  #sb-pin{display:none}
+  #sb-trigger{display:none!important}
+
+  /* sidebar drawer — override autohide classes on mobile */
+  #sb,#sb.sb-autohide{position:fixed;left:-100%;top:0;width:85vw;max-width:310px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none;transform:none!important}
+  #sb.mob-open,#sb.sb-autohide.mob-open{left:0;box-shadow:6px 0 32px rgba(0,0,0,.6)}
   #mob-overlay{display:block}
 
   /* layout: map fills full space */
@@ -378,6 +392,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <div id="mob-overlay" onclick="closeMobileMenu()"></div>
 
 <div id="layout">
+<div id="sb-trigger" onmouseenter="sbPeek(true)"></div>
 
 <!-- SIDEBAR -->
 <aside id="sb">
@@ -386,6 +401,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <button class="tb" id="tab-sq-btn" onclick="swTab('sq',this)" style="display:none"><i class="ti ti-grid-dots"></i>Kwadraty</button>
     <button class="tb" id="tab-hm-btn" onclick="swTab('hm',this)" style="display:none"><i class="ti ti-flame"></i>Heat</button>
     <button class="tb"    onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
+    <button id="sb-pin" class="pinned" onclick="toggleSbPin()" title="Przypnij / odepnij panel"><i class="ti ti-pin-filled"></i></button>
     <button id="mob-sb-close" onclick="closeMobileMenu()" title="Zamknij"><i class="ti ti-x"></i></button>
   </div>
 
@@ -423,11 +439,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
     <div class="sl mt8">Profil roweru</div>
     <div class="mgrid mb8" style="grid-template-columns:repeat(2,1fr)">
-      <button class="mb2 on" id="bp-standard"   onclick="setBikeProf('standard',this)"                    title="OSRM — ogólny rower"><i class="ti ti-bike"></i>Standard</button>
+      <button class="mb2"    id="bp-standard"   onclick="setBikeProf('standard',this)"                    title="OSRM — ogólny rower"><i class="ti ti-bike"></i>Standard</button>
       <button class="mb2"    id="bp-fastbike"   onclick="setBikeProf('fastbike',this)"                    title="BRouter — szybka trasa, asfalt"><i class="ti ti-bike" style="color:var(--blue)"></i>Szosowy</button>
       <button class="mb2"    id="bp-gravel"     onclick="setBikeProf('gravel',this)"                      title="BRouter — gravel/szuter, unika asfaltu"><i class="ti ti-mountain" style="color:var(--orange)"></i>Gravel</button>
       <button class="mb2"    id="bp-lowtraffic" onclick="setBikeProf('rowery-pl',this)"                   title="BRouter — drogi ekspresowe zakazane, ścieżki rowerowe mocno preferowane"><i class="ti ti-road-off" style="color:var(--yellow)"></i>Mały ruch</button>
-      <button class="mb2"    id="bp-safety"     onclick="setBikeProf('safety',this)"                      title="BRouter — maksymalna preferencja ścieżek rowerowych i cichych ulic"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
+      <button class="mb2 on" id="bp-safety"     onclick="setBikeProf('safety',this)"                      title="BRouter — maksymalna preferencja ścieżek rowerowych i cichych ulic"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
       <button class="mb2"    id="bp-mtb"        onclick="setBikeProf('mtb',this)"                         title="BRouter — MTB, terenowy"><i class="ti ti-trees" style="color:var(--green)"></i>MTB</button>
     </div>
     <div id="bp-note" style="font-size:9px;color:var(--tx3);margin-bottom:10px;padding:4px 6px;background:var(--card);border-radius:var(--r-sm);display:none">
@@ -916,7 +932,7 @@ let map, baseLayers={}, hmLayer=null;
 let mode='view', wpts=[], rLine=null, routeCoords=[];
 let kmMarkers=[], elevData=[], elevCursor=null;
 let svMode=false, svCovData=null, svMarker=null;
-let bikeProfile='standard';
+let bikeProfile='safety';
 
 let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
@@ -970,6 +986,12 @@ async function initMap(){
     if(e.key==='Enter') calcRoute();
     if(e.key==='Delete') clearRoute();
   });
+
+  // Sidebar pin setup
+  applySbPin();
+  const sbEl=g('sb');
+  sbEl.addEventListener('mouseenter',()=>sbPeek(true));
+  sbEl.addEventListener('mouseleave',()=>sbPeek(false));
 
   await checkAuth();
 }
@@ -2021,6 +2043,44 @@ function showLoad(msg){g('lmsg').textContent=msg||'…';g('loading').classList.r
 function hideLoad(){g('loading').classList.add('h');}
 function v(id){return document.getElementById(id)?.value.trim()||'';}
 function g(id){return document.getElementById(id);}
+
+// ── Sidebar pin / auto-hide (desktop only) ────────────────────────────────
+let sbPinned = localStorage.getItem('sbPinned') !== 'false'; // default: pinned
+let sbPeekTimer = null;
+
+function applySbPin(){
+  const sb=g('sb'), pin=g('sb-pin'), trig=g('sb-trigger');
+  if(sbPinned){
+    sb.classList.remove('sb-autohide','sb-peek');
+    if(pin){pin.classList.add('pinned');pin.innerHTML='<i class="ti ti-pin-filled"></i>';}
+    if(trig) trig.classList.remove('active');
+  }else{
+    sb.classList.add('sb-autohide');
+    sb.classList.remove('sb-peek');
+    if(pin){pin.classList.remove('pinned');pin.innerHTML='<i class="ti ti-pin"></i>';}
+    if(trig) trig.classList.add('active');
+  }
+  setTimeout(()=>map&&map.invalidateSize(),260);
+  localStorage.setItem('sbPinned', sbPinned);
+}
+
+function toggleSbPin(){
+  if(window.innerWidth<=768) return; // mobile uses drawer, no pin
+  sbPinned=!sbPinned;
+  applySbPin();
+}
+
+function sbPeek(show){
+  if(sbPinned||window.innerWidth<=768) return;
+  clearTimeout(sbPeekTimer);
+  if(show){
+    g('sb').classList.add('sb-peek');
+  }else{
+    sbPeekTimer=setTimeout(()=>{
+      g('sb').classList.remove('sb-peek');
+    },400);
+  }
+}
 
 function toggleMobileMenu(){
   const open=g('sb').classList.toggle('mob-open');
