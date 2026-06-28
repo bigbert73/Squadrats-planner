@@ -1501,8 +1501,9 @@ function drawElevChart(){
 }
 
 async function calcRoute(){
-  if(wpts.length<2){toast('Dodaj start i metę!');return;}
   const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
+  if(loop && wpts.length<1){toast('Dodaj punkt startu!');return;}
+  if(!loop && wpts.length<2){toast('Dodaj start i metę!');return;}
   const opt=document.querySelector('input[name="opt"]:checked').value;
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
