@@ -456,7 +456,7 @@ async function fetchRoute(points, bikeProfile) {
 function routeDistanceKm(d) { return d?.routes?.[0]?.distance / 1000 || 0; }
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard' } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false } = req.body;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -472,6 +472,35 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
       pts = tiles.createLoopWaypoints(start, targetKm || 15);
     } else {
       pts.push(pts[0]);
+    }
+  }
+
+  // "Avoid returning same road": split loop in half, route each leg independently.
+  // BRouter finds different roads for each leg because start/end directions differ.
+  // Last ~2 km near home may still overlap — that's expected and acceptable.
+  if (avoidReturn && (loop || samePoint) && pts.length >= 4) {
+    const mid = Math.ceil((pts.length - 1) / 2);
+    const outbound = pts.slice(0, mid + 1);
+    const inbound  = pts.slice(mid);
+    try {
+      const [outData, inData] = await Promise.all([
+        fetchRoute(outbound, bikeProfile),
+        fetchRoute(inbound,  bikeProfile),
+      ]);
+      const outCoords  = outData.routes[0].geometry.coordinates;
+      const inCoords   = inData.routes[0].geometry.coordinates;
+      const outElev    = outData.routes[0].elevProfile || [];
+      const inElev     = inData.routes[0].elevProfile  || [];
+      return res.json({
+        code: 'Ok', engine: outData.engine, profile: outData.profile,
+        routes: [{
+          distance:    (outData.routes[0].distance || 0) + (inData.routes[0].distance || 0),
+          geometry:    { type: 'LineString', coordinates: [...outCoords, ...inCoords.slice(1)] },
+          elevProfile: outElev.length && inElev.length ? [...outElev, ...inElev] : null,
+        }],
+      });
+    } catch (e) {
+      console.warn('[avoidReturn] split routing failed, falling back:', e.message);
     }
   }
 
