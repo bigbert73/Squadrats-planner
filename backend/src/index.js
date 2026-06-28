@@ -500,8 +500,9 @@ app.get('/api/komoot/tour', requireAuth, async (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'Brak URL' });
 
-  const m = url.match(/komoot\.(?:com|de)\/(?:tour|t)\/(\d+)/i);
-  if (!m) return res.status(400).json({ error: 'Nieprawidłowy link. Przykład: https://www.komoot.com/tour/1234567890' });
+  // Support: /tour/ID, /t/ID, /pl-pl/tour/ID, /pl-pl/smarttour/ID, /smarttour/ID
+  const m = url.match(/komoot\.(?:com|de)\/(?:[a-z]{2}-[a-z]{2}\/)?(?:smart)?(?:tour|t)\/(\d+)/i);
+  if (!m) return res.status(400).json({ error: 'Nieprawidłowy link Komoot. Wklej URL trasy, np. https://www.komoot.com/tour/1234567890 lub https://www.komoot.com/pl-pl/smarttour/40291321' });
 
   const id = m[1];
   try {
