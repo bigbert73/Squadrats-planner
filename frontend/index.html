@@ -2267,7 +2267,7 @@ async function openSV(lat,lng){
 
 async function fetchSVCoverage(){
   if(!routeCoords.length) return;
-  const step=Math.max(1,Math.ceil(routeCoords.length/120));
+  const step=Math.max(1,Math.ceil(routeCoords.length/300));
   const pts=routeCoords.filter((_,i)=>i%step===0).map(p=>({lat:p.lat,lng:p.lng}));
   showLoad('Sprawdzam pokrycie trasy przez Google Street View…');
   try{
@@ -2382,12 +2382,24 @@ function drawSVColoredRoute(){
     return;
   }
   const step=svCovData._step||5;
+  // For each ok sample, precompute whether the actual panorama is plausibly on the route
+  // (pano must be within 100m of the query point — eliminates off-route false positives)
+  const sampleOk = svCovData.map(c => {
+    if (!c.ok) return false;
+    if (c.pLat == null) return true; // old data without pano coords — trust it
+    const R = 6371000;
+    const lat1 = c.lat * Math.PI / 180;
+    const dlat = (c.pLat - c.lat) * Math.PI / 180;
+    const dlng = (c.pLng - c.lng) * Math.PI / 180 * Math.cos(lat1);
+    const dist = Math.sqrt(dlat * dlat + dlng * dlng) * R;
+    return dist < 100; // pano within 100m of the sampled route point
+  });
   const red=[], blue=[];
   let redSeg=[], blueSeg=[], lastOk=null;
   let coveredPts=0;
   routeCoords.forEach((pt,i)=>{
     const si=Math.floor(i/step);
-    const ok=si<svCovData.length?svCovData[si].ok:false;
+    const ok=si<sampleOk.length?sampleOk[si]:false;
     if(ok) coveredPts++;
     if(ok!==lastOk){
       if(redSeg.length>1)  red.push(L.polyline(redSeg,{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
