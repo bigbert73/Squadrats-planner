@@ -505,66 +505,52 @@ app.get('/api/komoot/tour', requireAuth, async (req, res) => {
   if (!m) return res.status(400).json({ error: 'Nieprawidłowy link Komoot. Wklej URL trasy, np. https://www.komoot.com/tour/1234567890 lub https://www.komoot.com/pl-pl/smarttour/40291321' });
 
   const id = m[1];
-  const BROWSER_HEADERS = {
+  const isSmartTour = url.toLowerCase().includes('smarttour');
+  const HDR = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Accept': 'application/hal+json, */*;q=0.8',
+    'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.7',
     'Referer': 'https://www.komoot.com/',
-    'Origin': 'https://www.komoot.com',
+  };
+
+  const fetchTour = async (endpoint) => {
+    const r = await fetch(`https://api.komoot.de/v007/${endpoint}?_embedded=coordinates`, { headers: HDR });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const items = d._embedded?.coordinates?.items;
+    if (!items?.length) return null;
+    return { name: d.name || `Trasa Komoot #${id}`, distanceM: Math.round(d.distance || 0), sport: d.sport || '', items };
   };
 
   try {
-    // ── Attempt 1: HAL+JSON API ──────────────────────────────────────────
-    const apiR = await fetch(`https://www.komoot.com/api/v007/tours/${id}?_embedded=coordinates`, {
-      headers: { ...BROWSER_HEADERS, 'Accept': 'application/hal+json, application/json, */*;q=0.8' }
-    });
+    let result = null;
 
-    if (apiR.ok) {
-      const d = await apiR.json();
-      const items = d._embedded?.coordinates?.items;
-      if (items?.length) {
-        return res.json({
-          name: d.name || `Trasa Komoot #${id}`,
-          distanceM: Math.round(d.distance || 0),
-          sport: d.sport || '',
-          coords: items.map(c => ({ lat: c.lat, lng: c.lng, elev: c.alt ?? 0 })),
-        });
+    if (isSmartTour) {
+      // Smarttour page embeds the internal discover_tours ID in its HTML
+      const htmlR = await fetch(`https://www.komoot.com/smarttour/${id}`, {
+        headers: { ...HDR, 'Accept': 'text/html,*/*;q=0.8' }
+      });
+      if (!htmlR.ok) {
+        if (htmlR.status === 401 || htmlR.status === 403)
+          return res.status(403).json({ error: 'Trasa jest prywatna — wyeksportuj GPX z Komoot' });
+        return res.status(htmlR.status).json({ error: `Komoot błąd ${htmlR.status}` });
       }
+      const html = await htmlR.text();
+      const dtm = html.match(/discover_tours\/(\d+)/);
+      if (dtm) result = await fetchTour(`discover_tours/${dtm[1]}`);
+      if (!result) result = await fetchTour(`smart_tours/${id}`);
+    } else {
+      result = await fetchTour(`tours/${id}`);
     }
 
-    // ── Attempt 2: parse __NEXT_DATA__ from tour HTML page ───────────────
-    const isSmartTour = url.toLowerCase().includes('smarttour');
-    const pageUrl = `https://www.komoot.com/${isSmartTour ? 'smarttour' : 'tour'}/${id}`;
-    const htmlR = await fetch(pageUrl, {
-      headers: { ...BROWSER_HEADERS, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8' }
+    if (!result) return res.status(404).json({ error: 'Nie udało się pobrać danych trasy. Sprawdź czy trasa jest publiczna lub wyeksportuj GPX z Komoot.' });
+
+    res.json({
+      name: result.name,
+      distanceM: result.distanceM,
+      sport: result.sport,
+      coords: result.items.map(c => ({ lat: c.lat, lng: c.lng, elev: c.alt ?? 0 })),
     });
-    if (!htmlR.ok) {
-      if (htmlR.status === 401 || htmlR.status === 403)
-        return res.status(403).json({ error: 'Trasa jest prywatna — wyeksportuj GPX z Komoot' });
-      return res.status(htmlR.status).json({ error: `Komoot zwrócił błąd ${htmlR.status}` });
-    }
-
-    const html = await htmlR.text();
-
-    // Next.js embeds full page data in <script id="__NEXT_DATA__">
-    const nx = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    if (nx) {
-      const nd = JSON.parse(nx[1]);
-      const pp = nd?.props?.pageProps;
-      const t = pp?.tour || pp?.smartTour || pp?.initialTour;
-      if (t) {
-        const items = t._embedded?.coordinates?.items || t.coordinates?.items;
-        if (items?.length) {
-          return res.json({
-            name: t.name || `Trasa Komoot #${id}`,
-            distanceM: Math.round(t.distance || 0),
-            sport: t.sport || '',
-            coords: items.map(c => ({ lat: c.lat, lng: c.lng, elev: c.alt ?? 0 })),
-          });
-        }
-      }
-    }
-
-    return res.status(404).json({ error: 'Nie udało się pobrać danych trasy z Komoot. Spróbuj wyeksportować GPX.' });
   } catch (e) {
     res.status(500).json({ error: 'Błąd połączenia z Komoot: ' + e.message });
   }
