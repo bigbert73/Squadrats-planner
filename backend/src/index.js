@@ -456,7 +456,7 @@ async function fetchRoute(points, bikeProfile) {
 function routeDistanceKm(d) { return d?.routes?.[0]?.distance / 1000 || 0; }
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, kwadratownia = false } = req.body;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -466,6 +466,14 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   let pts = [...waypoints];
   const start = waypoints[0], end = waypoints[waypoints.length - 1];
   const samePoint = tiles.haversineDistance(start, end) < 0.4;
+
+  // Kwadratownia: greedy nearest-unvisited-SQI algorithm
+  if (kwadratownia) {
+    const kpts = tiles.buildKwadratowniaWaypoints(start, targetKm || 20, c.sqiRows);
+    if (kpts.length < 2) return res.status(500).json({ error: 'Brak wolnych SQI w zasięgu trasy' });
+    try { return res.json(await fetchRoute(kpts, bikeProfile)); }
+    catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+  }
 
   if (loop || samePoint) {
     if (waypoints.length === 1 || (samePoint && waypoints.length === 2)) {

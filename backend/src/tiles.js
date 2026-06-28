@@ -343,6 +343,95 @@ function buildDetourWaypoints(waypoints, ownedSQ, ownedSQI, mode, targetKm = 0) 
   return route;
 }
 
+// ── Kwadratownia: greedy nearest-unvisited-SQI algorithm ─────────────────────
+//
+// Phase 1 (outbound): from start, repeatedly route to the nearest unvisited SQI
+// tile until cumulative haversine distance ≥ targetKm/2.
+// Phase 2 (return): from the turnaround point, greedily visit nearest unvisited
+// tiles whose direction has a positive dot-product with the home vector (i.e.
+// closer to start). Stop when within 1.5 km of start or waypoint cap is reached.
+// Last 1-2 km approaching home may share roads — expected and acceptable.
+
+function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
+  const ownedSet = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
+
+  // Bounding box of candidate unvisited tiles around start
+  const { tx: sTx, ty: sTy } = latLngToTile(start.lat, start.lng, Z_SQI);
+  const degPerTile = 360 / (1 << Z_SQI);
+  const kmPerTileLat = degPerTile * 111;
+  const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(start.lat));
+  const searchKm = targetKm * 0.65;
+  const radX = Math.ceil(searchKm / kmPerTileLng);
+  const radY = Math.ceil(searchKm / kmPerTileLat);
+
+  // Use one tileNW call + linear offsets (fast, error < 0.5% over 30 km)
+  const nw0 = tileNW(sTx, sTy, Z_SQI);
+  const nw1 = tileNW(sTx + 1, sTy + 1, Z_SQI);
+  const dLat = nw0.lat - nw1.lat; // positive: tile y increases southward
+
+  const candidates = [];
+  for (let dy = -radY; dy <= radY; dy++) {
+    const lat = nw0.lat - (dy + 0.5) * dLat;
+    for (let dx = -radX; dx <= radX; dx++) {
+      const tx = sTx + dx, ty = sTy + dy;
+      const key = `${tx},${ty}`;
+      if (!ownedSet.has(key)) {
+        const lng = nw0.lng + (dx + 0.5) * degPerTile;
+        candidates.push({ lat, lng, key });
+      }
+    }
+  }
+  if (!candidates.length) return [start, start];
+
+  const visited = new Set();
+  const waypoints  = [start];
+  let cur  = { lat: start.lat, lng: start.lng };
+  let cumKm = 0;
+  const halfKm = targetKm / 2;
+  const MAX_PER_PHASE = 20;
+
+  function nearestUnvisited(from, dirDx, dirDy) {
+    let best = null, bestSd = Infinity;
+    for (const c of candidates) {
+      if (visited.has(c.key)) continue;
+      const dx = c.lng - from.lng, dy = c.lat - from.lat;
+      // direction filter: dot product must be positive (toward home) when provided
+      if (dirDx !== null && dx * dirDx + dy * dirDy <= 0) continue;
+      const sd = dx * dx + dy * dy;
+      if (sd < bestSd) { bestSd = sd; best = c; }
+    }
+    return best;
+  }
+
+  // Phase 1: outbound
+  for (let i = 0; i < MAX_PER_PHASE; i++) {
+    const best = nearestUnvisited(cur, null, null);
+    if (!best) break;
+    const d = haversineDistance(cur, best);
+    if (cumKm + d > halfKm) break;
+    visited.add(best.key);
+    waypoints.push({ lat: best.lat, lng: best.lng });
+    cumKm += d;
+    cur = best;
+  }
+
+  // Phase 2: return toward start
+  for (let i = 0; i < MAX_PER_PHASE; i++) {
+    if (haversineDistance(cur, start) < 1.5) break;
+    const hx = start.lng - cur.lng, hy = start.lat - cur.lat;
+    const best = nearestUnvisited(cur, hx, hy);
+    if (!best) break;
+    const d = haversineDistance(cur, best);
+    visited.add(best.key);
+    waypoints.push({ lat: best.lat, lng: best.lng });
+    cumKm += d;
+    cur = best;
+  }
+
+  waypoints.push(start);
+  return waypoints;
+}
+
 module.exports = {
   Z_SQ, Z_SQI,
   latLngToTile, tileNW, tileBounds,
@@ -351,4 +440,5 @@ module.exports = {
   decodePolyline,
   computeYard, computeUber,
   buildDetourWaypoints,
+  buildKwadratowniaWaypoints,
 };
