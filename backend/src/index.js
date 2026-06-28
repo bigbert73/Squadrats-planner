@@ -369,18 +369,29 @@ async function fetchBRouterRoute(points, profile) {
   if (!feat) throw new Error('BRouter: pusta odpowiedź');
 
   let elevProfile = null;
+  let surfaceProfile = null;
   const msgs = feat.properties?.messages;
   if (Array.isArray(msgs) && msgs.length > 1) {
     let cumDist = 0;
-    elevProfile = msgs.slice(1).map(row => {
-      cumDist += parseFloat(row[3]) / 1000;
-      return { dist: Math.round(cumDist * 100) / 100, elev: parseFloat(row[2]) };
+    const rows = msgs.slice(1).map(row => {
+      const segDist = parseFloat(row[3]) / 1000;
+      cumDist += segDist;
+      const wayTags = row[4] || '';
+      const surfM = wayTags.match(/surface=(\S+)/);
+      const hwM   = wayTags.match(/highway=(\S+)/);
+      const cycM  = wayTags.match(/cycleway=(\S+)/);
+      const surface = surfM ? surfM[1] : null;
+      const highway = hwM  ? hwM[1]  : null;
+      const cycleway = cycM ? cycM[1] : null;
+      return { dist: Math.round(cumDist * 100) / 100, elev: parseFloat(row[2]), segDist: Math.round(segDist * 1000) / 1000, surface, highway, cycleway };
     });
+    elevProfile = rows.map(r => ({ dist: r.dist, elev: r.elev }));
+    surfaceProfile = rows.map(r => ({ dist: r.dist, segDist: r.segDist, surface: r.surface, highway: r.highway, cycleway: r.cycleway }));
   }
 
   return {
     code: 'Ok', engine: 'brouter', profile,
-    routes: [{ distance: parseFloat(feat.properties?.['track-length'] || 0), geometry: feat.geometry, elevProfile }]
+    routes: [{ distance: parseFloat(feat.properties?.['track-length'] || 0), geometry: feat.geometry, elevProfile, surfaceProfile }]
   };
 }
 

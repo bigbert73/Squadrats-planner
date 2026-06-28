@@ -278,6 +278,25 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #hdr h1 span:not(.logo){display:none}
 }
 
+/* ── ROUTE SUMMARY / POI ── */
+.rs-sv-bar{height:6px;border-radius:3px;background:var(--card2);margin:6px 0 2px;overflow:hidden;display:flex}
+.rs-sv-fill{height:100%;background:#3b82f6;border-radius:3px;transition:width .4s}
+.surf-row{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--tx2);padding:2px 0}
+.surf-bar{flex:1;height:5px;border-radius:2px;background:var(--card2);overflow:hidden}
+.surf-fill{height:100%;border-radius:2px;transition:width .5s}
+.coll-head{display:flex;align-items:center;cursor:pointer;user-select:none}
+.coll-head:hover .sl{color:var(--tx2)}
+.coll-body{overflow:hidden;transition:max-height .25s ease}
+.coll-body.shut{max-height:0!important}
+.poi-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:10px;cursor:pointer}
+.poi-item:last-child{border-bottom:none}
+.poi-item:hover{color:var(--tx)}
+.poi-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px}
+.poi-name{color:var(--tx2);flex:1;line-height:1.3}
+.poi-name b{color:var(--tx);display:block;font-size:10px}
+.poi-name span{color:var(--tx3);font-size:9px}
+.poi-cat{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:8px 0 3px}
+
 /* ── USER MENU ── */
 #user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
 #user-menu-btn{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:4px 10px 4px 5px;cursor:pointer;color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;transition:all .15s}
@@ -431,6 +450,37 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <div class="wl" id="wl"><div class="hint">Kliknij mapę lub wpisz adres</div></div>
     <button class="btn btn-b mb8" onclick="setMode('waypoint')"><i class="ti ti-plus"></i>Dodaj punkt</button>
     <button class="btn btn-x" onclick="clearRoute()"><i class="ti ti-trash"></i>Wyczyść trasę</button>
+
+    <!-- ROUTE SUMMARY -->
+    <div id="route-summary" style="display:none;margin-top:10px">
+      <div class="coll-head" onclick="toggleColl('rs-body','rs-chev')">
+        <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Podsumowanie trasy</div>
+        <i class="ti ti-chevron-down" id="rs-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
+      </div>
+      <div class="coll-body" id="rs-body" style="max-height:400px">
+        <div style="margin-top:6px">
+          <div style="font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-bottom:3px">
+            <i class="ti ti-map" style="color:#3b82f6"></i>Street View
+            <span id="rs-sv-km" style="color:#3b82f6;font-family:'JetBrains Mono',monospace">—</span>
+            <span id="rs-sv-pct" style="font-size:9px"></span>
+          </div>
+          <div class="rs-sv-bar"><div class="rs-sv-fill" id="rs-sv-bar" style="width:0"></div></div>
+        </div>
+        <div id="rs-surface" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- POI PANEL -->
+    <div id="poi-panel" style="display:none;margin-top:10px">
+      <div class="coll-head" onclick="toggleColl('poi-body','poi-chev')">
+        <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Punkty na trasie</div>
+        <i class="ti ti-chevron-down" id="poi-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
+      </div>
+      <div class="coll-body" id="poi-body" style="max-height:600px">
+        <div id="poi-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div>
+      </div>
+    </div>
+
    </div>
   </div>
 
@@ -1367,7 +1417,8 @@ async function calcRoute(){
 
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
-    rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
+    // Draw route initially red; redrawn with SV colors after coverage fetch
+    drawSVColoredRoute();
     addKmMarkers(routeCoords);
     buildElevData(routeCoords, route.elevProfile||null);
     if(g('elev-panel').classList.contains('open')) drawElevChart();
@@ -1404,8 +1455,13 @@ async function calcRoute(){
       ? `BRouter/${data.profile}`
       : (data.engine === 'osrm' && data.profile !== 'standard' ? `⚠️ OSRM (BRouter niedostępny)` : 'OSRM');
     toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
-    svCovData=null; clearLyr('sv-cov');
-    if(svMode) fetchSVCoverage();
+    svCovData=null;
+    // Surface breakdown
+    processSurfaceProfile(route.surfaceProfile, dist);
+    // Always fetch SV coverage (colors the route blue/red)
+    fetchSVCoverage();
+    // POI
+    fetchPOI();
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 
@@ -1416,7 +1472,10 @@ function clearRoute(){
   elevData=[]; clearElevCursor();
   if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
-  clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov');
+  clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue');
+  clearPOI();
+  if(g('route-summary')) g('route-summary').style.display='none';
+  if(g('poi-panel')) g('poi-panel').style.display='none';
   renderWL(); previewRoute(); updDist(0);
   g('b-plan-dist').textContent = 'Plan: —';
   g('b-plan-sq').textContent = 'Nowe SQ: 0';
@@ -2066,26 +2125,238 @@ async function fetchSVCoverage(){
   try{
     const res=await fetch('/api/streetview/coverage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts})});
     const d=await res.json();
-    if(d.coverage){svCovData=d.coverage;svCovData._step=step;if(svMode)drawSVCoverage();}
+    if(d.coverage){svCovData=d.coverage;svCovData._step=step;drawSVColoredRoute();}
   }catch(e){console.warn('SV coverage',e);}
 }
 
-function drawSVCoverage(){
+// ═══════════════════════════════════════════════════════════════════════
+//  COLLAPSIBLE SECTIONS
+// ═══════════════════════════════════════════════════════════════════════
+function toggleColl(bodyId, chevId){
+  const body=g(bodyId), chev=g(chevId);
+  const shut=body.classList.toggle('shut');
+  if(chev) chev.style.transform=shut?'rotate(-90deg)':'rotate(0deg)';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SURFACE PROFILE (from BRouter)
+// ═══════════════════════════════════════════════════════════════════════
+const SURF_LABELS={
+  asphalt:'Asfalt',paved:'Utwardzona',concrete:'Beton',
+  gravel:'Szuter',fine_gravel:'Drobny żwir',compacted:'Ubity żwir',
+  unpaved:'Nieutwardzona',dirt:'Ziemia',ground:'Grunt',
+  grass:'Trawa',sand:'Piasek',
+  paving_stones:'Kostka',cobblestone:'Bruk',sett:'Bruk',
+  wood:'Drewno',metal:'Metal',
+};
+const SURF_COLORS={
+  asphalt:'#6b7280',paved:'#6b7280',concrete:'#9ca3af',
+  gravel:'#b45309',fine_gravel:'#d97706',compacted:'#ca8a04',
+  unpaved:'#65a30d',dirt:'#854d0e',ground:'#78350f',
+  grass:'#16a34a',sand:'#eab308',
+  paving_stones:'#7c3aed',cobblestone:'#6d28d9',sett:'#6d28d9',
+};
+const SURF_GROUPS={
+  'Asfalt/Beton':['asphalt','paved','concrete'],
+  'Szuter/Żwir':['gravel','fine_gravel','compacted'],
+  'Drogi gruntowe':['unpaved','dirt','ground','grass','sand','wood'],
+  'Kostka brukowa':['paving_stones','cobblestone','sett'],
+};
+
+function processSurfaceProfile(surfaceProfile, totalKm){
+  const el=g('rs-surface');
+  if(!surfaceProfile||!surfaceProfile.length){el.innerHTML='';return;}
+  const byType={};
+  surfaceProfile.forEach(s=>{
+    const key=s.surface||'unknown';
+    byType[key]=(byType[key]||0)+s.segDist;
+  });
+  const rows=Object.entries(byType).sort((a,b)=>b[1]-a[1]);
+  let html='<div style="font-size:9px;color:var(--tx3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.07em">Nawierzchnia</div>';
+  rows.forEach(([surf,km])=>{
+    const label=SURF_LABELS[surf]||surf;
+    const color=SURF_COLORS[surf]||'#4da8ff';
+    const pct=Math.round(km/totalKm*100);
+    html+=`<div class="surf-row">
+      <div style="width:72px;color:var(--tx2);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+      <div class="surf-bar"><div class="surf-fill" style="width:${pct}%;background:${color}"></div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);min-width:36px;text-align:right">${km.toFixed(1)}km</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SV COVERAGE — always draw, colored route
+// ═══════════════════════════════════════════════════════════════════════
+let svKmCovered=0;
+
+function drawSVColoredRoute(){
+  if(rLine){map.removeLayer(rLine);rLine=null;}
   clearLyr('sv-cov');
-  if(!svCovData||!routeCoords.length) return;
+  if(!routeCoords.length) return;
+  if(!svCovData){
+    // No coverage data yet — draw plain red
+    rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
+    return;
+  }
   const step=svCovData._step||5;
-  const lines=[];
-  let seg=[],lastOk=null;
+  const red=[], blue=[];
+  let redSeg=[], blueSeg=[], lastOk=null;
+  let coveredPts=0;
   routeCoords.forEach((pt,i)=>{
     const si=Math.floor(i/step);
     const ok=si<svCovData.length?svCovData[si].ok:false;
+    if(ok) coveredPts++;
     if(ok!==lastOk){
-      if(seg.length>1&&lastOk) lines.push(L.polyline(seg,{color:'#00bcd4',weight:8,opacity:.55,interactive:false,pane:'coveragePane'}));
-      seg=[L.latLng(pt.lat,pt.lng)]; lastOk=ok;
-    }else seg.push(L.latLng(pt.lat,pt.lng));
+      if(redSeg.length>1)  red.push(L.polyline(redSeg, {color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
+      if(blueSeg.length>1) blue.push(L.polyline(blueSeg,{color:'#3b82f6',weight:6,opacity:.95,interactive:false,pane:'routePane'}));
+      redSeg=[]; blueSeg=[];
+      lastOk=ok;
+    }
+    const ll=L.latLng(pt.lat,pt.lng);
+    if(ok){blueSeg.push(ll);if(redSeg.length) redSeg.push(ll);}  // overlap for seamless join
+    else  {redSeg.push(ll); if(blueSeg.length) blueSeg.push(ll);}
   });
-  if(seg.length>1&&lastOk) lines.push(L.polyline(seg,{color:'#00bcd4',weight:8,opacity:.55,interactive:false,pane:'coveragePane'}));
-  if(lines.length) LAYERS['sv-cov']=L.layerGroup(lines).addTo(map);
+  if(redSeg.length>1)  red.push(L.polyline(redSeg, {color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}));
+  if(blueSeg.length>1) blue.push(L.polyline(blueSeg,{color:'#3b82f6',weight:6,opacity:.95,interactive:false,pane:'routePane'}));
+
+  // Combine into layerGroups stored in LAYERS
+  if(red.length)  LAYERS['rt-red'] =L.layerGroup(red).addTo(map);
+  if(blue.length) LAYERS['rt-blue']=L.layerGroup(blue).addTo(map);
+
+  const totalPts=routeCoords.length;
+  const totalKm=routeCoords.length>1?compDist(routeCoords.map(p=>L.latLng(p.lat,p.lng))):0;
+  svKmCovered=totalPts>0?totalKm*(coveredPts/totalPts):0;
+  updateSVSummary(totalKm);
+}
+
+function updateSVSummary(totalKm){
+  const km=svKmCovered;
+  const pct=totalKm>0?Math.round(km/totalKm*100):0;
+  if(g('rs-sv-km'))   g('rs-sv-km').textContent=km.toFixed(1)+' km';
+  if(g('rs-sv-pct'))  g('rs-sv-pct').textContent=`(${pct}%)`;
+  if(g('rs-sv-bar'))  g('rs-sv-bar').style.width=pct+'%';
+  if(g('route-summary')) g('route-summary').style.display='block';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  POI — Overpass API
+// ═══════════════════════════════════════════════════════════════════════
+const POI_CATS=[
+  {key:'food',   label:'Jedzenie',   color:'#f97316', bg:'rgba(249,115,22,.15)', icon:'ti-tools-kitchen-2',
+   tags:['amenity=restaurant','amenity=cafe','amenity=fast_food','amenity=bar','amenity=bakery']},
+  {key:'water',  label:'Woda',       color:'#38bdf8', bg:'rgba(56,189,248,.15)', icon:'ti-droplet',
+   tags:['amenity=drinking_water']},
+  {key:'shop',   label:'Sklepy',     color:'#4ade80', bg:'rgba(74,222,128,.15)', icon:'ti-shopping-cart',
+   tags:['shop=supermarket','shop=convenience','shop=bakery','shop=sports']},
+  {key:'bike',   label:'Rower',      color:'#facc15', bg:'rgba(250,204,21,.15)', icon:'ti-bike',
+   tags:['amenity=bicycle_repair_station','amenity=bicycle_rental','shop=bicycle']},
+  {key:'view',   label:'Atrakcje',   color:'#c084fc', bg:'rgba(192,132,252,.15)', icon:'ti-eye',
+   tags:['tourism=viewpoint','tourism=attraction','tourism=museum','tourism=artwork','historic=castle','historic=monument','historic=church']},
+];
+
+let poiMarkers=[];
+function clearPOI(){
+  poiMarkers.forEach(m=>map.removeLayer(m));
+  poiMarkers=[];
+  clearLyr('poi-layer');
+}
+
+function routeBbox(){
+  if(!routeCoords.length) return null;
+  let minLat=90,maxLat=-90,minLng=180,maxLng=-180;
+  routeCoords.forEach(p=>{
+    if(p.lat<minLat) minLat=p.lat; if(p.lat>maxLat) maxLat=p.lat;
+    if(p.lng<minLng) minLng=p.lng; if(p.lng>maxLng) maxLng=p.lng;
+  });
+  const buf=0.008; // ~900m buffer
+  return{s:minLat-buf,n:maxLat+buf,w:minLng-buf,e:maxLng+buf};
+}
+
+async function fetchPOI(){
+  clearPOI();
+  const bbox=routeBbox();
+  if(!bbox) return;
+  const bboxStr=`${bbox.s},${bbox.w},${bbox.n},${bbox.e}`;
+
+  // Build Overpass query
+  const filters=POI_CATS.flatMap(c=>c.tags.map(t=>{
+    const [k,v]=t.split('=');
+    return `node["${k}"="${v}"](${bboxStr});`;
+  })).join('\n');
+  const query=`[out:json][timeout:20];\n(\n${filters}\n);\nout body 200;`;
+
+  const el=g('poi-list');
+  el.innerHTML='<div class="hint">Pobieranie punktów…</div>';
+  g('poi-panel').style.display='block';
+
+  try{
+    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(query)}`});
+    const d=await r.json();
+    if(!d.elements?.length){el.innerHTML='<div class="hint">Brak punktów na tej trasie</div>';return;}
+    renderPOI(d.elements, bbox, bboxStr);
+  }catch(e){el.innerHTML='<div class="hint" style="color:var(--red)">Błąd pobierania POI</div>';}
+}
+
+function poiCatFor(el){
+  const t=el.tags||{};
+  for(const cat of POI_CATS){
+    for(const tag of cat.tags){
+      const[k,v]=tag.split('=');
+      if(t[k]===v) return cat;
+    }
+  }
+  return null;
+}
+
+function ptOnRoute(lat,lng){
+  // Check if point is reasonably close to route (within ~300m)
+  const thresh=0.003;
+  return routeCoords.some(p=>Math.abs(p.lat-lat)<thresh&&Math.abs(p.lng-lng)<thresh);
+}
+
+function renderPOI(elements, bbox){
+  const bycat={};
+  POI_CATS.forEach(c=>{bycat[c.key]=[];});
+  elements.forEach(el=>{
+    if(!el.lat||!el.lon) return;
+    if(!ptOnRoute(el.lat,el.lon)) return;
+    const cat=poiCatFor(el);
+    if(!cat) return;
+    if(!bycat[cat.key]) bycat[cat.key]=[];
+    bycat[cat.key].push({...el, _cat:cat});
+  });
+
+  // Add map markers
+  POI_CATS.forEach(cat=>{
+    (bycat[cat.key]||[]).forEach(el=>{
+      const icon=L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
+        html:`<div style="width:22px;height:22px;border-radius:50%;background:${cat.color};border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)"><i class="ti ${cat.icon}" style="font-size:11px;color:#fff"></i></div>`});
+      const m=L.marker([el.lat,el.lon],{icon,zIndexOffset:200})
+        .bindPopup(`<b>${el.tags?.name||cat.label}</b><br><span style="font-size:11px;color:#666">${el.tags?.opening_hours||''}</span>`)
+        .addTo(map);
+      poiMarkers.push(m);
+    });
+  });
+
+  // Build list HTML
+  const el=g('poi-list');
+  let html='';
+  POI_CATS.forEach(cat=>{
+    const items=bycat[cat.key]||[];
+    if(!items.length) return;
+    html+=`<div class="poi-cat" style="color:${cat.color}">${cat.label} (${items.length})</div>`;
+    items.forEach(node=>{
+      const name=node.tags?.name||'—';
+      const sub=[node.tags?.cuisine,node.tags?.opening_hours].filter(Boolean).join(' · ')||node.tags?.amenity||node.tags?.shop||node.tags?.tourism||'';
+      html+=`<div class="poi-item" onclick="map.setView([${node.lat},${node.lon}],17)">
+        <div class="poi-icon" style="background:${cat.bg};color:${cat.color}"><i class="ti ${cat.icon}"></i></div>
+        <div class="poi-name"><b>${name}</b><span>${sub}</span></div>
+      </div>`;
+    });
+  });
+  el.innerHTML=html||'<div class="hint">Brak punktów blisko trasy</div>';
 }
 
 window.addEventListener('DOMContentLoaded',initMap);
