@@ -1094,7 +1094,7 @@ async function loadTilesFromDB(){
     applyStats(d.stats);
     redrawAll();
     hideLoad();
-    showToast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
+    toast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
   }catch(e){
     hideLoad();
     console.error('loadTilesFromDB error:', e);
@@ -1117,22 +1117,23 @@ async function refreshComputedLayers(){
   }catch(e){console.error('refreshComputedLayers',e);}
 }
 
+function setText(id,val){const el=g(id);if(el)el.textContent=val;}
 function applyStats(s){
   if(!s) return;
   statsData=s;
-  g('s-sq').textContent=s.sq||0;
-  g('s-yard').textContent=s.yard?.size||0;
-  g('s-uber').textContent=s.uber?.size||0;
-  g('s-uberN').textContent=s.uber?.size?` (${s.uber.size}×${s.uber.size})`:'';
-  g('s-sqi').textContent=s.sqi||0;
-  g('s-yardi').textContent=s.yardi?.size||0;
-  g('s-uberi').textContent=s.uberi?.size||0;
-  g('s-uberiN').textContent=s.uberi?.size?` (${s.uberi.size}×${s.uberi.size})`:'';
-  g('h-sq').textContent=s.sq||0;
-  g('h-yard').textContent=s.yard?.size||0;
-  g('h-uber').textContent=s.uber?.size||0;
-  g('h-uber2').textContent=s.uber?.size||0;
-  g('h-sqi').textContent=s.sqi||0;
+  setText('s-sq',   s.sq||0);
+  setText('s-yard',  s.yard?.size||0);
+  setText('s-uber',  s.uber?.size||0);
+  setText('s-uberN', s.uber?.size?` (${s.uber.size}×${s.uber.size})`:'');
+  setText('s-sqi',   s.sqi||0);
+  setText('s-yardi', s.yardi?.size||0);
+  setText('s-uberi', s.uberi?.size||0);
+  setText('s-uberiN',s.uberi?.size?` (${s.uberi.size}×${s.uberi.size})`:'');
+  setText('h-sq',   s.sq||0);
+  setText('h-yard',  s.yard?.size||0);
+  setText('h-uber',  s.uber?.size||0);
+  setText('h-uber2', s.uber?.size||0);
+  setText('h-sqi',   s.sqi||0);
 }
 
 async function refreshStats(){
