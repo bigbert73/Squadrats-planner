@@ -2471,22 +2471,19 @@ async function fetchPOI(){
   clearPOI();
   if(!routeCoords.length) return;
 
-  // Sample route to max 120 points to build a manageable corridor query
-  const maxPts=120;
+  // Sample route to max 80 points — keep query size manageable
+  const maxPts=80;
   const step=Math.max(1,Math.floor(routeCoords.length/maxPts));
   const sample=routeCoords.filter((_,i)=>i%step===0||i===routeCoords.length-1);
   const coords=sample.map(p=>`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(',');
-
-  // around:400 = 400m corridor along sampled route points
   const A=`(around:400,${coords})`;
-  const query=`[out:json][timeout:60];
-(
-  node["amenity"~"^(restaurant|cafe|fast_food|bar|bakery|drinking_water|bicycle_repair_station|bicycle_rental)$"]${A};
-  node["shop"~"^(supermarket|convenience|bakery|sports|bicycle)$"]${A};
-  node["tourism"~"^(viewpoint|attraction|museum|artwork)$"]${A};
-  node["historic"~"^(castle|monument|church)$"]${A};
-);
-out body 600;`;
+
+  // Individual exact-match queries per tag (same style as before, but with around: corridor)
+  const filters=POI_CATS.flatMap(c=>c.tags.map(t=>{
+    const [k,v]=t.split('=');
+    return `node["${k}"="${v}"]${A};`;
+  })).join('\n');
+  const query=`[out:json][timeout:60];\n(\n${filters}\n);\nout body 600;`;
 
   const el=g('poi-list');
   el.innerHTML='<div class="hint">Pobieranie punktów na trasie…</div>';
@@ -2495,9 +2492,10 @@ out body 600;`;
   try{
     const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(query)}`});
     const d=await r.json();
+    if(d.remark) console.warn('Overpass remark:',d.remark);
     if(!d.elements?.length){el.innerHTML='<div class="hint">Brak punktów na tej trasie</div>';return;}
     renderPOI(d.elements);
-  }catch(e){el.innerHTML='<div class="hint" style="color:var(--red)">Błąd pobierania POI</div>';}
+  }catch(e){console.error('POI fetch error',e);el.innerHTML='<div class="hint" style="color:var(--red)">Błąd pobierania POI</div>';}
 }
 
 function poiCatFor(el){
