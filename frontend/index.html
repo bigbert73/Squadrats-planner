@@ -523,8 +523,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <div class="adv-body" id="adv-body">
       <div class="sb-sec" style="margin-top:10px"><i class="ti ti-maximize"></i>Optymalizacja</div>
       <div class="opt-pills">
-        <label class="opt-pill" title="Maks. nowe Squadrats"><input type="radio" name="opt" value="sq" checked><i class="ti ti-maximize" style="color:var(--green)"></i>Nowe SQ</label>
-        <label class="opt-pill" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi"><i class="ti ti-border-all" style="color:var(--blue)"></i>SQI</label>
+        <label class="opt-pill" title="Maks. nowe Squadrats"><input type="radio" name="opt" value="sq"><i class="ti ti-maximize" style="color:var(--green)"></i>Nowe SQ</label>
+        <label class="opt-pill" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi" checked><i class="ti ti-border-all" style="color:var(--blue)"></i>SQI</label>
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
         <label class="opt-pill" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Pop.</label>
         <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
@@ -599,11 +599,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
     <div class="sl mt8">Warstwy</div>
     <div class="lgrid">
-      <button class="lb on-g" id="lb-sq-own"  onclick="togLyr('sq-own',this,'g')"><i class="ti ti-square-filled"></i>Zdob.SQ</button>
+      <button class="lb" id="lb-sq-own"  onclick="togLyr('sq-own',this,'g')"><i class="ti ti-square-filled"></i>Zdob.SQ</button>
       <button class="lb on-o" id="lb-sq-new"  onclick="togLyr('sq-new',this,'o')"><i class="ti ti-square-plus"></i>Nowe SQ</button>
-      <button class="lb on-b" id="lb-sq-yard" onclick="togLyr('sq-yard',this,'b')"><i class="ti ti-layout-grid"></i>Yard</button>
-      <button class="lb on-y" id="lb-sq-uber" onclick="togLyr('sq-uber',this,'y')"><i class="ti ti-square-rotated"></i>Über</button>
-      <button class="lb on-g" id="lb-sqi-own"  onclick="togLyr('sqi-own',this,'g')"><i class="ti ti-border-all"></i>Zdob.SQI</button>
+      <button class="lb" id="lb-sq-yard" onclick="togLyr('sq-yard',this,'b')"><i class="ti ti-layout-grid"></i>Yard</button>
+      <button class="lb" id="lb-sq-uber" onclick="togLyr('sq-uber',this,'y')"><i class="ti ti-square-rotated"></i>Über</button>
+      <button class="lb" id="lb-sqi-own"  onclick="togLyr('sqi-own',this,'g')"><i class="ti ti-border-all"></i>Zdob.SQI</button>
       <button class="lb on-o" id="lb-sqi-new"  onclick="togLyr('sqi-new',this,'o')"><i class="ti ti-border-plus"></i>Nowe SQI</button>
       <button class="lb" id="lb-sqi-yard" onclick="togLyr('sqi-yard',this,'b')"><i class="ti ti-border-outer"></i>Yardinho</button>
       <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')"><i class="ti ti-border-style-2"></i>Über SQI</button>
@@ -1015,8 +1015,8 @@ let newSQ=new Set(), newSQI=new Set();
 
 const LAYERS={};
 const VIS={
-  'sq-own':true,'sq-new':true,'sq-yard':true,'sq-uber':true,
-  'sqi-own':true,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
+  'sq-own':false,'sq-new':true,'sq-yard':false,'sq-uber':false,
+  'sqi-own':false,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
   'grid14':false,'grid17':false
 };
 
