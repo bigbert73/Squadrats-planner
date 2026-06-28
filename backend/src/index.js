@@ -3,6 +3,7 @@
  */
 
 const express      = require('express');
+const compression  = require('compression');
 const path         = require('path');
 const cookieParser = require('cookie-parser');
 const jwt          = require('jsonwebtoken');
@@ -10,6 +11,8 @@ const bcrypt       = require('bcryptjs');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
+
+app.use(compression());
 
 const JWT_SECRET = process.env.JWT_SECRET || (() => {
   console.warn('\n⚠️  JWT_SECRET nie jest ustawiony — używam domyślnego (NIEBEZPIECZNE w produkcji)!\n');
@@ -118,6 +121,7 @@ app.post('/api/auth/login', async (req, res) => {
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
   res.cookie('token', token, COOKIE_OPTS);
   res.json({ user: safeUser(user) });
+  setImmediate(() => buildUserCache(user.id));
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -221,6 +225,7 @@ function oauthSuccess(res, user) {
   const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
   res.cookie('token', token, COOKIE_OPTS);
   res.redirect('/?auth=ok');
+  setImmediate(() => buildUserCache(user.id));
 }
 
 function oauthError(res, err) {
@@ -349,6 +354,20 @@ app.get('/api/tiles/yard',     requireAuth, (req, res) => res.json(getUserCache(
 app.get('/api/tiles/uber',     requireAuth, (req, res) => res.json(getUserCache(req.userId).uber));
 app.get('/api/tiles/yardinho', requireAuth, (req, res) => res.json(getUserCache(req.userId).yardi));
 app.get('/api/tiles/uberinho', requireAuth, (req, res) => res.json(getUserCache(req.userId).uberi));
+
+// Single-request tile load: sq + sqi + yard + uber + yardinho + uberinho + stats in one call
+app.get('/api/tiles/all', requireAuth, (req, res) => {
+  const c = getUserCache(req.userId);
+  res.json({
+    sq:        c.sqRows,
+    sqi:       c.sqiRows,
+    yard:      c.yard,
+    uber:      c.uber,
+    yardinho:  c.yardi,
+    uberinho:  c.uberi,
+    stats:     c.stats,
+  });
+});
 
 // ── Route (OSRM proxy) ────────────────────────────────────────────────────────
 

@@ -997,26 +997,22 @@ async function initMap(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  LOAD TILES FROM API → memory
+//  LOAD TILES FROM API → memory  (single request for all data)
 // ═══════════════════════════════════════════════════════════════════════
 async function loadTilesFromDB(){
   showLoad('Ładowanie kwadratów z bazy…');
   try{
-    // Load SQ tiles
-    const sqRes=await fetch('/api/tiles/sq');
-    const sqRows=await sqRes.json();
-    ownedSQ.clear();
-    sqRows.forEach(r=>ownedSQ.add(tileKey(r.tx,r.ty)));
+    const d=await fetch('/api/tiles/all').then(r=>r.json());
 
-    // Load SQI tiles
-    const sqiRes=await fetch('/api/tiles/sqi');
-    const sqiRows=await sqiRes.json();
-    ownedSQI.clear();
-    sqiRows.forEach(r=>ownedSQI.add(tileKey(r.tx,r.ty)));
+    ownedSQ.clear();  d.sq.forEach(r=>ownedSQ.add(tileKey(r.tx,r.ty)));
+    ownedSQI.clear(); d.sqi.forEach(r=>ownedSQI.add(tileKey(r.tx,r.ty)));
 
-    // Load yard/uber
-    await refreshComputedLayers();
-    await refreshStats();
+    yardTiles.clear();  d.yard.tiles.forEach(t=>yardTiles.add(tileKey(t.tx,t.ty)));
+    uberTiles.clear();  d.uber.tiles.forEach(t=>uberTiles.add(tileKey(t.tx,t.ty)));
+    yardiTiles.clear(); d.yardinho.tiles.forEach(t=>yardiTiles.add(tileKey(t.tx,t.ty)));
+    uberiTiles.clear(); d.uberinho.tiles.forEach(t=>uberiTiles.add(tileKey(t.tx,t.ty)));
+
+    applyStats(d.stats);
     redrawAll();
     hideLoad();
     showToast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
@@ -1041,23 +1037,28 @@ async function refreshComputedLayers(){
   }catch(e){console.error('refreshComputedLayers',e);}
 }
 
+function applyStats(s){
+  if(!s) return;
+  statsData=s;
+  g('s-sq').textContent=s.sq||0;
+  g('s-yard').textContent=s.yard?.size||0;
+  g('s-uber').textContent=s.uber?.size||0;
+  g('s-uberN').textContent=s.uber?.size?` (${s.uber.size}×${s.uber.size})`:'';
+  g('s-sqi').textContent=s.sqi||0;
+  g('s-yardi').textContent=s.yardi?.size||0;
+  g('s-uberi').textContent=s.uberi?.size||0;
+  g('s-uberiN').textContent=s.uberi?.size?` (${s.uberi.size}×${s.uberi.size})`:'';
+  g('h-sq').textContent=s.sq||0;
+  g('h-yard').textContent=s.yard?.size||0;
+  g('h-uber').textContent=s.uber?.size||0;
+  g('h-uber2').textContent=s.uber?.size||0;
+  g('h-sqi').textContent=s.sqi||0;
+}
+
 async function refreshStats(){
   try{
     const r=await fetch('/api/stats');
-    statsData=await r.json();
-    g('s-sq').textContent=statsData.sq||0;
-    g('s-yard').textContent=statsData.yard?.size||0;
-    g('s-uber').textContent=statsData.uber?.size||0;
-    g('s-uberN').textContent=statsData.uber?.size?` (${statsData.uber.size}×${statsData.uber.size})`:'';
-    g('s-sqi').textContent=statsData.sqi||0;
-    g('s-yardi').textContent=statsData.yardi?.size||0;
-    g('s-uberi').textContent=statsData.uberi?.size||0;
-    g('s-uberiN').textContent=statsData.uberi?.size?` (${statsData.uberi.size}×${statsData.uberi.size})`:'';
-    g('h-sq').textContent=statsData.sq||0;
-    g('h-yard').textContent=statsData.yard?.size||0;
-    g('h-uber').textContent=statsData.uber?.size||0;
-    g('h-uber2').textContent=statsData.uber?.size||0;
-    g('h-sqi').textContent=statsData.sqi||0;
+    applyStats(await r.json());
   }catch(e){console.error('refreshStats',e);}
 }
 
