@@ -1377,22 +1377,26 @@ function addKmMarkers(coords){
 function buildElevData(coords, profile){
   elevData=[];
   if(!coords.length) return;
-  // Use BRouter elevProfile from backend (reliable) if available
+  // Pre-compute cumulative distances along the coordinate array (km)
+  const cumDist=[0];
+  for(let i=1;i<coords.length;i++){
+    cumDist.push(cumDist[i-1]+L.latLng(coords[i-1].lat,coords[i-1].lng).distanceTo(L.latLng(coords[i].lat,coords[i].lng))/1000);
+  }
   if(profile && profile.length){
-    let prevDist=0;
-    elevData=profile.map((p,i)=>{
-      // Find closest coord by accumulated distance
-      const frac=Math.min(p.dist/(profile[profile.length-1].dist||1),1);
-      const ci=Math.round(frac*(coords.length-1));
+    // Map each BRouter elevation point to the nearest coord by cumulative distance
+    elevData=profile.map(p=>{
+      // Binary search for closest coord index
+      let lo=0,hi=cumDist.length-1;
+      while(lo<hi){const mid=(lo+hi)>>1;if(cumDist[mid]<p.dist)lo=mid+1;else hi=mid;}
+      // Pick closer of lo and lo-1
+      const ci=(lo>0&&Math.abs(cumDist[lo-1]-p.dist)<Math.abs(cumDist[lo]-p.dist))?lo-1:lo;
       return {dist:p.dist,elev:p.elev,lat:coords[ci].lat,lng:coords[ci].lng};
     });
     return;
   }
-  // Fallback: try to use elevation from geometry coordinates
-  let dist=0;
+  // Fallback: elevation from geometry coordinates
   for(let i=0;i<coords.length;i++){
-    if(i>0) dist+=L.latLng(coords[i-1].lat,coords[i-1].lng).distanceTo(L.latLng(coords[i].lat,coords[i].lng))/1000;
-    elevData.push({dist,elev:coords[i].elev??0,lat:coords[i].lat,lng:coords[i].lng});
+    elevData.push({dist:cumDist[i],elev:coords[i].elev??0,lat:coords[i].lat,lng:coords[i].lng});
   }
 }
 

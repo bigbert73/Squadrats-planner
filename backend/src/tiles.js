@@ -356,7 +356,7 @@ function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
   const ownedSet = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
 
   // Bounding box of candidate unvisited tiles around start
-  const { tx: sTx, ty: sTy } = latLngToTile(start.lat, start.lng, Z_SQI);
+  const { x: sTx, y: sTy } = latLngToTile(start.lat, start.lng, Z_SQI);
   const degPerTile = 360 / (1 << Z_SQI);
   const kmPerTileLat = degPerTile * 111;
   const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(start.lat));
