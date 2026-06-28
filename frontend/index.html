@@ -10,10 +10,10 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#07090f;--panel:#0d1117;--card:#131a24;--card2:#1a2332;--hover:#1e2a3d;
-  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
+  --bg:#07090f;--panel:#111928;--card:#1c2b3d;--card2:#243550;--hover:#2a3d56;
+  --border:rgba(255,255,255,.1);--border2:rgba(255,255,255,.18);
   --bhi:#4da8ff;
-  --tx:#dce8f8;--tx2:#7a90ad;--tx3:#3a4f68;
+  --tx:#dce8f8;--tx2:#93a8c0;--tx3:#4f6a84;
   --green:#00e676;--orange:#ff6b35;--blue:#4da8ff;--yellow:#ffd60a;--red:#f87171;--purple:#c084fc;--cyan:#22d3ee;
   --r:8px;--r-sm:5px;--r-lg:14px;
 }
@@ -38,7 +38,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 /* ── LAYOUT ── */
 #layout{display:flex;flex:1;overflow:hidden;position:relative}
-#sb{width:280px;min-width:280px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
+#sb{width:300px;min-width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
 /* auto-hide mode: sidebar floats over map */
 #sb.sb-autohide{position:absolute;left:0;top:0;height:100%;z-index:3500;transform:translateX(-100%);box-shadow:none}
 #sb.sb-autohide.sb-peek{transform:translateX(0);box-shadow:6px 0 28px rgba(0,0,0,.55)}
@@ -142,27 +142,67 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .crb input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx);outline:none;flex:1;min-width:0}
 .crb input:focus{border-color:var(--bhi)}
 
-/* ── ADDR BLOCK ── */
-.addr-block{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px;margin-bottom:8px}
-.addr-row{display:flex;align-items:center;gap:4px;margin-bottom:5px}
-.addr-row:last-of-type{margin-bottom:0}
-.addr-ico{width:20px;text-align:center;flex-shrink:0;font-size:13px}
-.addr-row input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:4px 6px;font-size:10px;color:var(--tx);outline:none;min-width:0}
-.addr-row input:focus{border-color:var(--bhi)}
-.addr-btn{padding:5px 7px;background:var(--border);border:none;border-radius:var(--r-sm);color:var(--tx3);cursor:pointer;flex-shrink:0;font-size:12px;line-height:1}
-.addr-btn:hover{background:var(--bhi);color:var(--tx)}
-.addr-actions{display:flex;gap:6px;margin-top:7px}
-/* compact 3-col bike profile grid */
-.bp-grid{grid-template-columns:repeat(3,1fr)!important;gap:3px!important;margin-bottom:6px!important}
-.bp-grid .mb2{padding:5px 3px 4px;gap:2px;font-size:9px}
-.bp-grid .mb2 i{font-size:13px}
-/* optimization / loop as toggle button-labels */
-.opt-row{display:flex;gap:3px;margin-bottom:5px}
-.opt-lbl{display:flex;align-items:center;justify-content:center;gap:3px;padding:5px 4px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);font-size:10px;color:var(--tx3);cursor:pointer;flex:1;min-width:0;user-select:none;transition:all .15s}
-.opt-lbl input{display:none}
-.opt-lbl:has(input:checked){background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
-.opt-lbl i{font-size:11px;flex-shrink:0}
-.opt-lbl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ── PLAN TAB REDESIGN ── */
+/* Address block */
+.addr-wrap{background:var(--card);border:1.5px solid var(--border2);border-radius:12px;overflow:hidden;margin-bottom:0}
+.addr-line{display:flex;align-items:center;height:46px}
+.addr-line+.addr-line{border-top:1px solid var(--border)}
+.addr-ico-n{width:44px;height:46px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--card2)}
+.addr-line input{flex:1;background:transparent;border:none;padding:0 8px;font-size:12px;font-family:'Space Grotesk',sans-serif;color:var(--tx);outline:none;height:100%;min-width:0}
+.addr-line input::placeholder{color:var(--tx3)}
+.addr-line input:focus{background:rgba(77,168,255,.05)}
+.addr-srch{width:40px;height:46px;background:none;border:none;border-left:1px solid var(--border);color:var(--tx3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;transition:all .15s}
+.addr-srch:hover{color:var(--blue);background:rgba(77,168,255,.09)}
+/* Big calculate button */
+.calc-btn{width:100%;height:50px;background:linear-gradient(135deg,#00e676,#00c95a);color:#051a10;border:none;border-radius:10px;font-size:15px;font-weight:700;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .18s;box-shadow:0 4px 20px rgba(0,230,118,.28),0 2px 6px rgba(0,0,0,.35);margin-top:10px;letter-spacing:.01em}
+.calc-btn i{font-size:20px}
+.calc-btn:hover{filter:brightness(1.07);box-shadow:0 6px 28px rgba(0,230,118,.42),0 3px 8px rgba(0,0,0,.4);transform:translateY(-1px)}
+.calc-btn:active{transform:translateY(0);filter:brightness(.95)}
+/* Route meta: type + distance */
+.route-meta{display:flex;align-items:center;gap:8px;margin:12px 0 0}
+.loop-grp{display:flex;background:var(--bg);border-radius:8px;padding:3px;gap:2px;flex-shrink:0}
+.loop-opt{display:flex;align-items:center;justify-content:center;gap:3px;padding:5px 10px;background:none;border:none;border-radius:6px;font-size:11px;font-weight:500;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;transition:all .15s;user-select:none}
+.loop-opt input{display:none}
+.loop-opt:has(input:checked){background:var(--card2);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.dist-grp{display:flex;align-items:center;gap:6px;flex:1}
+.dist-grp input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:var(--card2);border-radius:2px;outline:none}
+.dist-grp input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--green);cursor:pointer;box-shadow:0 0 8px rgba(0,230,118,.5)}
+.dist-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);white-space:nowrap;min-width:40px;text-align:right}
+/* Section label */
+.sb-sec{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3);margin:14px 0 7px}
+.sb-sec::after{content:'';flex:1;height:1px;background:var(--border)}
+.sb-sec i{font-size:12px}
+/* Bike profiles */
+.bp-set{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:4px}
+.bp-btn{padding:10px 4px 8px;background:var(--card);border:1.5px solid var(--border);border-radius:9px;color:var(--tx2);font-size:10px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s}
+.bp-btn i{font-size:16px}
+.bp-btn.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green);box-shadow:0 0 14px rgba(0,230,118,.14)}
+.bp-btn:hover:not(.on){background:var(--hover);border-color:var(--border2);color:var(--tx)}
+/* Advanced collapsible */
+.adv-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:11px;color:var(--tx2);margin-top:12px;transition:all .15s;user-select:none}
+.adv-toggle:hover{background:var(--hover);color:var(--tx);border-color:var(--border2)}
+.adv-toggle .adv-chev{transition:transform .2s;font-size:13px}
+.adv-toggle.open .adv-chev{transform:rotate(180deg)}
+.adv-body{display:none;padding-top:4px}
+.adv-body.open{display:block}
+/* Optimization pills */
+.opt-pills{display:flex;gap:4px}
+.opt-pill{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;flex:1;user-select:none;transition:all .15s}
+.opt-pill input{display:none}
+.opt-pill i{font-size:13px}
+.opt-pill:has(input:checked){background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
+.opt-pill:hover:not(:has(input:checked)){background:var(--hover);border-color:var(--border2);color:var(--tx)}
+/* Edit mode buttons */
+.mode-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.mode-btn{padding:9px 2px 7px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--tx2);font-size:9px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s}
+.mode-btn i{font-size:14px}
+.mode-btn.on{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green)}
+.mode-btn:hover:not(.on){background:var(--hover);color:var(--tx);border-color:var(--border2)}
+/* Waypoints */
+.wp-add{width:100%;height:38px;background:transparent;border:1.5px dashed var(--border2);border-radius:9px;color:var(--tx3);font-size:11px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:4px}
+.wp-add:hover{border-color:var(--blue);color:var(--blue);background:rgba(77,168,255,.06)}
+.wp-clear{width:100%;height:36px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--tx3);font-size:11px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:6px}
+.wp-clear:hover{border-color:var(--red);color:var(--red);background:rgba(248,113,113,.07)}
 /* ── MAP ── */
 #mc{flex:1;display:flex;overflow:hidden}
 #mc-left{flex:1;position:relative;overflow:hidden}
@@ -286,7 +326,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #sb-trigger{display:none!important}
 
   /* sidebar drawer — override autohide classes on mobile */
-  #sb,#sb.sb-autohide{position:fixed;left:-100%;top:0;width:85vw;max-width:310px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none;transform:none!important}
+  #sb,#sb.sb-autohide{position:fixed;left:-100%;top:0;width:90vw;max-width:320px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none;transform:none!important}
   #sb.mob-open,#sb.sb-autohide.mob-open{left:0;box-shadow:6px 0 32px rgba(0,0,0,.6)}
   #mob-overlay{display:block}
 
@@ -428,73 +468,81 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
   <!-- TAB: TRASA -->
   <div id="tp-plan" class="tp on">
-   <div class="ps">
+   <div class="ps" style="padding:12px 14px 16px">
 
-    <!-- 1. ADRESY + OBLICZ — primary action -->
-    <div class="addr-block">
-      <div class="addr-row">
-        <div class="addr-ico"><i class="ti ti-map-pin" style="color:var(--green)"></i></div>
-        <input id="start-addr" type="text" placeholder="Adres startu…" onkeydown="if(event.key==='Enter') searchAddress('start')">
-        <button class="addr-btn" onclick="searchAddress('start')" title="Szukaj"><i class="ti ti-search"></i></button>
+    <!-- 1. ADRESY -->
+    <div class="addr-wrap">
+      <div class="addr-line">
+        <div class="addr-ico-n"><i class="ti ti-map-pin" style="color:var(--green)"></i></div>
+        <input id="start-addr" type="text" placeholder="Skąd? Wpisz adres startu…" onkeydown="if(event.key==='Enter') searchAddress('start')">
+        <button class="addr-srch" onclick="searchAddress('start')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
       </div>
-      <div class="addr-row">
-        <div class="addr-ico"><i class="ti ti-flag" style="color:#f66"></i></div>
-        <input id="end-addr" type="text" placeholder="Adres mety…" onkeydown="if(event.key==='Enter') searchAddress('end')">
-        <button class="addr-btn" onclick="searchAddress('end')" title="Szukaj"><i class="ti ti-search"></i></button>
-      </div>
-      <div class="addr-actions">
-        <button class="btn btn-g" style="flex:1" onclick="calcRoute()"><i class="ti ti-route"></i>Oblicz trasę</button>
-        <button class="btn btn-x" style="padding:7px 11px" onclick="clearRoute()" title="Wyczyść trasę"><i class="ti ti-trash"></i></button>
+      <div class="addr-line">
+        <div class="addr-ico-n"><i class="ti ti-flag" style="color:var(--red)"></i></div>
+        <input id="end-addr" type="text" placeholder="Dokąd? Wpisz adres mety…" onkeydown="if(event.key==='Enter') searchAddress('end')">
+        <button class="addr-srch" onclick="searchAddress('end')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
       </div>
     </div>
 
-    <!-- 2. PROFIL ROWERU — compact 3-col -->
-    <div class="sl">Profil roweru</div>
-    <div class="mgrid bp-grid">
-      <button class="mb2"    id="bp-standard"   onclick="setBikeProf('standard',this)"  title="OSRM — ogólny"><i class="ti ti-bike"></i>Ogólny</button>
-      <button class="mb2"    id="bp-fastbike"   onclick="setBikeProf('fastbike',this)"  title="BRouter — asfalt"><i class="ti ti-bike" style="color:var(--blue)"></i>Szosowy</button>
-      <button class="mb2"    id="bp-gravel"     onclick="setBikeProf('gravel',this)"    title="BRouter — gravel"><i class="ti ti-mountain" style="color:var(--orange)"></i>Gravel</button>
-      <button class="mb2"    id="bp-lowtraffic" onclick="setBikeProf('rowery-pl',this)" title="BRouter — spokojne drogi"><i class="ti ti-road-off" style="color:var(--yellow)"></i>Spokojny</button>
-      <button class="mb2 on" id="bp-safety"     onclick="setBikeProf('safety',this)"    title="BRouter — ścieżki rowerowe"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
-      <button class="mb2"    id="bp-mtb"        onclick="setBikeProf('mtb',this)"       title="BRouter — MTB"><i class="ti ti-trees" style="color:var(--green)"></i>MTB</button>
+    <!-- 2. OBLICZ TRASĘ — primary CTA -->
+    <button class="calc-btn" onclick="calcRoute()">
+      <i class="ti ti-route"></i> Oblicz trasę
+    </button>
+
+    <!-- 3. TYP TRASY + DŁUGOŚĆ -->
+    <div class="route-meta">
+      <div class="loop-grp">
+        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+      </div>
+      <div class="dist-grp">
+        <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km'">
+        <span class="dist-val" id="dist-lbl">50 km</span>
+      </div>
     </div>
-    <div id="bp-note" style="font-size:9px;color:var(--tx3);margin-bottom:8px;padding:4px 6px;background:var(--card);border-radius:var(--r-sm);display:none">
+
+    <!-- 4. PROFIL ROWERU -->
+    <div class="sb-sec"><i class="ti ti-bike"></i>Profil roweru</div>
+    <div class="bp-set">
+      <button class="bp-btn"    id="bp-standard"   onclick="setBikeProf('standard',this)"  title="OSRM — ogólny rower"><i class="ti ti-bike"></i>Ogólny</button>
+      <button class="bp-btn"    id="bp-fastbike"   onclick="setBikeProf('fastbike',this)"  title="BRouter — szybka trasa, asfalt"><i class="ti ti-bike" style="color:var(--blue)"></i>Szosowy</button>
+      <button class="bp-btn"    id="bp-gravel"     onclick="setBikeProf('gravel',this)"    title="BRouter — gravel, szuter"><i class="ti ti-mountain" style="color:var(--orange)"></i>Gravel</button>
+      <button class="bp-btn"    id="bp-lowtraffic" onclick="setBikeProf('rowery-pl',this)" title="BRouter — spokojne drogi, ścieżki"><i class="ti ti-road-off" style="color:var(--yellow)"></i>Spokojny</button>
+      <button class="bp-btn on" id="bp-safety"     onclick="setBikeProf('safety',this)"    title="BRouter — ścieżki rowerowe priorytet"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
+      <button class="bp-btn"    id="bp-mtb"        onclick="setBikeProf('mtb',this)"       title="BRouter — MTB, terenowy"><i class="ti ti-trees" style="color:var(--green)"></i>MTB</button>
+    </div>
+    <div id="bp-note" style="font-size:9px;color:var(--tx3);margin-bottom:6px;padding:5px 8px;background:var(--card);border-radius:7px;display:none">
       <i class="ti ti-info-circle"></i> Profile inne niż Ogólny wymagają BRouter.
     </div>
 
-    <!-- 3. OPTYMALIZACJA — toggle button-labels -->
-    <div class="sl">Optymalizacja</div>
-    <div class="opt-row">
-      <label class="opt-lbl" title="Maks. nowe Squadrats"><input type="radio" name="opt" value="sq" checked><i class="ti ti-maximize" style="color:var(--green)"></i><span>Nowe SQ</span></label>
-      <label class="opt-lbl" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi"><i class="ti ti-border-all" style="color:var(--blue)"></i><span>SQI</span></label>
-      <label class="opt-lbl" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i><span>Yard</span></label>
-      <label class="opt-lbl" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i><span>Pop.</span></label>
-      <label class="opt-lbl" title="Najkrótsza"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i><span>Naj.</span></label>
+    <!-- 5. ZAAWANSOWANE (collapsed) -->
+    <div class="adv-toggle" id="adv-toggle" onclick="toggleAdv()">
+      <span style="display:flex;align-items:center;gap:6px"><i class="ti ti-adjustments-horizontal" style="font-size:13px"></i>Zaawansowane</span>
+      <i class="ti ti-chevron-down adv-chev"></i>
     </div>
-
-    <!-- 4. TYP TRASY + DŁUGOŚĆ -->
-    <div class="opt-row" style="margin-bottom:8px">
-      <label class="opt-lbl" style="flex:1"><input type="radio" name="loop" value="ab" checked><i class="ti ti-arrow-right"></i><span>A → B</span></label>
-      <label class="opt-lbl" style="flex:1"><input type="radio" name="loop" value="loop"><i class="ti ti-refresh"></i><span>Pętla</span></label>
-      <div style="flex:2;display:flex;align-items:center;gap:4px;padding:0 4px">
-        <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km'" style="flex:1">
-        <span class="rv" id="dist-lbl" style="white-space:nowrap">50 km</span>
+    <div class="adv-body" id="adv-body">
+      <div class="sb-sec" style="margin-top:10px"><i class="ti ti-maximize"></i>Optymalizacja</div>
+      <div class="opt-pills">
+        <label class="opt-pill" title="Maks. nowe Squadrats"><input type="radio" name="opt" value="sq" checked><i class="ti ti-maximize" style="color:var(--green)"></i>Nowe SQ</label>
+        <label class="opt-pill" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi"><i class="ti ti-border-all" style="color:var(--blue)"></i>SQI</label>
+        <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
+        <label class="opt-pill" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Pop.</label>
+        <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
+      </div>
+      <div class="sb-sec" style="margin-top:10px"><i class="ti ti-cursor-text"></i>Tryb edycji</div>
+      <div class="mode-row">
+        <button class="mode-btn on" id="mb-view"     onclick="setMode('view')"><i class="ti ti-hand"></i>Widok</button>
+        <button class="mode-btn"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i>Start</button>
+        <button class="mode-btn"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i>Meta</button>
+        <button class="mode-btn"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i>Punkt</button>
       </div>
     </div>
 
-    <!-- 5. TRYB EDYCJI -->
-    <div class="sl">Tryb edycji</div>
-    <div class="mgrid mb8">
-      <button class="mb2 on" id="mb-view"     onclick="setMode('view')"><i class="ti ti-hand"></i>Widok</button>
-      <button class="mb2"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i>Start</button>
-      <button class="mb2"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i>Meta</button>
-      <button class="mb2"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i>Punkt</button>
-    </div>
-
     <!-- 6. PUNKTY POŚREDNIE -->
-    <div class="sl">Punkty pośrednie</div>
-    <div class="wl" id="wl"><div class="hint">Kliknij mapę lub wpisz adres</div></div>
-    <button class="btn btn-b mb8" onclick="setMode('waypoint')"><i class="ti ti-plus"></i>Dodaj punkt</button>
+    <div class="sb-sec" style="margin-top:14px"><i class="ti ti-map-pins"></i>Punkty pośrednie</div>
+    <div class="wl" id="wl"><div class="hint">Brak punktów — kliknij mapę lub ustaw tryb edycji</div></div>
+    <button class="wp-add" onclick="setMode('waypoint')"><i class="ti ti-plus"></i> Dodaj punkt pośredni</button>
+    <button class="wp-clear" onclick="clearRoute()"><i class="ti ti-trash"></i> Wyczyść trasę</button>
 
     <!-- ROUTE SUMMARY -->
     <div id="route-summary" style="display:none;margin-top:10px">
@@ -2024,7 +2072,7 @@ async function adminDeleteUser(id,username){
 function setMode(m){
   mode=m;
   if(svMode){svMode=false;g('mtb-sv').classList.remove('on');g('mc').classList.remove('sv-active');clearLyr('sv-cov');setTimeout(()=>map.invalidateSize(),50);}
-  document.querySelectorAll('.mb2').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('on'));
   const b=g('mb-'+m); if(b) b.classList.add('on');
   const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku'};
   const ics={start:'ti-map-pin',end:'ti-flag',waypoint:'ti-point',view:'ti-hand'};
@@ -2220,6 +2268,12 @@ async function fetchSVCoverage(){
 // ═══════════════════════════════════════════════════════════════════════
 //  COLLAPSIBLE SECTIONS
 // ═══════════════════════════════════════════════════════════════════════
+function toggleAdv(){
+  const tog=g('adv-toggle'), body=g('adv-body');
+  const open=body.classList.toggle('open');
+  tog.classList.toggle('open', open);
+}
+
 function toggleColl(bodyId, chevId){
   const body=g(bodyId), chev=g(chevId);
   const shut=body.classList.toggle('shut');
