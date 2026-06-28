@@ -149,48 +149,42 @@ function decodePolyline(str) {
 function computeYard(tileRows) {
   if (!tileRows.length) return { size: 0, tiles: [] };
 
-  // Encode each tile as a BigInt key to avoid string allocations in hot loops
+  // Encode tile coords as a single number: key = (tx - minX) * STRIDE + (ty - minY)
+  // STRIDE > height of bbox so neighbour offsets ±1 never wrap across columns.
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const r of tileRows) {
     if (r.tx < minX) minX = r.tx; if (r.tx > maxX) maxX = r.tx;
     if (r.ty < minY) minY = r.ty; if (r.ty > maxY) maxY = r.ty;
   }
-  const W = maxX - minX + 1;
-  const H = maxY - minY + 1;
+  const STRIDE = maxY - minY + 2; // +2 prevents column wrap-around
+  const enc = (tx, ty) => (tx - minX) * STRIDE + (ty - minY);
+  const decX = k => Math.floor(k / STRIDE) + minX;
+  const decY = k => (k % STRIDE) + minY;
 
-  // Flat Uint8Array: owned[dy*W+dx] = 1 if tile present
-  const owned = new Uint8Array(W * H);
-  for (const r of tileRows) owned[(r.ty - minY) * W + (r.tx - minX)] = 1;
+  const owned = new Set();
+  for (const r of tileRows) owned.add(enc(r.tx, r.ty));
 
-  // Find complete tiles (all 4 cardinal neighbours present)
-  const complete = new Uint8Array(W * H);
-  let anyComplete = false;
-  for (let dy = 1; dy < H - 1; dy++) {
-    for (let dx = 1; dx < W - 1; dx++) {
-      const i = dy * W + dx;
-      if (owned[i] && owned[i - W] && owned[i + W] && owned[i - 1] && owned[i + 1]) {
-        complete[i] = 1; anyComplete = true;
-      }
-    }
+  // Complete tiles: all 4 cardinal neighbours present
+  const complete = new Set();
+  for (const k of owned) {
+    if (owned.has(k - STRIDE) && owned.has(k + STRIDE) && owned.has(k - 1) && owned.has(k + 1))
+      complete.add(k);
   }
-  if (!anyComplete) return { size: 0, tiles: [] };
+  if (!complete.size) return { size: 0, tiles: [] };
 
-  // BFS connected components — track indices, not strings
-  const visited = new Uint8Array(W * H);
+  // BFS connected components on integer keys
+  const visited = new Set();
   let best = [];
-
-  for (let si = 0; si < W * H; si++) {
-    if (!complete[si] || visited[si]) continue;
+  for (const start of complete) {
+    if (visited.has(start)) continue;
     const comp = [];
-    const queue = [si];
-    visited[si] = 1;
+    const queue = [start];
+    visited.add(start);
     while (queue.length) {
-      const i = queue.pop();
-      comp.push(i);
-      for (const ni of [i - W, i + W, i - 1, i + 1]) {
-        if (ni >= 0 && ni < W * H && complete[ni] && !visited[ni]) {
-          visited[ni] = 1; queue.push(ni);
-        }
+      const k = queue.pop();
+      comp.push(k);
+      for (const nk of [k - STRIDE, k + STRIDE, k - 1, k + 1]) {
+        if (!visited.has(nk) && complete.has(nk)) { visited.add(nk); queue.push(nk); }
       }
     }
     if (comp.length > best.length) best = comp;
@@ -198,7 +192,7 @@ function computeYard(tileRows) {
 
   return {
     size:  best.length,
-    tiles: best.map(i => ({ tx: minX + (i % W), ty: minY + Math.floor(i / W) })),
+    tiles: best.map(k => ({ tx: decX(k), ty: decY(k) })),
   };
 }
 
