@@ -199,50 +199,41 @@ function computeYard(tileRows) {
 // ── Übersquadrat algorithm ──────────────────────────────────────────────────
 //
 // Largest axis-aligned square sub-grid fully filled with visited tiles.
-// Classic 2-D DP on a flat Uint16Array — avoids string-key Set lookups.
-// Bounding box is capped at 2048×2048 to keep it fast for world-wide tracks.
+// Sparse DP: process tiles sorted in row-major order. For each tile (tx,ty),
+// dp = min(dp[tx-1,ty], dp[tx,ty-1], dp[tx-1,ty-1]) + 1.
+// O(N log N) time, O(N) space — correct for any geographic spread.
 
 function computeUber(tileRows) {
   if (!tileRows.length) return { size: 0, tiles: [] };
 
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const r of tileRows) {
-    if (r.tx < minX) minX = r.tx; if (r.tx > maxX) maxX = r.tx;
-    if (r.ty < minY) minY = r.ty; if (r.ty > maxY) maxY = r.ty;
-  }
+  // Sort row-major so each tile's three DP predecessors are already computed
+  const sorted = tileRows.slice().sort((a, b) => a.ty !== b.ty ? a.ty - b.ty : a.tx - b.tx);
 
-  const W = Math.min(maxX - minX + 1, 2048);
-  const H = Math.min(maxY - minY + 1, 2048);
+  // Encode (tx,ty) as a single safe integer — zoom ≤17 so tx,ty < 2^17 = 131072
+  const STRIDE = 200000;
+  const key = (tx, ty) => ty * STRIDE + tx;
 
-  // Flat owned bitmap
-  const owned = new Uint8Array(W * H);
-  for (const r of tileRows) {
-    const dx = r.tx - minX, dy = r.ty - minY;
-    if (dx >= 0 && dx < W && dy >= 0 && dy < H) owned[dy * W + dx] = 1;
-  }
+  const dp = new Map();
+  let bestSide = 0, bestX = 0, bestY = 0;
 
-  // Flat DP array: dp[(row)*(W+1)+col]
-  const dp = new Uint16Array((H + 1) * (W + 1));
-  let bestSide = 0, bestCol = 0, bestRow = 0;
-
-  for (let row = 1; row <= H; row++) {
-    for (let col = 1; col <= W; col++) {
-      if (owned[(row - 1) * W + (col - 1)]) {
-        const v = Math.min(dp[(row-1)*(W+1)+col], dp[row*(W+1)+col-1], dp[(row-1)*(W+1)+col-1]) + 1;
-        dp[row*(W+1)+col] = v;
-        if (v > bestSide) { bestSide = v; bestCol = col; bestRow = row; }
-      }
-    }
+  for (const { tx, ty } of sorted) {
+    const v = Math.min(
+      dp.get(key(tx - 1, ty))     || 0,
+      dp.get(key(tx,     ty - 1)) || 0,
+      dp.get(key(tx - 1, ty - 1)) || 0
+    ) + 1;
+    dp.set(key(tx, ty), v);
+    if (v > bestSide) { bestSide = v; bestX = tx; bestY = ty; }
   }
 
   if (!bestSide) return { size: 0, tiles: [] };
 
-  const x0 = minX + bestCol - bestSide;
-  const y0 = minY + bestRow - bestSide;
+  const x0 = bestX - bestSide + 1;
+  const y0 = bestY - bestSide + 1;
   const tiles = [];
   for (let dy = 0; dy < bestSide; dy++)
     for (let dx = 0; dx < bestSide; dx++)
-      tiles.push({ tx: x0+dx, ty: y0+dy });
+      tiles.push({ tx: x0 + dx, ty: y0 + dy });
 
   return { size: bestSide, tiles };
 }
