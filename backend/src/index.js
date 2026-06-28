@@ -469,7 +469,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
 
   // Kwadratownia: greedy nearest-unvisited-SQI algorithm
   if (kwadratownia) {
-    const kpts = tiles.buildKwadratowniaWaypoints(start, targetKm || 20, c.sqiRows);
+    const kpts = tiles.buildKwadratowniaWaypoints(start, end, targetKm || 20, c.sqiRows);
     if (kpts.length < 3) return res.status(500).json({ error: 'Brak wolnych SQI w zasięgu trasy' });
     try { return res.json(await fetchRoute(kpts, bikeProfile)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }

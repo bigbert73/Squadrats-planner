@@ -352,22 +352,28 @@ function buildDetourWaypoints(waypoints, ownedSQ, ownedSQI, mode, targetKm = 0) 
 // closer to start). Stop when within 1.5 km of start or waypoint cap is reached.
 // Last 1-2 km approaching home may share roads — expected and acceptable.
 
-function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
+// end === start (or null) → loop mode; end ≠ start → A→B mode.
+function buildKwadratowniaWaypoints(start, end, targetKm, sqiRows) {
+  const dest    = end || start;
+  const isLoop  = haversineDistance(start, dest) < 0.5;
   const ownedSet = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
 
-  // Bounding box of candidate unvisited tiles around start
-  const { x: sTx, y: sTy } = latLngToTile(start.lat, start.lng, Z_SQI);
-  const degPerTile = 360 / (1 << Z_SQI);
+  // Search area: loop → around start; A→B → around midpoint of A-B
+  const center = isLoop ? start : { lat: (start.lat + dest.lat) / 2, lng: (start.lng + dest.lng) / 2 };
+  const searchKm = isLoop
+    ? targetKm * 0.65
+    : Math.max(haversineDistance(start, dest) * 0.8, targetKm * 0.4);
+
+  const { x: sTx, y: sTy } = latLngToTile(center.lat, center.lng, Z_SQI);
+  const degPerTile  = 360 / (1 << Z_SQI);
   const kmPerTileLat = degPerTile * 111;
-  const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(start.lat));
-  const searchKm = targetKm * 0.65;
+  const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(center.lat));
   const radX = Math.ceil(searchKm / kmPerTileLng);
   const radY = Math.ceil(searchKm / kmPerTileLat);
 
-  // Use one tileNW call + linear offsets (fast, error < 0.5% over 30 km)
-  const nw0 = tileNW(sTx, sTy, Z_SQI);
-  const nw1 = tileNW(sTx + 1, sTy + 1, Z_SQI);
-  const dLat = nw0.lat - nw1.lat; // positive: tile y increases southward
+  const nw0  = tileNW(sTx, sTy, Z_SQI);
+  const nw1  = tileNW(sTx + 1, sTy + 1, Z_SQI);
+  const dLat = nw0.lat - nw1.lat;
 
   const candidates = [];
   for (let dy = -radY; dy <= radY; dy++) {
@@ -381,13 +387,12 @@ function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
       }
     }
   }
-  if (!candidates.length) return [start, start];
+  if (!candidates.length) return [start, dest];
 
-  const visited = new Set();
-  const waypoints  = [start];
-  let cur  = { lat: start.lat, lng: start.lng };
+  const visited  = new Set();
+  const waypoints = [start];
+  let cur   = { lat: start.lat, lng: start.lng };
   let cumKm = 0;
-  const halfKm = targetKm / 2;
   const MAX_PER_PHASE = 20;
 
   function nearestUnvisited(from, dirDx, dirDy) {
@@ -395,7 +400,6 @@ function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
     for (const c of candidates) {
       if (visited.has(c.key)) continue;
       const dx = c.lng - from.lng, dy = c.lat - from.lat;
-      // direction filter: dot product must be positive (toward home) when provided
       if (dirDx !== null && dx * dirDx + dy * dirDy <= 0) continue;
       const sd = dx * dx + dy * dy;
       if (sd < bestSd) { bestSd = sd; best = c; }
@@ -403,32 +407,48 @@ function buildKwadratowniaWaypoints(start, targetKm, sqiRows) {
     return best;
   }
 
-  // Phase 1: outbound
-  for (let i = 0; i < MAX_PER_PHASE; i++) {
-    const best = nearestUnvisited(cur, null, null);
-    if (!best) break;
-    const d = haversineDistance(cur, best);
-    if (cumKm + d > halfKm) break;
-    visited.add(best.key);
-    waypoints.push({ lat: best.lat, lng: best.lng });
-    cumKm += d;
-    cur = best;
+  if (isLoop) {
+    // Phase 1: outbound in any direction up to halfKm
+    const halfKm = targetKm / 2;
+    for (let i = 0; i < MAX_PER_PHASE; i++) {
+      const best = nearestUnvisited(cur, null, null);
+      if (!best) break;
+      const d = haversineDistance(cur, best);
+      if (cumKm + d > halfKm) break;
+      visited.add(best.key);
+      waypoints.push({ lat: best.lat, lng: best.lng });
+      cumKm += d;
+      cur = best;
+    }
+    // Phase 2: return toward start
+    for (let i = 0; i < MAX_PER_PHASE; i++) {
+      if (haversineDistance(cur, start) < 1.5) break;
+      const hx = start.lng - cur.lng, hy = start.lat - cur.lat;
+      const best = nearestUnvisited(cur, hx, hy);
+      if (!best) break;
+      visited.add(best.key);
+      waypoints.push({ lat: best.lat, lng: best.lng });
+      cumKm += haversineDistance(cur, best);
+      cur = best;
+    }
+  } else {
+    // A→B: always move toward destination, stop at 80% of targetKm
+    const stopKm = targetKm * 0.8;
+    for (let i = 0; i < MAX_PER_PHASE * 2; i++) {
+      if (haversineDistance(cur, dest) < 1.5) break;
+      const hx = dest.lng - cur.lng, hy = dest.lat - cur.lat;
+      const best = nearestUnvisited(cur, hx, hy);
+      if (!best) break;
+      const d = haversineDistance(cur, best);
+      if (cumKm + d > stopKm) break;
+      visited.add(best.key);
+      waypoints.push({ lat: best.lat, lng: best.lng });
+      cumKm += d;
+      cur = best;
+    }
   }
 
-  // Phase 2: return toward start
-  for (let i = 0; i < MAX_PER_PHASE; i++) {
-    if (haversineDistance(cur, start) < 1.5) break;
-    const hx = start.lng - cur.lng, hy = start.lat - cur.lat;
-    const best = nearestUnvisited(cur, hx, hy);
-    if (!best) break;
-    const d = haversineDistance(cur, best);
-    visited.add(best.key);
-    waypoints.push({ lat: best.lat, lng: best.lng });
-    cumKm += d;
-    cur = best;
-  }
-
-  waypoints.push(start);
+  waypoints.push(dest);
   return waypoints;
 }
 
