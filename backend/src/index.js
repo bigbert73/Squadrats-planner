@@ -602,7 +602,10 @@ app.post('/api/streetview/coverage', async (req, res) => {
       const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${p.lat},${p.lng}&source=outdoor&key=${key}`;
       const r = await fetch(url);
       const d = await r.json();
-      return { lat: p.lat, lng: p.lng, ok: d.status === 'OK' };
+      if (d.status === 'OK' && d.location) {
+        return { lat: p.lat, lng: p.lng, ok: true, pLat: d.location.lat, pLng: d.location.lng };
+      }
+      return { lat: p.lat, lng: p.lng, ok: false };
     }));
     res.json({ coverage });
   } catch { res.json({ coverage: null }); }
