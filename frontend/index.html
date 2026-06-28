@@ -1415,11 +1415,7 @@ function drawElevChart(){
     elevCursor=L.marker([pt.lat,pt.lng],{icon:ci,interactive:false,zIndexOffset:600}).addTo(map);
     map.panTo([pt.lat,pt.lng],{animate:false,noMoveStart:true});
   };
-  wrap.onmouseleave=()=>{
-    const old=svg.querySelector('.ev-cursor'); if(old) old.remove();
-    g('elev-tip').style.display='none';
-    clearElevCursor();
-  };
+  wrap.onmouseleave=()=>{};
 }
 
 async function calcRoute(){
