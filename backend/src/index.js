@@ -501,7 +501,7 @@ app.get('/api/komoot/tour', requireAuth, async (req, res) => {
   if (!url) return res.status(400).json({ error: 'Brak URL' });
 
   // Support: /tour/ID, /t/ID, /pl-pl/tour/ID, /pl-pl/smarttour/ID, /smarttour/ID
-  const m = url.match(/komoot\.(?:com|de)\/(?:[a-z]{2}-[a-z]{2}\/)?(?:smart)?(?:tour|t)\/(\d+)/i);
+  const m = url.match(/komoot\.(?:com|de)\/(?:[a-z]{2}-[a-z]{2}\/)?(?:smart)?(?:tour|t)\/([a-z0-9]+)/i);
   if (!m) return res.status(400).json({ error: 'Nieprawidłowy link Komoot. Wklej URL trasy, np. https://www.komoot.com/tour/1234567890 lub https://www.komoot.com/pl-pl/smarttour/40291321' });
 
   const id = m[1];
@@ -536,7 +536,7 @@ app.get('/api/komoot/tour', requireAuth, async (req, res) => {
         return res.status(htmlR.status).json({ error: `Komoot błąd ${htmlR.status}` });
       }
       const html = await htmlR.text();
-      const dtm = html.match(/discover_tours\/(\d+)/);
+      const dtm = html.match(/discover_tours\/([a-z0-9]+)/i);
       if (dtm) result = await fetchTour(`discover_tours/${dtm[1]}`);
       if (!result) result = await fetchTour(`smart_tours/${id}`);
     } else {
