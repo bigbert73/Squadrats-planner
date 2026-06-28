@@ -491,12 +491,16 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
       const inCoords   = inData.routes[0].geometry.coordinates;
       const outElev    = outData.routes[0].elevProfile || [];
       const inElev     = inData.routes[0].elevProfile  || [];
+      const elevOffset = outElev.length ? outElev[outElev.length - 1].dist : 0;
+      const mergedElev = outElev.length && inElev.length
+        ? [...outElev, ...inElev.map(p => ({ ...p, dist: p.dist + elevOffset }))]
+        : null;
       return res.json({
         code: 'Ok', engine: outData.engine, profile: outData.profile,
         routes: [{
           distance:    (outData.routes[0].distance || 0) + (inData.routes[0].distance || 0),
           geometry:    { type: 'LineString', coordinates: [...outCoords, ...inCoords.slice(1)] },
-          elevProfile: outElev.length && inElev.length ? [...outElev, ...inElev] : null,
+          elevProfile: mergedElev,
         }],
       });
     } catch (e) {
