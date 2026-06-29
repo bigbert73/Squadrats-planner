@@ -8,6 +8,7 @@ const path         = require('path');
 const cookieParser = require('cookie-parser');
 const jwt          = require('jsonwebtoken');
 const bcrypt       = require('bcryptjs');
+const { rateLimit } = require('express-rate-limit');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -82,13 +83,33 @@ function safeUser(user) {
   };
 }
 
+// ── Rate limiters ─────────────────────────────────────────────────────────────
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 godzina
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zbyt wiele prób rejestracji. Spróbuj ponownie za godzinę.' },
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minut
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Zbyt wiele prób logowania. Spróbuj ponownie za 15 minut.' },
+});
+
 // ── Auth routes ───────────────────────────────────────────────────────────────
 
-app.post('/api/auth/register', async (req, res) => {
+const PASSWORD_POLICY = /^(?=.*[0-9]).{8,}$/; // min 8 znaków + co najmniej 1 cyfra
+
+app.post('/api/auth/register', registerLimiter, async (req, res) => {
   const { username, password, email, strava_client_id, strava_client_secret } = req.body;
   if (!username?.trim() || !password) return res.status(400).json({ error: 'Nazwa użytkownika i hasło są wymagane' });
   if (username.trim().length < 3)     return res.status(400).json({ error: 'Nazwa użytkownika min. 3 znaki' });
-  if (password.length < 6)            return res.status(400).json({ error: 'Hasło min. 6 znaków' });
+  if (!PASSWORD_POLICY.test(password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
 
   if (db.getUserByUsername(username.trim())) return res.status(409).json({ error: 'Nazwa użytkownika jest zajęta' });
   if (email && db.getUserByEmail(email))     return res.status(409).json({ error: 'Email jest już zarejestrowany' });
@@ -110,7 +131,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Wymagana nazwa i hasło' });
   const user = db.getUserByUsername(username) || db.getUserByEmail(username);
@@ -146,7 +167,7 @@ app.put('/api/profile/strava', requireAuth, (req, res) => {
 app.put('/api/profile/password', requireAuth, async (req, res) => {
   const { current_password, new_password } = req.body;
   if (!current_password || !new_password) return res.status(400).json({ error: 'Wymagane oba hasła' });
-  if (new_password.length < 6) return res.status(400).json({ error: 'Nowe hasło min. 6 znaków' });
+  if (!PASSWORD_POLICY.test(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
   const user = db.getUserById(req.userId);
   if (!user.password_hash) return res.status(400).json({ error: 'Konto social login nie ma hasła. Możesz ustawić nowe hasło bez podawania obecnego.' });
   if (!await bcrypt.compare(current_password, user.password_hash))
@@ -165,7 +186,7 @@ app.put('/api/profile/home', requireAuth, (req, res) => {
 
 app.put('/api/profile/set-password', requireAuth, async (req, res) => {
   const { new_password } = req.body;
-  if (!new_password || new_password.length < 6) return res.status(400).json({ error: 'Hasło min. 6 znaków' });
+  if (!new_password || !PASSWORD_POLICY.test(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
   const user = db.getUserById(req.userId);
   if (user.password_hash) return res.status(400).json({ error: 'Konto ma już hasło. Użyj opcji zmiany hasła.' });
   db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
