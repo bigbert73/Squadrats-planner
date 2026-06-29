@@ -488,12 +488,15 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <button class="calc-btn" onclick="calcRoute()">
       <i class="ti ti-route"></i> Oblicz trasę
     </button>
+    <button id="return-leg-btn" class="calc-btn" style="display:none;margin-top:6px;background:var(--panel);border:1px solid var(--border2);color:var(--tx2);font-size:12px" onclick="addReturnLeg()">
+      <i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą
+    </button>
 
     <!-- 3. TYP TRASY + DŁUGOŚĆ -->
     <div class="route-meta">
       <div class="loop-grp">
         <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
-        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex'"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex';g('return-leg-btn').style.display='none';hasReturnLeg=false;outboundRouteData=null"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
       </div>
       <label id="avoid-return-grp" class="opt-pill" style="display:none;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
         <input type="checkbox" id="avoid-return-cb">
@@ -1012,6 +1015,7 @@ let mode='view', wpts=[], rLine=null, routeCoords=[];
 let kmMarkers=[], elevData=[], elevCursor=null;
 let svMode=false, svCovData=null, svMarker=null;
 let bikeProfile='safety';
+let hasReturnLeg=false, outboundRouteData=null;
 
 let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
@@ -1570,14 +1574,27 @@ async function calcRoute(){
     const engineLabel = data.engine === 'brouter'
       ? `BRouter/${data.profile}`
       : (data.engine === 'osrm' && data.profile !== 'standard' ? `⚠️ OSRM (BRouter niedostępny)` : 'OSRM');
-    toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
     svCovData=null;
-    // Surface breakdown
     processSurfaceProfile(route.surfaceProfile, dist);
-    // Always fetch SV coverage (colors the route blue/red)
     fetchSVCoverage();
-    // POI
     fetchPOI();
+
+    if(!loop){
+      outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
+      if(hasReturnLeg){
+        toast(`✅ A→B ${dist.toFixed(1)}km · ${engineLabel}`);
+        await addReturnLeg();
+      }else{
+        toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
+        const btn=g('return-leg-btn');
+        btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';
+        btn.onclick=addReturnLeg;
+        btn.style.display='flex';
+      }
+    }else{
+      toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
+      g('return-leg-btn').style.display='none';
+    }
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 
@@ -1598,7 +1615,91 @@ function clearRoute(){
   g('b-plan-sqi').textContent = 'Nowe SQI: 0';
   g('b-sq').textContent='—'; g('b-new').textContent='—'; g('b-newi').textContent='—';
   g('h-new').textContent='0'; g('s-sq-new').textContent='0'; g('s-sqi-new').textContent='0';
+  hasReturnLeg=false; outboundRouteData=null;
+  g('return-leg-btn').style.display='none';
   toast('Trasa wyczyszczona');
+}
+
+async function addReturnLeg(){
+  if(!outboundRouteData||wpts.length<2) return;
+  const B=wpts[wpts.length-1].marker.getLatLng();
+  const A=wpts[0].marker.getLatLng();
+  const opt=document.querySelector('input[name="opt"]:checked').value;
+  showLoad('Obliczam powrót…');
+  try{
+    const res=await fetch('/api/route/detour',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({waypoints:[{lat:B.lat,lng:B.lng},{lat:A.lat,lng:A.lng}],mode:opt,loop:false,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:false,kwadratownia:false,returnLeg:true})
+    });
+    if(!res.ok) throw new Error('routing error '+res.status);
+    const data=await res.json();
+    if(!data.routes?.length) throw new Error('Brak trasy powrotnej');
+    const retRoute=data.routes[0];
+    const retCoords=retRoute.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
+    const outElev=outboundRouteData.elevProfile||[];
+    const retElev=retRoute.elevProfile||[];
+    const elevOffset=outElev.length?outElev[outElev.length-1].dist:0;
+    const combinedElev=outElev.length&&retElev.length?[...outElev,...retElev.map(p=>({...p,dist:p.dist+elevOffset}))]:null;
+    routeCoords=[...outboundRouteData.coords,...retCoords.slice(1)];
+    hasReturnLeg=true;
+    drawSVColoredRoute();
+    addKmMarkers(routeCoords);
+    buildElevData(routeCoords,combinedElev);
+    if(g('elev-panel').classList.contains('open')) drawElevChart();
+    const totalDist=(outboundRouteData.distance+(retRoute.distance||0))/1000;
+    updDist(totalDist);
+    const prvRes=await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})});
+    const prv=await prvRes.json();
+    newSQ.clear(); prv.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
+    newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
+    if(VIS['sq-new'])  renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
+    if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
+    g('b-plan-dist').textContent=`Plan: ${totalDist.toFixed(1)} km`;
+    g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
+    g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
+    g('h-new').textContent=newSQ.size+newSQI.size;
+    g('s-sq-new').textContent=newSQ.size;
+    g('s-sqi-new').textContent=newSQI.size;
+    const btn=g('return-leg-btn');
+    btn.innerHTML='<i class="ti ti-x"></i> Usuń powrót';
+    btn.style.color='var(--red)';
+    btn.onclick=removeReturnLeg;
+    svCovData=null; fetchSVCoverage();
+    hideLoad();
+    const engineLabel=data.engine==='brouter'?`BRouter/${data.profile}`:'OSRM';
+    toast(`✅ Pętla ${totalDist.toFixed(1)}km · ${newSQ.size} SQ · ${newSQI.size} SQI · ${engineLabel}`);
+  }catch(e){hideLoad();toast('Błąd powrotu: '+e.message);}
+}
+
+function removeReturnLeg(){
+  if(!outboundRouteData) return;
+  hasReturnLeg=false;
+  routeCoords=outboundRouteData.coords.slice();
+  drawSVColoredRoute();
+  addKmMarkers(routeCoords);
+  buildElevData(routeCoords,outboundRouteData.elevProfile);
+  if(g('elev-panel').classList.contains('open')) drawElevChart();
+  const dist=outboundRouteData.distance/1000;
+  updDist(dist);
+  const btn=g('return-leg-btn');
+  btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';
+  btn.style.color='var(--tx2)';
+  btn.onclick=addReturnLeg;
+  fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})
+    .then(r=>r.json()).then(prv=>{
+      newSQ.clear(); prv.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
+      newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
+      if(VIS['sq-new'])  renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
+      if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
+      g('b-plan-dist').textContent=`Plan: ${dist.toFixed(1)} km`;
+      g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
+      g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
+      g('h-new').textContent=newSQ.size+newSQI.size;
+      g('s-sq-new').textContent=newSQ.size;
+      g('s-sqi-new').textContent=newSQI.size;
+      svCovData=null; fetchSVCoverage();
+    });
 }
 
 function exportGPX(){
