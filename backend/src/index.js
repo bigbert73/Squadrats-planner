@@ -410,9 +410,9 @@ async function fetchOsrmRoute(points) {
   return r.data;
 }
 
-async function fetchBRouterRoute(points, profile) {
+async function fetchBRouterRoute(points, profile, altIdx = 0) {
   const lonlats = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join('|');
-  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=0&format=geojson&timeout=60`;
+  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=${altIdx}&format=geojson&timeout=60`;
   const r = await axios.get(url, { timeout: 90000 });
   const feat = r.data?.features?.[0];
   if (!feat) throw new Error('BRouter: pusta odpowiedź');
@@ -444,9 +444,9 @@ async function fetchBRouterRoute(points, profile) {
   };
 }
 
-async function fetchRoute(points, bikeProfile) {
+async function fetchRoute(points, bikeProfile, altIdx = 0) {
   if (bikeProfile && bikeProfile !== 'standard') {
-    try { return await fetchBRouterRoute(points, bikeProfile); }
+    try { return await fetchBRouterRoute(points, bikeProfile, altIdx); }
     catch (e) { console.warn(`BRouter (${bikeProfile}) failed, falling back to OSRM:`, e.message); }
   }
   const data = await fetchOsrmRoute(points);
@@ -456,7 +456,8 @@ async function fetchRoute(points, bikeProfile) {
 function routeDistanceKm(d) { return d?.routes?.[0]?.distance / 1000 || 0; }
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, kwadratownia = false } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, kwadratownia = false, returnLeg = false } = req.body;
+  const altIdx = returnLeg ? 1 : 0;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -517,7 +518,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   }
 
   if (mode === 'shortest') {
-    try { return res.json(await fetchRoute(pts, bikeProfile)); }
+    try { return res.json(await fetchRoute(pts, bikeProfile, altIdx)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
@@ -526,13 +527,13 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   // adds unnecessary BRouter requests and unhelpful waypoints.
   const directKm = tiles.haversineDistance(start, waypoints[waypoints.length - 1]);
   if (!loop && !samePoint && directKm > 80) {
-    try { return res.json(await fetchRoute(pts, bikeProfile)); }
+    try { return res.json(await fetchRoute(pts, bikeProfile, altIdx)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
   const tolerance = 0.15, target = Math.max(0, targetKm);
   let routeData;
-  try { routeData = await fetchRoute(pts, bikeProfile); }
+  try { routeData = await fetchRoute(pts, bikeProfile, altIdx); }
   catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
 
   const baseKm = routeDistanceKm(routeData);
@@ -554,7 +555,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
     const detourPts = tiles.buildDetourWaypoints(pts, ownedSQSet, ownedSQISet, mode, currentTarget / roadFactor);
     if (detourPts.length < 2) break;
     let dd;
-    try { dd = await fetchRoute(detourPts, bikeProfile); } catch { break; }
+    try { dd = await fetchRoute(detourPts, bikeProfile, altIdx); } catch { break; }
     const km = routeDistanceKm(dd);
     const diff = Math.abs(km - target);
     if (diff < best.diff) best = { data: dd, diff };
