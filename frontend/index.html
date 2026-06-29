@@ -46,8 +46,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #sb-trigger{display:none;position:absolute;left:0;top:0;width:24px;height:100%;z-index:3400;cursor:pointer}
 #sb-trigger.active{display:block}
 /* pin button */
-#sb-pin{width:28px;height:28px;background:none;border:none;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:16px;transition:all .15s}
-#sb-pin:hover{color:var(--tx);background:var(--hover)}
+#sb-pin{width:28px;height:28px;background:none;border:none;color:var(--tx);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:16px;transition:all .15s}
+#sb-pin:hover{background:var(--hover)}
 #sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
 .tb{flex:1;padding:9px 3px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
 .tb i{font-size:13px}.tb.on{color:var(--green);border-bottom-color:var(--green)}.tb:hover:not(.on){color:var(--tx);background:var(--hover)}
@@ -2155,7 +2155,7 @@ function applySbPin(){
   const sb=g('sb'), pin=g('sb-pin'), trig=g('sb-trigger');
   if(sbPinned){
     sb.classList.remove('sb-autohide','sb-peek');
-    if(pin){pin.classList.add('pinned');pin.innerHTML='<i class="ti ti-pin-filled"></i>';}
+    if(pin){pin.classList.add('pinned');pin.innerHTML='<i class="ti ti-pin"></i>';}
     if(trig) trig.classList.remove('active');
   }else{
     sb.classList.add('sb-autohide');
