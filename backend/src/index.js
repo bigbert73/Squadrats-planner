@@ -23,7 +23,7 @@ const COOKIE_OPTS = {
   httpOnly: true,
   secure:   process.env.COOKIE_SECURE === 'true',
   sameSite: 'lax',
-  maxAge:   30 * 24 * 60 * 60 * 1000,
+  maxAge:   8 * 60 * 60 * 1000,
 };
 
 app.use(express.json({ limit: '50mb' }));
@@ -102,7 +102,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
     db.updateLastLogin(userId);
     const user  = db.getUserById(userId);
-    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '8h' });
     res.cookie('token', token, COOKIE_OPTS);
     res.json({ user: safeUser(user) });
   } catch (e) {
@@ -118,7 +118,7 @@ app.post('/api/auth/login', async (req, res) => {
   const ok = await bcrypt.compare(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'Nieprawidłowe dane logowania' });
   db.updateLastLogin(user.id);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, COOKIE_OPTS);
   res.json({ user: safeUser(user) });
   setImmediate(() => buildUserCache(user.id));
@@ -222,7 +222,7 @@ function oauthState() {
 
 function oauthSuccess(res, user) {
   db.updateLastLogin(user.id);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '8h' });
   res.cookie('token', token, COOKIE_OPTS);
   res.redirect('/?auth=ok');
   setImmediate(() => buildUserCache(user.id));
