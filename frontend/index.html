@@ -643,6 +643,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <input type="file" id="gpx-in" accept=".gpx" multiple style="display:none" onchange="importGPX(event)">
     <button class="btn" style="background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.35);color:#ff6b35" onclick="openKomootModal()"><i class="ti ti-mountains"></i>Importuj z Komoot</button>
     <button class="btn btn-x" onclick="exportGPX()"><i class="ti ti-download"></i>Eksportuj trasę GPX</button>
+    <button class="btn btn-x" onclick="exportGPXGarmin()" title="GPX z danymi wysokości, gotowy do importu jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
    </div>
   </div>
 
@@ -1713,6 +1714,40 @@ function exportGPX(){
   a.download='squadrats_'+new Date().toISOString().slice(0,10)+'.gpx';
   a.click();
   toast('GPX wyeksportowany');
+}
+
+function exportGPXGarmin(){
+  const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng,elev:0}));
+  if(!pts.length){toast('Brak trasy do eksportu');return;}
+  const now=new Date();
+  const dateStr=now.toISOString().slice(0,10);
+  const name=`Squadrats ${dateStr}`;
+  const hasElev=pts.some(p=>p.elev&&p.elev>0);
+  let gpx=`<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="SquadratsPlanner" version="1.1"
+  xmlns="http://www.topografix.com/GPX/1/1"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+  <metadata>
+    <name>${name}</name>
+    <time>${now.toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>${name}</name>
+    <trkseg>\n`;
+  pts.forEach(p=>{
+    gpx+=`      <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}">`;
+    if(hasElev) gpx+=`<ele>${(p.elev||0).toFixed(1)}</ele>`;
+    gpx+=`</trkpt>\n`;
+  });
+  gpx+=`    </trkseg>
+  </trk>
+</gpx>`;
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
+  a.download=`squadrats_garmin_${dateStr}.gpx`;
+  a.click();
+  toast('GPX dla Garmina pobrany — zaimportuj w connect.garmin.com → Kursy');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
