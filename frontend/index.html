@@ -334,6 +334,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #layout{display:block;height:calc(100vh - 48px)}
   #mc{height:100%;position:relative}
 
+  /* Street View: vertical split on mobile (map top 50%, SV bottom 50%) */
+  #mc.sv-active{flex-direction:column}
+  #mc.sv-active #mc-left{flex:none;height:50%;width:100%;min-width:unset}
+  #sv-panel{width:100%;border-left:none;border-top:2px solid var(--green)}
+
   /* map UI tweaks */
   #mtools{top:8px;right:8px;gap:3px}
   .mtb{width:28px;height:28px;font-size:13px}
@@ -578,6 +583,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <i class="ti ti-chevron-down" id="poi-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
       </div>
       <div class="coll-body" id="poi-body" style="max-height:600px">
+        <div id="poi-cat-toggles" style="display:none;flex-wrap:wrap;gap:4px;margin-top:6px;margin-bottom:2px"></div>
         <div id="poi-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div>
       </div>
     </div>
@@ -2620,10 +2626,30 @@ const POI_CATS=[
 ];
 
 let poiMarkers=[];
+let poiLayerGroups={};
+let poiCatVisible={};
 function clearPOI(){
   poiMarkers.forEach(m=>map.removeLayer(m));
   poiMarkers=[];
+  Object.values(poiLayerGroups).forEach(lg=>map.removeLayer(lg));
+  poiLayerGroups={};
   clearLyr('poi-layer');
+  g('poi-cat-toggles').style.display='none';
+  g('poi-cat-toggles').innerHTML='';
+}
+
+function togglePOICat(key){
+  poiCatVisible[key]=!poiCatVisible[key];
+  const lg=poiLayerGroups[key];
+  if(!lg) return;
+  if(poiCatVisible[key]) map.addLayer(lg); else map.removeLayer(lg);
+  const btn=document.querySelector(`[data-poi-cat="${key}"]`);
+  if(btn){
+    const cat=POI_CATS.find(c=>c.key===key);
+    btn.style.background=poiCatVisible[key]?cat.color:'var(--card)';
+    btn.style.color=poiCatVisible[key]?'#000':`${cat.color}`;
+    btn.style.borderColor=cat.color;
+  }
 }
 
 function routeBbox(){
@@ -2696,17 +2722,34 @@ function renderPOI(elements){
     bycat[cat.key].push({...el, _cat:cat});
   });
 
-  // Add map markers
+  // Add map markers grouped by category LayerGroup
+  const togglesEl=g('poi-cat-toggles');
+  togglesEl.innerHTML='';
+  let anyToggle=false;
   POI_CATS.forEach(cat=>{
-    (bycat[cat.key]||[]).forEach(el=>{
+    const items=bycat[cat.key]||[];
+    if(!items.length) return;
+    anyToggle=true;
+    poiCatVisible[cat.key]=true;
+    const lg=L.layerGroup().addTo(map);
+    poiLayerGroups[cat.key]=lg;
+    items.forEach(el=>{
       const icon=L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
         html:`<div style="width:22px;height:22px;border-radius:50%;background:${cat.color};border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)"><i class="ti ${cat.icon}" style="font-size:11px;color:#fff"></i></div>`});
-      const m=L.marker([el.lat,el.lon],{icon,zIndexOffset:200})
+      L.marker([el.lat,el.lon],{icon,zIndexOffset:200})
         .bindPopup(`<b>${el.tags?.name||cat.label}</b><br><span style="font-size:11px;color:#666">${el.tags?.opening_hours||''}</span>`)
-        .addTo(map);
-      poiMarkers.push(m);
+        .addTo(lg);
     });
+    // Toggle pill
+    const btn=document.createElement('button');
+    btn.dataset.poiCat=cat.key;
+    btn.title=cat.label;
+    btn.style.cssText=`display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;border:1.5px solid ${cat.color};background:${cat.color};color:#000;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s`;
+    btn.innerHTML=`<i class="ti ${cat.icon}" style="font-size:11px"></i>${cat.label} <span style="opacity:.7">(${items.length})</span>`;
+    btn.onclick=()=>togglePOICat(cat.key);
+    togglesEl.appendChild(btn);
   });
+  if(anyToggle) togglesEl.style.display='flex';
 
   // Build list HTML
   const el=g('poi-list');
