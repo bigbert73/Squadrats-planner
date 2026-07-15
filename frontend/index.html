@@ -730,7 +730,9 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
       <button class="mtb" id="mtb-sv"   onclick="toggleSV()"   title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
       <button class="mtb" id="mtb-elev" onclick="toggleElev()" title="Profil wysokościowy trasy"><i class="ti ti-chart-area-line"></i></button>
+      <button class="mtb" id="mtb-poi"  onclick="togglePOIPanel()" title="Punkty na trasie (POI)" style="display:none"><i class="ti ti-map-pin"></i></button>
     </div>
+    <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
     <div id="ibar">
       <div class="im"><i class="ti ti-road"></i>Dist:&nbsp;<strong id="b-dist">—</strong></div>
       <div class="im"><i class="ti ti-grid-dots"></i>SQ:&nbsp;<strong id="b-sq">—</strong></div>
@@ -2636,6 +2638,9 @@ function clearPOI(){
   clearLyr('poi-layer');
   g('poi-cat-toggles').style.display='none';
   g('poi-cat-toggles').innerHTML='';
+  g('poi-map-panel').style.display='none';
+  g('poi-map-panel').innerHTML='';
+  g('mtb-poi').style.display='none';
 }
 
 function togglePOICat(key){
@@ -2643,13 +2648,18 @@ function togglePOICat(key){
   const lg=poiLayerGroups[key];
   if(!lg) return;
   if(poiCatVisible[key]) map.addLayer(lg); else map.removeLayer(lg);
-  const btn=document.querySelector(`[data-poi-cat="${key}"]`);
-  if(btn){
+  document.querySelectorAll(`[data-poi-cat="${key}"]`).forEach(btn=>{
     const cat=POI_CATS.find(c=>c.key===key);
-    btn.style.background=poiCatVisible[key]?cat.color:'var(--card)';
-    btn.style.color=poiCatVisible[key]?'#000':`${cat.color}`;
-    btn.style.borderColor=cat.color;
-  }
+    btn.style.background=poiCatVisible[key]?cat.color:'transparent';
+    btn.style.color=poiCatVisible[key]?'#000':cat.color;
+  });
+}
+
+function togglePOIPanel(){
+  const panel=g('poi-map-panel');
+  const isOpen=panel.style.display==='flex';
+  panel.style.display=isOpen?'none':'flex';
+  g('mtb-poi').classList.toggle('on',!isOpen);
 }
 
 function routeBbox(){
@@ -2723,8 +2733,9 @@ function renderPOI(elements){
   });
 
   // Add map markers grouped by category LayerGroup
-  const togglesEl=g('poi-cat-toggles');
-  togglesEl.innerHTML='';
+  const sideToggles=g('poi-cat-toggles');
+  const mapPanel=g('poi-map-panel');
+  sideToggles.innerHTML=''; mapPanel.innerHTML='';
   let anyToggle=false;
   POI_CATS.forEach(cat=>{
     const items=bycat[cat.key]||[];
@@ -2740,16 +2751,21 @@ function renderPOI(elements){
         .bindPopup(`<b>${el.tags?.name||cat.label}</b><br><span style="font-size:11px;color:#666">${el.tags?.opening_hours||''}</span>`)
         .addTo(lg);
     });
-    // Toggle pill
-    const btn=document.createElement('button');
-    btn.dataset.poiCat=cat.key;
-    btn.title=cat.label;
-    btn.style.cssText=`display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:20px;border:1.5px solid ${cat.color};background:${cat.color};color:#000;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s`;
-    btn.innerHTML=`<i class="ti ${cat.icon}" style="font-size:11px"></i>${cat.label} <span style="opacity:.7">(${items.length})</span>`;
-    btn.onclick=()=>togglePOICat(cat.key);
-    togglesEl.appendChild(btn);
+    const pillCss=`display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:20px;border:1.5px solid ${cat.color};background:${cat.color};color:#000;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap`;
+    const label=`<i class="ti ${cat.icon}" style="font-size:11px"></i>${cat.label} <span style="opacity:.7">(${items.length})</span>`;
+    // sidebar pill
+    const b1=document.createElement('button');
+    b1.dataset.poiCat=cat.key; b1.style.cssText=pillCss; b1.innerHTML=label;
+    b1.onclick=()=>togglePOICat(cat.key); sideToggles.appendChild(b1);
+    // map panel pill
+    const b2=document.createElement('button');
+    b2.dataset.poiCat=cat.key; b2.style.cssText=pillCss; b2.innerHTML=label;
+    b2.onclick=()=>togglePOICat(cat.key); mapPanel.appendChild(b2);
   });
-  if(anyToggle) togglesEl.style.display='flex';
+  if(anyToggle){
+    sideToggles.style.display='flex';
+    g('mtb-poi').style.display='flex';
+  }
 
   // Build list HTML
   const el=g('poi-list');
