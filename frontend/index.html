@@ -1215,7 +1215,7 @@ function redrawGrid(){
     const rects=[];
     for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
       if(ownedSQ.has(tileKey(x,y))) continue;
-      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'rgba(255,255,255,0.18)',weight:.7,fill:false,interactive:false}));
+      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'#00e676',weight:1,fillColor:'#00e676',fillOpacity:.04,interactive:false}));
     }
     LAYERS['grid14']=L.layerGroup(rects).addTo(map);
   }
@@ -1229,7 +1229,7 @@ function redrawGrid(){
       for(let y=t0.y;y<=t1.y;y++){
         if(cnt++>5000) break;
         if(ownedSQI.has(tileKey(x,y))) continue;
-        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'rgba(200,160,255,0.25)',weight:.5,fill:false,interactive:false}));
+        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'#9050c0',weight:.8,fillColor:'#9050c0',fillOpacity:.05,interactive:false}));
       }
     }
     LAYERS['grid17']=L.layerGroup(rects).addTo(map);
