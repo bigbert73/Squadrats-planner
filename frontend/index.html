@@ -621,8 +621,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="lb on-o" id="lb-sqi-new"  onclick="togLyr('sqi-new',this,'o')"><i class="ti ti-border-plus"></i>Nowe SQI</button>
       <button class="lb" id="lb-sqi-yard" onclick="togLyr('sqi-yard',this,'b')"><i class="ti ti-border-outer"></i>Yardinho</button>
       <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')"><i class="ti ti-border-style-2"></i>Über SQI</button>
-      <button class="lb" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><i class="ti ti-grid-dots"></i>Siatka14</button>
-      <button class="lb" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><i class="ti ti-grid-3x3"></i>Siatka17</button>
+      <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><i class="ti ti-grid-dots"></i>Siatka14</button>
+      <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><i class="ti ti-grid-3x3"></i>Siatka17</button>
     </div>
 
     <div class="sl mt8">Legenda</div>
@@ -1035,7 +1035,7 @@ const LAYERS={};
 const VIS={
   'sq-own':false,'sq-new':true,'sq-yard':false,'sq-uber':false,
   'sqi-own':false,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
-  'grid14':false,'grid17':false
+  'grid14':true,'grid17':true
 };
 
 let statsData={}, toastTm=null;
@@ -1215,7 +1215,7 @@ function redrawGrid(){
     const rects=[];
     for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
       if(ownedSQ.has(tileKey(x,y))) continue;
-      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'#30363d',weight:.5,fill:false,interactive:false}));
+      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'rgba(255,255,255,0.18)',weight:.7,fill:false,interactive:false}));
     }
     LAYERS['grid14']=L.layerGroup(rects).addTo(map);
   }
@@ -1229,7 +1229,7 @@ function redrawGrid(){
       for(let y=t0.y;y<=t1.y;y++){
         if(cnt++>5000) break;
         if(ownedSQI.has(tileKey(x,y))) continue;
-        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'#1e2a33',weight:.3,fill:false,interactive:false}));
+        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'rgba(200,160,255,0.25)',weight:.5,fill:false,interactive:false}));
       }
     }
     LAYERS['grid17']=L.layerGroup(rects).addTo(map);
