@@ -442,13 +442,15 @@ async function fetchBRouterRoute(points, profile, altIdx = 0) {
   let surfaceProfile = null;
   const msgs = feat.properties?.messages;
   if (Array.isArray(msgs) && msgs.length > 1) {
-    console.log('[BRouter] msgs[0] (header):', JSON.stringify(msgs[0]));
-    console.log('[BRouter] msgs[1] (first row):', JSON.stringify(msgs[1]));
+    // Find WayTags column index dynamically from header (default 9)
+    const hdr = msgs[0];
+    const wtIdx = Array.isArray(hdr) ? hdr.indexOf('WayTags') : 9;
+    const tagIdx = wtIdx >= 0 ? wtIdx : 9;
     let cumDist = 0;
     const rows = msgs.slice(1).map(row => {
       const segDist = parseFloat(row[3]) / 1000;
       cumDist += segDist;
-      const wayTags = row[4] || '';
+      const wayTags = row[tagIdx] || '';
       const surfM = wayTags.match(/surface=(\S+)/);
       const hwM   = wayTags.match(/highway=(\S+)/);
       const cycM  = wayTags.match(/cycleway=(\S+)/);
