@@ -1025,6 +1025,7 @@ let kmMarkers=[], elevData=[], elevCursor=null;
 let svMode=false, svCovData=null, svMarker=null;
 let bikeProfile='safety';
 let hasReturnLeg=false, outboundRouteData=null;
+let routeSegments=[]; // [{coords,elevProfile,distance}] per consecutive waypoint pair
 
 let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
@@ -1546,6 +1547,7 @@ async function calcRoute(){
 
     const route=data.routes[0];
     routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
+    routeSegments=buildSegmentsFromRoute(routeCoords);
     // Draw route initially red; redrawn with SV colors after coverage fetch
     drawSVColoredRoute();
     addKmMarkers(routeCoords);
@@ -1607,6 +1609,84 @@ async function calcRoute(){
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 
+function buildSegmentsFromRoute(coords){
+  if(wpts.length<2||coords.length<2) return [];
+  const n=wpts.length;
+  const bounds=[0];
+  for(let w=1;w<n-1;w++){
+    const ll=wpts[w].marker.getLatLng();
+    let minD=Infinity,minI=1;
+    for(let ci=1;ci<coords.length-1;ci++){
+      const d=(coords[ci].lat-ll.lat)**2+(coords[ci].lng-ll.lng)**2;
+      if(d<minD){minD=d;minI=ci;}
+    }
+    bounds.push(minI);
+  }
+  bounds.push(coords.length-1);
+  return bounds.slice(0,-1).map((start,i)=>({coords:coords.slice(start,bounds[i+1]+1)}));
+}
+
+async function recalcDraggedWpt(wptIdx){
+  if(hasReturnLeg){
+    hasReturnLeg=false; outboundRouteData=null;
+    const btn=g('return-leg-btn');
+    if(btn){btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';btn.onclick=addReturnLeg;}
+  }
+  const n=wpts.length;
+  const segs=[];
+  if(wptIdx>0) segs.push(wptIdx-1);
+  if(wptIdx<n-1) segs.push(wptIdx);
+  showLoad('Przeliczam segment…');
+  try{
+    const opt=document.querySelector('input[name="opt"]:checked').value;
+    const mode=opt==='kwadratownia'?'sq':opt;
+    const results=await Promise.all(segs.map(si=>{
+      const from=wpts[si].marker.getLatLng();
+      const to=wpts[si+1].marker.getLatLng();
+      return fetch('/api/route/detour',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({waypoints:[{lat:from.lat,lng:from.lng},{lat:to.lat,lng:to.lng}],
+          mode,loop:false,targetKm:0,bikeProfile,avoidReturn:false,kwadratownia:false})
+      }).then(r=>{if(!r.ok)throw new Error('routing error');return r.json();})
+        .then(d=>({coords:d.routes[0].geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}))}));
+    }));
+    segs.forEach((si,ri)=>{routeSegments[si]=results[ri];});
+    routeCoords=[];
+    routeSegments.forEach((seg,si)=>{
+      if(si===0) routeCoords.push(...seg.coords);
+      else routeCoords.push(...seg.coords.slice(1));
+    });
+    outboundRouteData={coords:routeCoords.slice(),elevProfile:null,distance:0};
+    drawSVColoredRoute();
+    addKmMarkers(routeCoords);
+    buildElevData(routeCoords,null);
+    if(g('elev-panel').classList.contains('open')) drawElevChart();
+    const totalDist=routeCoords.length>=2
+      ?routeCoords.reduce((s,c,idx)=>idx===0?0:s+L.latLng(routeCoords[idx-1].lat,routeCoords[idx-1].lng).distanceTo(L.latLng(c.lat,c.lng)),0)/1000:0;
+    updDist(totalDist);
+    g('b-plan-dist').textContent=`Plan: ${totalDist.toFixed(1)} km`;
+    const loopVal=document.querySelector('input[name="loop"]:checked').value;
+    if(loopVal!=='loop'){const btn=g('return-leg-btn');if(btn)btn.style.display='flex';}
+    fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})
+      .then(r=>r.json()).then(prv=>{
+        newSQ.clear();prv.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
+        newSQI.clear();prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
+        if(VIS['sq-new'])  renderSet(newSQ, Z_SQ,  'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
+        if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
+        g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
+        g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
+        g('h-new').textContent=newSQ.size+newSQI.size;
+        g('s-sq-new').textContent=newSQ.size;
+        g('s-sqi-new').textContent=newSQI.size;
+        svCovData=null;fetchSVCoverage();
+      }).catch(()=>{});
+  }catch(e){
+    console.warn('Drag recalc failed:',e.message);
+    drawSVColoredRoute();
+    toast('Błąd przeliczania segmentu');
+  }finally{hideLoad();}
+}
+
 function clearRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
@@ -1624,7 +1704,7 @@ function clearRoute(){
   g('b-plan-sqi').textContent = 'Nowe SQI: 0';
   g('b-sq').textContent='—'; g('b-new').textContent='—'; g('b-newi').textContent='—';
   g('h-new').textContent='0'; g('s-sq-new').textContent='0'; g('s-sqi-new').textContent='0';
-  hasReturnLeg=false; outboundRouteData=null;
+  hasReturnLeg=false; outboundRouteData=null; routeSegments=[];
   g('return-leg-btn').style.display='none';
   toast('Trasa wyczyszczona');
 }
@@ -1779,7 +1859,15 @@ function addWpt(ll,type){
   const clr=type==='start'?'#00e676':type==='end'?'#ff6b35':'#58a6ff';
   const icon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
   const marker=L.marker(ll,{icon,draggable:true}).addTo(map);
-  marker.on('dragend',()=>{renderWL();previewRoute();});
+  marker.on('dragstart',()=>{clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
+  marker.on('drag',()=>{previewRoute();});
+  marker.on('dragend',async()=>{
+    if(rLine){map.removeLayer(rLine);rLine=null;}
+    renderWL();
+    const i=wpts.findIndex(w=>w.marker===marker);
+    if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
+    else{previewRoute();}
+  });
   marker.on('contextmenu',()=>{const i=wpts.findIndex(w=>w.marker===marker);if(i>=0){map.removeLayer(marker);wpts.splice(i,1);renderWL();previewRoute();}});
   const wp={type,marker};
   if(type==='start') wpts.unshift(wp);
