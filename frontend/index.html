@@ -21,7 +21,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #app{display:flex;flex-direction:column;height:100vh}
 
 /* ── HEADER ── */
-#hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:0 16px;height:48px;display:flex;align-items:center;gap:10px;flex-shrink:0;z-index:2000;position:relative}
+#hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:0 12px;height:44px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:2000;position:relative}
 #hdr h1{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px;white-space:nowrap}
 .logo{width:26px;height:26px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#07090f;box-shadow:0 0 12px rgba(0,230,118,.35),0 2px 6px rgba(0,0,0,.4)}
 .hdiv{width:1px;height:20px;background:var(--border2);flex-shrink:0;margin:0 4px}
@@ -35,10 +35,14 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #auth-btn.lo:hover{background:rgba(255,107,53,.2);box-shadow:0 0 10px rgba(255,107,53,.25)}
 #auth-btn.li{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green)}
 #auth-btn.li:hover{background:rgba(0,230,118,.2);box-shadow:0 0 10px rgba(0,230,118,.25)}
+/* ── HEADER TABS (in #hdr) ── */
+#sbt{display:flex;align-items:center;gap:2px;flex-shrink:0}
+.tb{padding:6px 10px;background:none;border:none;border-radius:6px;color:var(--tx3);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:4px;white-space:nowrap;height:32px}
+.tb i{font-size:14px}.tb.on{background:rgba(255,255,255,.07);color:var(--green)}.tb:hover:not(.on){color:var(--tx);background:var(--hover)}
 
 /* ── LAYOUT ── */
 #layout{display:flex;flex:1;overflow:hidden;position:relative}
-#sb{width:300px;min-width:300px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
+#sb{width:320px;min-width:320px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:transform .22s cubic-bezier(.4,0,.2,1),box-shadow .22s}
 /* auto-hide mode: sidebar floats over map */
 #sb.sb-autohide{position:absolute;left:0;top:0;height:100%;z-index:3500;transform:translateX(-100%);box-shadow:none}
 #sb.sb-autohide.sb-peek{transform:translateX(0);box-shadow:6px 0 28px rgba(0,0,0,.55)}
@@ -49,17 +53,14 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #sb-pin{width:28px;height:28px;background:none;border:none;color:var(--tx2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);flex-shrink:0;font-size:16px;transition:all .15s}
 #sb-pin:hover{color:var(--tx);background:var(--hover)}
 #sb-pin.pinned{color:var(--green)}
-#sbt{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
-.tb{flex:1;padding:9px 3px;background:none;border:none;border-bottom:2px solid transparent;color:var(--tx3);font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:3px}
-.tb i{font-size:13px}.tb.on{color:var(--green);border-bottom-color:var(--green)}.tb:hover:not(.on){color:var(--tx);background:var(--hover)}
 .tp{display:none;flex-direction:column;flex:1;overflow:hidden}.tp.on{display:flex}
-.ps{flex:1;overflow-y:auto;padding:11px}.ps::-webkit-scrollbar{width:3px}.ps::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.sl{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);margin-bottom:5px;padding-bottom:3px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
+.ps{flex:1;overflow-y:auto;padding:14px 14px 16px}.ps::-webkit-scrollbar{width:3px}.ps::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px}
 .sl::before{content:'';display:block;width:14px;height:1.5px;background:var(--tx3);border-radius:1px;flex-shrink:0}
 .mt8{margin-top:8px}.mt12{margin-top:12px}.mb8{margin-bottom:8px}.mb12{margin-bottom:12px}
 
 /* ── BUTTONS ── */
-.btn{width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500;cursor:pointer;margin-bottom:5px;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s}
+.btn{width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:500;cursor:pointer;margin-bottom:5px;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;min-height:36px}
 .btn:disabled{opacity:.4;cursor:not-allowed}
 .btn-g{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green)}.btn-g:hover:not(:disabled){background:rgba(0,230,118,.18);box-shadow:0 0 12px rgba(0,230,118,.2)}
 .btn-b{background:rgba(77,168,255,.1);border-color:var(--blue);color:var(--blue)}.btn-b:hover:not(:disabled){background:rgba(77,168,255,.18);box-shadow:0 0 10px rgba(77,168,255,.18)}
@@ -67,9 +68,9 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .btn-x{background:none;border-color:var(--border);color:var(--tx2)}.btn-x:hover:not(:disabled){border-color:var(--red);color:var(--red)}
 .btn-primary{background:linear-gradient(135deg,rgba(0,230,118,.18),rgba(34,211,238,.12));border-color:var(--green);color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.3)}.btn-primary:hover:not(:disabled){background:linear-gradient(135deg,rgba(0,230,118,.28),rgba(34,211,238,.2));box-shadow:0 0 16px rgba(0,230,118,.25)}
 
-/* ── MODE BTNS ── */
+/* ── MODE BTNS (legacy .mb2, .mgrid — kept for JS compat) ── */
 .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:10px}
-.mb2{padding:10px 6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:10px;cursor:pointer;transition:all .15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mb2{padding:10px 6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px}
 .mb2 i{font-size:16px;transition:transform .15s}
 .mb2.on{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green);box-shadow:0 0 10px rgba(0,230,118,.12)}
 .mb2:hover:not(.on){background:var(--hover);color:var(--tx);border-color:var(--bhi)}
@@ -84,22 +85,22 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 /* ── RADIO ── */
 .rg{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
-.rg label{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:var(--tx2);padding:4px 6px;border:1px solid transparent;border-radius:var(--r-sm)}
+.rg label{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--tx2);padding:6px 8px;border:1px solid transparent;border-radius:var(--r-sm)}
 .rg label:hover{background:var(--card);border-color:var(--border2);color:var(--tx)}
 .rg input{accent-color:var(--green)}
 
 /* ── WAYPOINTS ── */
 .wl{display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
-.wi{display:flex;align-items:center;gap:6px;padding:5px 7px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm)}
-.wico{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;flex-shrink:0}
+.wi{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm)}
+.wico{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 .ws{background:var(--green);color:#07090f}.we{background:var(--orange);color:#07090f}.wm{background:var(--blue);color:#07090f}
-.wc{flex:1;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wc{flex:1;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wdel{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:1px 2px;border-radius:2px;line-height:1}
 .wdel:hover{color:var(--red);background:rgba(248,113,113,.1)}
-.hint{font-size:10px;color:var(--tx3);text-align:center;padding:10px 0}
+.hint{font-size:12px;color:var(--tx3);text-align:center;padding:12px 0}
 
 /* ── TOGGLE ROW ── */
-.tog-row{display:flex;align-items:center;justify-content:space-between;padding:7px 4px;font-size:11px;color:var(--tx2);border-radius:var(--r-sm);transition:background .12s}
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:8px 4px;font-size:12px;color:var(--tx2);border-radius:var(--r-sm);transition:background .12s}
 .tog-row:hover{background:var(--hover)}
 
 /* ── STATS GRID ── */
@@ -107,28 +108,32 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .sc{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:7px;text-align:center;transition:border-color .15s}
 .sc:hover{border-color:var(--border2)}
 .sn{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:600;line-height:1.2}
-.slb{font-size:9px;color:var(--tx2);margin-top:2px;letter-spacing:.05em}
+.slb{font-size:11px;color:var(--tx2);margin-top:2px;letter-spacing:.05em}
 .ng{color:var(--green)}.no{color:var(--orange)}.nb{color:var(--blue)}.ny{color:var(--yellow)}.np{color:var(--purple)}
 
 /* ── LAYER TOGGLES ── */
-.lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px}
-.lb{padding:5px 3px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-size:9px;cursor:pointer;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.lgrid{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.lb{width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--tx2);font-size:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;text-align:left;transition:all .15s;gap:8px}
 .lb:hover{background:var(--hover);border-color:var(--border2)}
-.lb i{font-size:13px}
-.lb.on-g{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green)}
-.lb.on-o{background:rgba(255,107,53,.1);border-color:var(--orange);color:var(--orange)}
-.lb.on-b{background:rgba(77,168,255,.1);border-color:var(--blue);color:var(--blue)}
-.lb.on-y{background:rgba(255,214,10,.1);border-color:var(--yellow);color:var(--yellow)}
-.lb.on-p{background:rgba(192,132,252,.1);border-color:var(--purple);color:var(--purple)}
+.lb .lb-left{display:flex;align-items:center;gap:8px;flex:1}
+.lb .lb-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;background:var(--tx3)}
+.lb i{font-size:14px;flex-shrink:0}
+.lb .lb-sw{width:28px;height:16px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;position:relative;flex-shrink:0;transition:background .2s}
+.lb .lb-sw::after{content:'';width:12px;height:12px;background:#fff;border-radius:50%;position:absolute;top:1px;left:1px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.lb.on-g{border-color:var(--green)}.lb.on-g .lb-dot{background:var(--green)}.lb.on-g .lb-sw{background:var(--green);border-color:var(--green)}.lb.on-g .lb-sw::after{left:13px}
+.lb.on-o{border-color:var(--orange)}.lb.on-o .lb-dot{background:var(--orange)}.lb.on-o .lb-sw{background:var(--orange);border-color:var(--orange)}.lb.on-o .lb-sw::after{left:13px}
+.lb.on-b{border-color:var(--blue)}.lb.on-b .lb-dot{background:var(--blue)}.lb.on-b .lb-sw{background:var(--blue);border-color:var(--blue)}.lb.on-b .lb-sw::after{left:13px}
+.lb.on-y{border-color:var(--yellow)}.lb.on-y .lb-dot{background:var(--yellow)}.lb.on-y .lb-sw{background:var(--yellow);border-color:var(--yellow)}.lb.on-y .lb-sw::after{left:13px}
+.lb.on-p{border-color:var(--purple)}.lb.on-p .lb-dot{background:var(--purple)}.lb.on-p .lb-sw{background:var(--purple);border-color:var(--purple)}.lb.on-p .lb-sw::after{left:13px}
 
 /* ── SYNC PROGRESS ── */
 #sync-progress{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:8px;display:none}
 #sync-bar-track{height:4px;background:var(--hover);border-radius:2px;margin:5px 0}
 #sync-bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--cyan));border-radius:2px;transition:width .3s;width:0}
-#sync-msg{font-size:10px;color:var(--tx2)}
+#sync-msg{font-size:12px;color:var(--tx2)}
 
 /* ── SETTINGS ── */
-.sr{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;color:var(--tx2)}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--tx2)}
 .sr:last-child{border-bottom:none}
 .tog{width:28px;height:16px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
 .tog.on{background:var(--green);border-color:var(--green)}
@@ -136,10 +141,10 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .tog.on .togk{left:13px}
 
 /* ── CRED BOX ── */
-.crb{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px;margin-bottom:8px}
-.crb label{display:block;font-size:9px;color:var(--tx3);margin-bottom:2px;margin-top:6px}
+.crb{background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px}
+.crb label{display:block;font-size:11px;color:var(--tx3);margin-bottom:3px;margin-top:8px}
 .crb label:first-child{margin-top:0}
-.crb input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx);outline:none;flex:1;min-width:0}
+.crb input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:5px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx);outline:none;flex:1;min-width:0}
 .crb input:focus{border-color:var(--bhi)}
 
 /* ── PLAN TAB REDESIGN ── */
@@ -161,7 +166,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 /* Route meta: type + distance */
 .route-meta{display:flex;flex-direction:column;gap:8px;margin:12px 0 0}
 .loop-grp{display:flex;background:var(--bg);border-radius:8px;padding:3px;gap:2px;align-self:flex-start}
-.loop-opt{display:flex;align-items:center;justify-content:center;gap:3px;padding:5px 10px;background:none;border:none;border-radius:6px;font-size:11px;font-weight:500;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;transition:all .15s;user-select:none}
+.loop-opt{display:flex;align-items:center;justify-content:center;gap:3px;padding:6px 12px;background:none;border:none;border-radius:6px;font-size:12px;font-weight:500;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;transition:all .15s;user-select:none;min-height:36px}
 .loop-opt input{display:none}
 .loop-opt:has(input:checked){background:var(--card2);color:var(--tx);box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .dist-grp{display:flex;align-items:center;gap:6px;flex:1}
@@ -169,39 +174,39 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .dist-grp input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--green);cursor:pointer;box-shadow:0 0 8px rgba(0,230,118,.5)}
 .dist-val{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--green);white-space:nowrap;min-width:48px;text-align:right}
 /* Section label */
-.sb-sec{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3);margin:14px 0 7px}
+.sb-sec{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3);margin:16px 0 8px}
 .sb-sec::after{content:'';flex:1;height:1px;background:var(--border)}
-.sb-sec i{font-size:12px}
+.sb-sec i{font-size:13px}
 /* Bike profiles */
-.bp-set{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:4px}
-.bp-btn{padding:10px 4px 8px;background:var(--card);border:1.5px solid var(--border);border-radius:9px;color:var(--tx2);font-size:10px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s}
-.bp-btn i{font-size:16px}
+.bp-set{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:4px}
+.bp-btn{padding:12px 4px 10px;background:var(--card);border:1.5px solid var(--border);border-radius:9px;color:var(--tx2);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:all .15s;min-height:52px}
+.bp-btn i{font-size:18px}
 .bp-btn.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green);box-shadow:0 0 14px rgba(0,230,118,.14)}
 .bp-btn:hover:not(.on){background:var(--hover);border-color:var(--border2);color:var(--tx)}
 /* Advanced collapsible */
-.adv-toggle{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:11px;color:var(--tx2);margin-top:12px;transition:all .15s;user-select:none}
+.adv-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:9px;cursor:pointer;font-size:12px;color:var(--tx2);margin-top:14px;transition:all .15s;user-select:none}
 .adv-toggle:hover{background:var(--hover);color:var(--tx);border-color:var(--border2)}
 .adv-toggle .adv-chev{transition:transform .2s;font-size:13px}
 .adv-toggle.open .adv-chev{transform:rotate(180deg)}
 .adv-body{display:none;padding-top:4px}
 .adv-body.open{display:block}
 /* Optimization pills */
-.opt-pills{display:flex;gap:4px}
-.opt-pill{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;font-size:9px;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;flex:1;user-select:none;transition:all .15s}
+.opt-pills{display:flex;flex-wrap:wrap;gap:5px}
+.opt-pill{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-family:'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;user-select:none;transition:all .15s;min-height:36px;flex:1 1 calc(50% - 3px)}
 .opt-pill input{display:none}
-.opt-pill i{font-size:13px}
+.opt-pill i{font-size:15px;flex-shrink:0}
 .opt-pill:has(input:checked){background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
 .opt-pill:hover:not(:has(input:checked)){background:var(--hover);border-color:var(--border2);color:var(--tx)}
-/* Edit mode buttons */
+/* Edit mode buttons (in sidebar — kept for compat) */
 .mode-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
-.mode-btn{padding:9px 2px 7px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--tx2);font-size:9px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s}
+.mode-btn{padding:9px 2px 7px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;color:var(--tx2);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s}
 .mode-btn i{font-size:14px}
 .mode-btn.on{background:rgba(0,230,118,.1);border-color:var(--green);color:var(--green)}
 .mode-btn:hover:not(.on){background:var(--hover);color:var(--tx);border-color:var(--border2)}
 /* Waypoints */
-.wp-add{width:100%;height:38px;background:transparent;border:1.5px dashed var(--border2);border-radius:9px;color:var(--tx3);font-size:11px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:4px}
+.wp-add{width:100%;height:40px;background:transparent;border:1.5px dashed var(--border2);border-radius:9px;color:var(--tx3);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:6px}
 .wp-add:hover{border-color:var(--blue);color:var(--blue);background:rgba(77,168,255,.06)}
-.wp-clear{width:100%;height:36px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--tx2);font-size:11px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:6px}
+.wp-clear{width:100%;height:38px;background:transparent;border:1px solid var(--border2);border-radius:9px;color:var(--tx2);font-size:12px;font-family:'Space Grotesk',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;margin-top:6px}
 .wp-clear:hover{border-color:var(--red);color:var(--red);background:rgba(248,113,113,.1)}
 /* ── MAP ── */
 #mc{flex:1;display:flex;overflow:hidden}
@@ -211,17 +216,17 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #elev-panel{display:none;position:absolute;bottom:0;left:0;right:0;height:32%;z-index:450;background:rgba(13,17,23,.93);backdrop-filter:blur(6px);border-top:1px solid var(--border);flex-direction:column;pointer-events:auto}
 #elev-panel.open{display:flex}
 #elev-head{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--tx2)}
-#elev-stats{flex:1;display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3)}
+#elev-stats{flex:1;display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)}
 #elev-wrap{flex:1;position:relative;overflow:hidden;cursor:crosshair}
 #elev-svg{width:100%;height:100%;display:block}
-#elev-tip{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.85);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--tx);pointer-events:none;white-space:nowrap;display:none}
+#elev-tip{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.85);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--tx);pointer-events:none;white-space:nowrap;display:none}
 #sv-panel{display:none;flex-direction:column;background:var(--bg);border-left:2px solid var(--green);flex-shrink:0;width:50%}
 #mc.sv-active #sv-panel{display:flex}
 #sv-head{display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--border);padding:6px 10px;flex-shrink:0}
 #sv-frame{flex:1;border:none;width:100%;display:none}
 #sv-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--tx3);font-size:11px;text-align:center;padding:20px;line-height:1.6}
 #sv-placeholder i{font-size:36px}
-#sv-legend{font-size:10px;color:var(--tx3);margin-top:4px;display:flex;align-items:center;gap:6px}
+#sv-legend{font-size:12px;color:var(--tx3);margin-top:4px;display:flex;align-items:center;gap:6px}
 .sv-dot{width:12px;height:4px;border-radius:2px;flex-shrink:0}
 .leaflet-control-attribution{background:rgba(7,9,15,.85)!important;color:var(--tx3)!important;font-size:9px!important}
 .leaflet-control-attribution a{color:var(--tx3)!important}
@@ -230,12 +235,19 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .mtb{width:30px;height:30px;background:rgba(13,17,23,.9);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .mtb:hover{color:var(--tx);border-color:var(--bhi)}.mtb.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
 
-#mind{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:10px;font-weight:500;color:var(--tx2);display:flex;align-items:center;gap:5px;pointer-events:none;white-space:nowrap}
+/* ── FLOATING MODE TOOLBAR ── */
+#mode-toolbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;gap:2px;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:10px;padding:3px}
+.mtb2{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 14px;background:none;border:none;border-radius:7px;color:var(--tx3);font-family:'Space Grotesk',sans-serif;font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.mtb2 i{font-size:15px}
+.mtb2:hover{background:var(--hover);color:var(--tx)}
+.mtb2.on{background:rgba(0,230,118,.15);color:var(--green)}
 
-#zlvl{position:absolute;top:48px;right:10px;z-index:1000;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tx3);pointer-events:none}
+#mind{position:absolute;bottom:48px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:500;color:var(--tx2);display:flex;align-items:center;gap:5px;pointer-events:none;white-space:nowrap}
 
-#ibar{position:absolute;bottom:0;left:0;right:0;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border-top:1px solid var(--border);padding:5px 12px;display:flex;align-items:center;gap:12px;z-index:1000;font-size:10px;flex-wrap:wrap}
-.im{display:flex;align-items:center;gap:3px;color:var(--tx2)}.im strong{font-family:'JetBrains Mono',monospace;color:var(--tx);font-weight:500}.im i{font-size:11px}
+#zlvl{position:absolute;top:48px;right:10px;z-index:1000;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--tx3);pointer-events:none}
+
+#ibar{position:absolute;bottom:0;left:0;right:0;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border-top:1px solid var(--border);padding:7px 14px;display:flex;align-items:center;gap:14px;z-index:1000;font-size:11px;flex-wrap:wrap}
+.im{display:flex;align-items:center;gap:4px;color:var(--tx2)}.im strong{font-family:'JetBrains Mono',monospace;color:var(--tx);font-weight:500}.im i{font-size:12px}
 #plan-info{position:absolute;bottom:14px;right:14px;z-index:1001;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r-lg);padding:10px 12px;max-width:220px;font-size:11px;line-height:1.4;text-align:right;color:var(--tx2)}
 #plan-info strong{color:var(--tx);font-size:12px}
 #plan-info span{display:block;margin-top:4px}
@@ -246,12 +258,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 @keyframes spin{to{transform:rotate(360deg)}}
 #lmsg{font-size:11px;color:var(--tx2)}
 
-#toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card2);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r-sm);padding:6px 14px;font-size:11px;color:var(--tx);z-index:9999;opacity:0;transition:all .2s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card2);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 16px;font-size:12px;color:var(--tx);z-index:9999;opacity:0;transition:all .2s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ── TILE LEGEND ── */
-.tleg{font-size:10px}
-.tleg-row{display:flex;align-items:center;gap:6px;padding:3px 0}
+.tleg{font-size:12px}
+.tleg-row{display:flex;align-items:center;gap:6px;padding:4px 0}
 .tleg-sw{width:14px;height:10px;border-radius:1px;flex-shrink:0;border:1px solid}
 
 #mc-left.drag::after{content:'Upuść GPX tutaj';position:absolute;inset:0;background:rgba(0,230,118,.08);border:2px dashed var(--green);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--green);z-index:2000;pointer-events:none}
@@ -357,6 +369,15 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   .hpills{display:none}
   #hdr h1 span:not(.logo){display:none}
 }
+/* ── HEADER TABS — MOBILE ADJUSTMENTS ── */
+@media(max-width:768px){
+  #sbt{gap:0;overflow:hidden;font-size:0}
+  #sbt .tb{padding:4px 8px;font-size:0;gap:0}
+  #sbt .tb i{font-size:16px}
+  #sbt #sb-pin,#sbt #mob-sb-close{font-size:16px}
+  #mode-toolbar{top:8px}
+  #mode-toolbar .mtb2{padding:4px 8px;font-size:9px}
+}
 
 /* ── SV ROUTE TOOLTIP ── */
 .leaflet-tooltip.sv-tip{background:rgba(13,17,23,.92);border:1px solid #3b82f6;color:#93c5fd;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:500;padding:3px 9px;border-radius:5px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 10px rgba(59,130,246,.3)}
@@ -365,21 +386,21 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 /* ── ROUTE SUMMARY / POI ── */
 .rs-sv-bar{height:6px;border-radius:3px;background:var(--card2);margin:6px 0 2px;overflow:hidden;display:flex}
 .rs-sv-fill{height:100%;background:#3b82f6;border-radius:3px;transition:width .4s}
-.surf-row{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--tx2);padding:2px 0}
+.surf-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);padding:3px 0}
 .surf-bar{flex:1;height:5px;border-radius:2px;background:var(--card2);overflow:hidden}
 .surf-fill{height:100%;border-radius:2px;transition:width .5s}
 .coll-head{display:flex;align-items:center;cursor:pointer;user-select:none}
 .coll-head:hover .sl{color:var(--tx2)}
 .coll-body{overflow:hidden;transition:max-height .25s ease}
 .coll-body.shut{max-height:0!important}
-.poi-item{display:flex;align-items:flex-start;gap:7px;padding:5px 0;border-bottom:1px solid var(--border);font-size:10px;cursor:pointer}
+.poi-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
 .poi-item:last-child{border-bottom:none}
 .poi-item:hover{color:var(--tx)}
-.poi-icon{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:1px}
+.poi-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px}
 .poi-name{color:var(--tx2);flex:1;line-height:1.3}
-.poi-name b{color:var(--tx);display:block;font-size:10px}
-.poi-name span{color:var(--tx3);font-size:9px}
-.poi-cat{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:8px 0 3px}
+.poi-name b{color:var(--tx);display:block;font-size:12px}
+.poi-name span{color:var(--tx3);font-size:11px}
+.poi-cat{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:8px 0 3px}
 
 /* ── USER MENU ── */
 #user-menu-wrap{position:relative;flex-shrink:0;margin-left:auto}
@@ -389,8 +410,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 #user-dropdown{display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);min-width:170px;z-index:500;box-shadow:0 8px 28px rgba(0,0,0,.45);overflow:hidden}
 .udrop-info{padding:10px 12px;border-bottom:1px solid var(--border)}
 .udrop-name{font-weight:600;color:var(--tx);font-size:12px;margin-bottom:2px}
-.udrop-role{font-size:10px;color:var(--tx3)}
-.udrop-btn{width:100%;text-align:left;padding:9px 12px;background:none;border:none;color:var(--tx2);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;transition:background .1s}
+.udrop-role{font-size:11px;color:var(--tx3)}
+.udrop-btn{width:100%;text-align:left;padding:10px 12px;background:none;border:none;color:var(--tx2);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;transition:background .1s}
 .udrop-btn:hover{background:var(--hover);color:var(--tx)}
 .udrop-btn i{font-size:14px;width:16px}
 .udrop-sep{border:none;border-top:1px solid var(--border);margin:2px 0}
@@ -409,12 +430,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 /* ── ADMIN TABLE ── */
 .atab{width:100%;border-collapse:collapse;font-size:11px}
-.atab th{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border2);color:var(--tx3);font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.atab th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border2);color:var(--tx3);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 .atab td{padding:8px 8px;border-bottom:1px solid var(--border);color:var(--tx2);vertical-align:middle}
 .atab tr:hover td{background:var(--hover)}
-.rbadge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:700;text-transform:uppercase}
+.rbadge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;text-transform:uppercase}
 .ra{background:rgba(0,230,118,.15);color:var(--green)}.ru{background:var(--card);color:var(--tx3)}
-.abtn{padding:3px 8px;font-size:10px;cursor:pointer;border-radius:3px;font-family:'Space Grotesk',sans-serif;transition:all .12s}
+.abtn{padding:4px 10px;font-size:11px;cursor:pointer;border-radius:3px;font-family:'Space Grotesk',sans-serif;transition:all .12s}
 .abtn-role{background:var(--card);border:1px solid var(--border);color:var(--tx2)}.abtn-role:hover{border-color:var(--bhi);color:var(--tx)}
 .abtn-del{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red);margin-left:4px}.abtn-del:hover{background:rgba(248,113,113,.2)}
 </style>
@@ -426,6 +447,15 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <header id="hdr">
   <button id="mob-menu-btn" onclick="toggleMobileMenu()" title="Menu"><i class="ti ti-menu-2"></i></button>
   <h1><span class="logo">SQ</span>Squadrats Route Planner</h1>
+  <div class="hdiv"></div>
+  <div id="sbt">
+    <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
+    <button class="tb" id="tab-sq-btn" onclick="swTab('sq',this)" style="display:none"><i class="ti ti-grid-dots"></i>Kwadraty</button>
+    <button class="tb" id="tab-hm-btn" onclick="swTab('hm',this)" style="display:none"><i class="ti ti-flame"></i>Heat</button>
+    <button class="tb" onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
+    <button id="sb-pin" class="pinned" onclick="toggleSbPin()" title="Przypnij / odepnij panel"><i class="ti ti-pin"></i></button>
+    <button id="mob-sb-close" onclick="closeMobileMenu()" title="Zamknij"><i class="ti ti-x"></i></button>
+  </div>
   <div class="hdiv"></div>
   <div class="hpills" id="strava-pills" style="display:none">
     <div class="hp"><span class="d dg"></span><span id="h-sq">0</span>&thinsp;SQ</div>
@@ -462,14 +492,6 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
 <!-- SIDEBAR -->
 <aside id="sb">
-  <div id="sbt">
-    <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
-    <button class="tb" id="tab-sq-btn" onclick="swTab('sq',this)" style="display:none"><i class="ti ti-grid-dots"></i>Kwadraty</button>
-    <button class="tb" id="tab-hm-btn" onclick="swTab('hm',this)" style="display:none"><i class="ti ti-flame"></i>Heat</button>
-    <button class="tb"    onclick="swTab('cfg',this)"><i class="ti ti-settings"></i>Opcje</button>
-    <button id="sb-pin" class="pinned" onclick="toggleSbPin()" title="Przypnij / odepnij panel"><i class="ti ti-pin"></i></button>
-    <button id="mob-sb-close" onclick="closeMobileMenu()" title="Zamknij"><i class="ti ti-x"></i></button>
-  </div>
 
   <!-- TAB: TRASA -->
   <div id="tp-plan" class="tp on">
@@ -523,7 +545,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="bp-btn on" id="bp-safety"     onclick="setBikeProf('safety',this)"    title="BRouter — ścieżki rowerowe priorytet"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
       <button class="bp-btn"    id="bp-mtb"        onclick="setBikeProf('mtb',this)"       title="BRouter — MTB, terenowy"><i class="ti ti-trees" style="color:var(--green)"></i>MTB</button>
     </div>
-    <div id="bp-note" style="font-size:9px;color:var(--tx3);margin-bottom:6px;padding:5px 8px;background:var(--card);border-radius:7px;display:none">
+    <div id="bp-note" style="font-size:12px;color:var(--tx3);margin-bottom:6px;padding:7px 10px;background:var(--card);border-radius:7px;display:none">
       <i class="ti ti-info-circle"></i> Profile inne niż Ogólny wymagają BRouter.
     </div>
 
@@ -542,13 +564,6 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
         <label class="opt-pill" title="Kwadratownia: jedź do najbliższego wolnego SQI, wróć przez wolne SQI. Działa w A→B i Pętla."><input type="radio" name="opt" value="kwadratownia"><i class="ti ti-crosshair" style="color:var(--orange)"></i>Kwadratownia</label>
       </div>
-      <div class="sb-sec" style="margin-top:10px"><i class="ti ti-cursor-text"></i>Tryb edycji</div>
-      <div class="mode-row">
-        <button class="mode-btn on" id="mb-view"     onclick="setMode('view')"><i class="ti ti-hand"></i>Widok</button>
-        <button class="mode-btn"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i>Start</button>
-        <button class="mode-btn"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i>Meta</button>
-        <button class="mode-btn"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i>Punkt</button>
-      </div>
     </div>
 
     <!-- 6. PUNKTY POŚREDNIE -->
@@ -565,10 +580,10 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       </div>
       <div class="coll-body" id="rs-body" style="max-height:400px">
         <div style="margin-top:6px">
-          <div style="font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-bottom:3px">
+          <div style="font-size:12px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-bottom:3px">
             <i class="ti ti-map" style="color:#3b82f6"></i>Street View
             <span id="rs-sv-km" style="color:#3b82f6;font-family:'JetBrains Mono',monospace">—</span>
-            <span id="rs-sv-pct" style="font-size:9px"></span>
+            <span id="rs-sv-pct" style="font-size:11px"></span>
           </div>
           <div class="rs-sv-bar"><div class="rs-sv-fill" id="rs-sv-bar" style="width:0"></div></div>
         </div>
@@ -613,16 +628,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
     <div class="sl mt8">Warstwy</div>
     <div class="lgrid">
-      <button class="lb" id="lb-sq-own"  onclick="togLyr('sq-own',this,'g')"><i class="ti ti-square-filled"></i>Zdob.SQ</button>
-      <button class="lb on-o" id="lb-sq-new"  onclick="togLyr('sq-new',this,'o')"><i class="ti ti-square-plus"></i>Nowe SQ</button>
-      <button class="lb" id="lb-sq-yard" onclick="togLyr('sq-yard',this,'b')"><i class="ti ti-layout-grid"></i>Yard</button>
-      <button class="lb" id="lb-sq-uber" onclick="togLyr('sq-uber',this,'y')"><i class="ti ti-square-rotated"></i>Über</button>
-      <button class="lb" id="lb-sqi-own"  onclick="togLyr('sqi-own',this,'g')"><i class="ti ti-border-all"></i>Zdob.SQI</button>
-      <button class="lb on-o" id="lb-sqi-new"  onclick="togLyr('sqi-new',this,'o')"><i class="ti ti-border-plus"></i>Nowe SQI</button>
-      <button class="lb" id="lb-sqi-yard" onclick="togLyr('sqi-yard',this,'b')"><i class="ti ti-border-outer"></i>Yardinho</button>
-      <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')"><i class="ti ti-border-style-2"></i>Über SQI</button>
-      <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><i class="ti ti-grid-dots"></i>Siatka14</button>
-      <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><i class="ti ti-grid-3x3"></i>Siatka17</button>
+      <button class="lb" id="lb-sq-own"  onclick="togLyr('sq-own',this,'g')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-square-filled"></i>Zdobyte SQ</span><span class="lb-sw"></span></button>
+      <button class="lb on-o" id="lb-sq-new"  onclick="togLyr('sq-new',this,'o')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-square-plus"></i>Nowe SQ</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sq-yard" onclick="togLyr('sq-yard',this,'b')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-layout-grid"></i>Yard</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sq-uber" onclick="togLyr('sq-uber',this,'y')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-square-rotated"></i>Übersquadrat</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sqi-own"  onclick="togLyr('sqi-own',this,'g')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-all"></i>Zdobyte SQI</span><span class="lb-sw"></span></button>
+      <button class="lb on-o" id="lb-sqi-new"  onclick="togLyr('sqi-new',this,'o')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-plus"></i>Nowe SQI</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sqi-yard" onclick="togLyr('sqi-yard',this,'b')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-outer"></i>Yardinho</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-style-2"></i>Über SQI</span><span class="lb-sw"></span></button>
+      <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-dots"></i>Siatka zoom 14</span><span class="lb-sw"></span></button>
+      <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-3x3"></i>Siatka zoom 17</span><span class="lb-sw"></span></button>
     </div>
 
     <div class="sl mt8">Legenda</div>
@@ -657,7 +672,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   <div id="tp-hm" class="tp">
    <div class="ps">
     <div class="sl">Strava Heatmapa</div>
-    <div style="font-size:10px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
+    <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
       F12 → Application → Cookies → strava.com. Skopiuj 3 wartości CloudFront. Tokeny ważne ~2 tyg.
     </div>
     <div class="crb">
@@ -665,7 +680,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <label>CloudFront-Policy</label><input type="text" id="hm-pol" placeholder="eyJ..." oninput="hmChg()">
       <label>CloudFront-Signature</label><input type="text" id="hm-sig" placeholder="..." oninput="hmChg()">
     </div>
-    <div id="hm-st" style="font-size:10px;color:var(--tx3);margin-bottom:7px">Brak tokenów</div>
+    <div id="hm-st" style="font-size:12px;color:var(--tx3);margin-bottom:7px">Brak tokenów</div>
     <div class="rg mb8">
       <label><input type="radio" name="hma" value="ride" checked onchange="updHM()">🚴 Rowery</label>
       <label><input type="radio" name="hma" value="run" onchange="updHM()">🏃 Bieganie</label>
@@ -693,16 +708,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <label><input type="radio" name="bm" value="cycle"            onchange="chBase('cycle')">🚲 CyclOSM</label>
     </div>
     <div class="sl mt8">Squadrats — specyfikacja</div>
-    <div style="font-size:10px;color:var(--tx2);line-height:1.8;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:8px">
+    <div style="font-size:12px;color:var(--tx2);line-height:1.8;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:10px">
       <b style="color:var(--green)">Squadrat</b> = OSM zoom <b>14</b> ≈ 1524 m<br>
       <b style="color:var(--blue)">Squadratinho</b> = OSM zoom <b>17</b> ≈ 191 m<br>
       <b style="color:var(--blue)">Yard</b>: każdy tile ma 4 sąsiadów (N,E,S,W)<br>
       <b style="color:var(--yellow)">Übersquadrat</b>: największy kwadrat N×N<br>
       Kafelki: OSM Slippy Map (Mercator)<br>
-      Baza: SQLite → <code style="font-size:9px">data/squadrats.db</code>
+      Baza: SQLite → <code style="font-size:11px">data/squadrats.db</code>
     </div>
     <div class="sl mt8">Skróty</div>
-    <div style="font-size:10px;color:var(--tx3);line-height:2">
+    <div style="font-size:12px;color:var(--tx3);line-height:2">
       <code>S</code> Start · <code>E</code> Meta · <code>W</code> Punkt · <code>Esc</code> Widok<br>
       <code>Enter</code> Oblicz · <code>Del</code> Wyczyść trasę
     </div>
@@ -714,6 +729,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <div id="mc">
   <div id="mc-left">
     <div id="map"></div>
+    <div id="mode-toolbar">
+      <button class="mtb2 mode-btn on" id="mb-view"     onclick="setMode('view')"><i class="ti ti-hand"></i><span>Widok</span></button>
+      <button class="mtb2 mode-btn"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i><span>Start</span></button>
+      <button class="mtb2 mode-btn"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i><span>Meta</span></button>
+      <button class="mtb2 mode-btn"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i><span>Punkt</span></button>
+    </div>
     <div id="mind"><i class="ti ti-hand" id="m-icon"></i><span id="m-txt">Tryb widoku</span></div>
     <div id="zlvl">z12</div>
     <div id="mtools">
@@ -738,7 +759,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div class="im"><i class="ti ti-grid-dots"></i>SQ:&nbsp;<strong id="b-sq">—</strong></div>
       <div class="im"><i class="ti ti-sparkles"></i>Nowe SQ:&nbsp;<strong id="b-new">—</strong></div>
       <div class="im"><i class="ti ti-border-all"></i>Nowe SQI:&nbsp;<strong id="b-newi">—</strong></div>
-      <div class="im" style="margin-left:auto"><span id="b-coords" style="font-family:'JetBrains Mono',monospace;font-size:9px">—</span></div>
+      <div class="im" style="margin-left:auto"><span id="b-coords" style="font-family:'JetBrains Mono',monospace;font-size:11px">—</span></div>
     </div>
     <div id="plan-info">
       <div><strong id="b-plan-dist">Plan: —</strong></div>
@@ -762,7 +783,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   <div id="sv-panel">
     <div id="sv-head">
       <i class="ti ti-360" style="font-size:15px;color:var(--green)"></i>
-      <span id="sv-loc" style="flex:1;font-size:10px;color:var(--tx2);font-family:'JetBrains Mono',monospace">Street View</span>
+      <span id="sv-loc" style="flex:1;font-size:11px;color:var(--tx2);font-family:'JetBrains Mono',monospace">Street View</span>
       <button onclick="toggleSV()" style="background:none;border:none;color:var(--tx3);cursor:pointer;padding:2px 5px;border-radius:3px;font-size:15px;line-height:1;display:flex;align-items:center" title="Zamknij"><i class="ti ti-x"></i></button>
     </div>
     <iframe id="sv-frame" src="about:blank" frameborder="0" allowfullscreen></iframe>
@@ -772,7 +793,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div id="sv-legend" style="margin-top:8px">
         <span class="sv-dot" style="background:#00bcd4"></span><span>Trasa pokryta Street View</span>
       </div>
-      <span style="font-size:9px;color:var(--tx3);margin-top:4px">Wymaga klucza Google Maps API<br>dla sprawdzenia pokrycia</span>
+      <span style="font-size:11px;color:var(--tx3);margin-top:4px">Wymaga klucza Google Maps API<br>dla sprawdzenia pokrycia</span>
     </div>
   </div>
 </div>
@@ -934,7 +955,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 
       <div class="sl mt8">Punkt startowy (Home)</div>
       <div class="crb" style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--tx2);margin-bottom:8px">
+        <div style="font-size:12px;color:var(--tx2);margin-bottom:8px">
           Domyślny punkt startu trasy — ustawiany automatycznie po zalogowaniu.
         </div>
         <label>Adres</label>
@@ -942,16 +963,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
           <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Mydlarska 15a" style="flex:1">
           <button class="btn btn-b" style="width:auto;padding:7px 10px;flex-shrink:0" onclick="searchHomeAddr()"><i class="ti ti-search"></i></button>
         </div>
-        <div id="prof-home-coords" style="font-size:10px;color:var(--tx3);margin-top:4px;min-height:16px"></div>
+        <div id="prof-home-coords" style="font-size:11px;color:var(--tx3);margin-top:4px;min-height:16px"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="btn btn-b" style="flex:1" onclick="pickHomeFromMap()"><i class="ti ti-map-pin"></i>Wskaż na mapie</button>
           <button class="btn btn-x" style="flex:1" onclick="clearHomePoint()"><i class="ti ti-x"></i>Usuń Home</button>
         </div>
-        <div id="prof-home-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
+        <div id="prof-home-err" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
       </div>
 
       <div class="sl mt8">Konfiguracja Strava API</div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px;font-size:10px;color:var(--tx2);line-height:1.9">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px;font-size:12px;color:var(--tx2);line-height:1.9">
         <b style="color:var(--green)">Jak uzyskać klucze API Strava?</b><br>
         1. Przejdź na <a href="https://www.strava.com/settings/api" target="_blank" style="color:var(--blue)">strava.com/settings/api</a><br>
         2. Utwórz lub edytuj aplikację<br>
@@ -964,7 +985,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <label>Strava Client Secret</label>
         <input id="prof-strava-secret" type="password" placeholder="abc123…" autocomplete="off">
       </div>
-      <div id="prof-strava-err" style="font-size:10px;color:var(--red);margin-bottom:6px;min-height:14px"></div>
+      <div id="prof-strava-err" style="font-size:11px;color:var(--red);margin-bottom:6px;min-height:14px"></div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-b" style="flex:1" onclick="saveStravaCredentials()"><i class="ti ti-device-floppy"></i>Zapisz</button>
         <button class="btn btn-g" id="prof-connect-btn" style="flex:1" onclick="connectStrava()"><i class="ti ti-brand-strava"></i>Połącz ze Stravą</button>
