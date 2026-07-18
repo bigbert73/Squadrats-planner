@@ -386,9 +386,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 /* ── ROUTE SUMMARY / POI ── */
 .rs-sv-bar{height:6px;border-radius:3px;background:var(--card2);margin:6px 0 2px;overflow:hidden;display:flex}
 .rs-sv-fill{height:100%;background:#3b82f6;border-radius:3px;transition:width .4s}
-.surf-row{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2);padding:3px 0}
-.surf-bar{flex:1;height:5px;border-radius:2px;background:var(--card2);overflow:hidden}
-.surf-fill{height:100%;border-radius:2px;transition:width .5s}
+.surf-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.surf-row:last-child{border-bottom:none}
+.surf-label{display:flex;align-items:center;gap:6px;width:170px;font-size:12px;color:var(--tx2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.surf-bar{flex:1;height:8px;border-radius:4px;background:var(--card2);overflow:hidden}
+.surf-fill{height:100%;border-radius:4px;transition:width .5s}
+.surf-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx);min-width:72px;text-align:right;flex-shrink:0}
 .coll-head{display:flex;align-items:center;cursor:pointer;user-select:none}
 .coll-head:hover .sl{color:var(--tx2)}
 .coll-body{overflow:hidden;transition:max-height .25s ease}
@@ -579,15 +582,9 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <i class="ti ti-chevron-down" id="rs-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
       </div>
       <div class="coll-body" id="rs-body" style="max-height:400px">
-        <div style="margin-top:6px">
-          <div style="font-size:12px;color:var(--tx3);display:flex;align-items:center;gap:5px;margin-bottom:3px">
-            <i class="ti ti-map" style="color:#3b82f6"></i>Street View
-            <span id="rs-sv-km" style="color:#3b82f6;font-family:'JetBrains Mono',monospace">—</span>
-            <span id="rs-sv-pct" style="font-size:11px"></span>
-          </div>
-          <div class="rs-sv-bar"><div class="rs-sv-fill" id="rs-sv-bar" style="width:0"></div></div>
-        </div>
-        <div id="rs-surface" style="margin-top:8px"></div>
+        <div id="rs-surface" style="margin-top:6px"></div>
+        <!-- SV coverage kept hidden — JS still updates these elements -->
+        <div style="display:none"><span id="rs-sv-km"></span><span id="rs-sv-pct"></span><div><div id="rs-sv-bar" style="width:0"></div></div></div>
       </div>
     </div>
 
@@ -2583,49 +2580,81 @@ function toggleColl(bodyId, chevId){
 // ═══════════════════════════════════════════════════════════════════════
 //  SURFACE PROFILE (from BRouter)
 // ═══════════════════════════════════════════════════════════════════════
-const SURF_LABELS={
-  asphalt:'Asfalt',paved:'Utwardzona',concrete:'Beton',
-  gravel:'Szuter',fine_gravel:'Drobny żwir',compacted:'Ubity żwir',
-  unpaved:'Nieutwardzona',dirt:'Ziemia',ground:'Grunt',
-  grass:'Trawa',sand:'Piasek',
-  paving_stones:'Kostka',cobblestone:'Bruk',sett:'Bruk',
-  wood:'Drewno',metal:'Metal',
+const CAT_LABELS={
+  'bike-path':'Ścieżka rowerowa',
+  'asphalt':'Asfalt / Beton',
+  'gravel':'Szuter / Gravel',
+  'unpaved':'Droga nieutwardzona',
+  'cobblestone':'Kostka brukowa',
+  'path':'Ścieżka / Szlak',
+  'track':'Droga gruntowa',
+  'footway':'Chodnik',
+  'local-road':'Droga lokalna',
+  'unknown':'Nieznana',
 };
-const SURF_COLORS={
-  asphalt:'#6b7280',paved:'#6b7280',concrete:'#9ca3af',
-  gravel:'#b45309',fine_gravel:'#d97706',compacted:'#ca8a04',
-  unpaved:'#65a30d',dirt:'#854d0e',ground:'#78350f',
-  grass:'#16a34a',sand:'#eab308',
-  paving_stones:'#7c3aed',cobblestone:'#6d28d9',sett:'#6d28d9',
+const CAT_COLORS={
+  'bike-path':'#00e676',
+  'asphalt':'#94a3b8',
+  'gravel':'#f59e0b',
+  'unpaved':'#a16207',
+  'cobblestone':'#8b5cf6',
+  'path':'#22d3ee',
+  'track':'#84cc16',
+  'footway':'#6b7280',
+  'local-road':'#64748b',
+  'unknown':'#374151',
 };
-const SURF_GROUPS={
-  'Asfalt/Beton':['asphalt','paved','concrete'],
-  'Szuter/Żwir':['gravel','fine_gravel','compacted'],
-  'Drogi gruntowe':['unpaved','dirt','ground','grass','sand','wood'],
-  'Kostka brukowa':['paving_stones','cobblestone','sett'],
+const CAT_ICONS={
+  'bike-path':'ti-bike',
+  'asphalt':'ti-road',
+  'gravel':'ti-mountain',
+  'unpaved':'ti-trees',
+  'cobblestone':'ti-building-skyscraper',
+  'path':'ti-route',
+  'track':'ti-barrier-block',
+  'footway':'ti-walk',
+  'local-road':'ti-traffic-lights',
+  'unknown':'ti-help',
 };
 
-function processSurfaceProfile(surfaceProfile, totalKm){
+function classifySegment(surface,highway,cycleway){
+  if(cycleway&&cycleway!=='no') return 'bike-path';
+  if(highway==='cycleway') return 'bike-path';
+  if(surface==='asphalt'||surface==='paved'||surface==='concrete'||surface==='tarmac') return 'asphalt';
+  if(surface==='gravel'||surface==='fine_gravel'||surface==='compacted'||surface==='pebblestone') return 'gravel';
+  if(surface==='dirt'||surface==='mud'||surface==='sand'||surface==='ground'||surface==='grass'||surface==='earth'||surface==='unpaved') return 'unpaved';
+  if(surface==='cobblestone'||surface==='sett'||surface==='paving_stones') return 'cobblestone';
+  if(highway==='footway'||highway==='pedestrian') return 'footway';
+  if(highway==='path') return 'path';
+  if(highway==='track') return 'track';
+  if(highway==='primary'||highway==='secondary'||highway==='tertiary'||highway==='trunk'||highway==='road'||highway==='primary_link'||highway==='secondary_link'||highway==='tertiary_link') return 'asphalt';
+  if(highway==='residential'||highway==='living_street'||highway==='service'||highway==='unclassified') return 'local-road';
+  return 'unknown';
+}
+
+function processSurfaceProfile(surfaceProfile,totalKm){
   const el=g('rs-surface');
   if(!surfaceProfile||!surfaceProfile.length){el.innerHTML='';return;}
-  const byType={};
+  const byCat={};
   surfaceProfile.forEach(s=>{
-    const key=s.surface||'unknown';
-    byType[key]=(byType[key]||0)+s.segDist;
+    const cat=classifySegment(s.surface,s.highway,s.cycleway);
+    byCat[cat]=(byCat[cat]||0)+s.segDist;
   });
-  const rows=Object.entries(byType).sort((a,b)=>b[1]-a[1]);
-  let html='<div style="font-size:9px;color:var(--tx3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.07em">Nawierzchnia</div>';
-  rows.forEach(([surf,km])=>{
-    const label=SURF_LABELS[surf]||surf;
-    const color=SURF_COLORS[surf]||'#4da8ff';
+  const rows=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  let html='';
+  rows.forEach(([cat,km])=>{
     const pct=Math.round(km/totalKm*100);
+    if(pct<1) return;
+    const label=CAT_LABELS[cat]||cat;
+    const color=CAT_COLORS[cat]||'#4da8ff';
+    const icon=CAT_ICONS[cat]||'ti-circle';
     html+=`<div class="surf-row">
-      <div style="width:72px;color:var(--tx2);font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+      <div class="surf-label"><i class="ti ${icon}" style="color:${color}"></i>${label}</div>
       <div class="surf-bar"><div class="surf-fill" style="width:${pct}%;background:${color}"></div></div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--tx3);min-width:36px;text-align:right">${km.toFixed(1)}km</div>
+      <div class="surf-val">${km.toFixed(1)}&thinsp;km <span style="color:var(--tx3);font-size:10px">${pct}%</span></div>
     </div>`;
   });
-  el.innerHTML=html;
+  el.innerHTML=html||'<div style="font-size:12px;color:var(--tx3);padding:4px 0">Brak danych nawierzchni (OSRM)</div>';
 }
 
 // ═══════════════════════════════════════════════════════════════════════
