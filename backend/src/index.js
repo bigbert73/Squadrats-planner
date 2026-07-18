@@ -442,6 +442,8 @@ async function fetchBRouterRoute(points, profile, altIdx = 0) {
   let surfaceProfile = null;
   const msgs = feat.properties?.messages;
   if (Array.isArray(msgs) && msgs.length > 1) {
+    console.log('[BRouter] msgs[0] (header):', JSON.stringify(msgs[0]));
+    console.log('[BRouter] msgs[1] (first row):', JSON.stringify(msgs[1]));
     let cumDist = 0;
     const rows = msgs.slice(1).map(row => {
       const segDist = parseFloat(row[3]) / 1000;
