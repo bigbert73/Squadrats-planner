@@ -1076,7 +1076,7 @@ async function initMap(){
   map.on('click',e=>{if(g('sb').classList.contains('mob-open')){closeMobileMenu();return;}onMapClick(e);});
   map.on('mousemove',e=>{g('b-coords').textContent=e.latlng.lat.toFixed(5)+'°N '+e.latlng.lng.toFixed(5)+'°E';});
   map.on('contextmenu',e=>{if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);});
-  map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();redrawAll();});
+  map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();});
 
   // Drag-drop GPX
   const mc=g('mc'), mcl=g('mc-left');
@@ -1186,39 +1186,63 @@ function clearLyr(name){
   if(LAYERS[name]){map.removeLayer(LAYERS[name]);delete LAYERS[name];}
 }
 
-function renderSet(tileSet, z, fillColor, strokeColor, weight, name){
+const CanvasTileLayer = L.Layer.extend({
+  initialize(tiles,Z,color,minZ){
+    this._tiles=tiles; this._Z=Z; this._color=color; this._minZ=minZ||0;
+    this._draw=this._draw.bind(this);
+  },
+  onAdd(map){
+    this._map=map;
+    const c=this._canvas=document.createElement('canvas');
+    c.style.cssText='position:absolute;top:0;left:0;pointer-events:none;z-index:420';
+    map.getContainer().appendChild(c);
+    map.on('moveend zoomend resize',this._draw);
+    this._draw();
+  },
+  onRemove(map){
+    if(this._canvas){this._canvas.remove();this._canvas=null;}
+    map.off('moveend zoomend resize',this._draw);
+  },
+  redraw(){this._draw();},
+  _draw(){
+    if(!this._map||!this._canvas) return;
+    const map=this._map,Z=this._Z,c=this._canvas;
+    if(map.getZoom()<this._minZ||!this._tiles.size){c.style.display='none';return;}
+    c.style.display='';
+    const size=map.getSize(),dpr=window.devicePixelRatio||1;
+    c.width=size.x*dpr; c.height=size.y*dpr;
+    c.style.width=size.x+'px'; c.style.height=size.y+'px';
+    const ctx=c.getContext('2d');
+    ctx.scale(dpr,dpr);
+    ctx.clearRect(0,0,size.x,size.y);
+    ctx.fillStyle=this._color;
+    const bnd=map.getBounds();
+    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
+    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
+    for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
+      if(!this._tiles.has(tileKey(x,y))) continue;
+      const p0=map.latLngToContainerPoint(L.latLng(tileNW(x,y,Z)));
+      const p1=map.latLngToContainerPoint(L.latLng(tileNW(x+1,y+1,Z)));
+      ctx.fillRect(Math.floor(p0.x),Math.floor(p1.y),Math.ceil(p1.x-p0.x),Math.ceil(p0.y-p1.y));
+    }
+  }
+});
+
+function renderSet(tiles,Z,color,_sc,_w,name,minZ){
   clearLyr(name);
-  if(!tileSet.size||!VIS[name]) return;
-
-  const bnd=map.getBounds();
-  const rects=[];
-
-  tileSet.forEach(k=>{
-    const{x,y}=parseKey(k);
-    const b=tileBounds(x,y,z);
-    // Viewport cull
-    if(b[1][0]<bnd.getSouth()||b[0][0]>bnd.getNorth()||
-       b[0][1]>bnd.getEast()||b[1][1]<bnd.getWest()) return;
-    rects.push(L.rectangle(b,{
-      color:strokeColor, weight,
-      fillColor, fillOpacity:1,
-      interactive:false, bubblingMouseEvents:false
-    }));
-  });
-
-  // Batch into single layer group
-  LAYERS[name]=L.layerGroup(rects,{pane:'overlayPane'}).addTo(map);
+  if(!tiles.size||!VIS[name]) return;
+  LAYERS[name]=new CanvasTileLayer(tiles,Z,color,minZ||0).addTo(map);
 }
 
 function redrawAll(){
-  renderSet(ownedSQ, Z_SQ,  'rgba(0,230,118,.28)',  '#00e676', 1.5,'sq-own');
-  renderSet(newSQ,   Z_SQ,  'rgba(255,107,53,.40)',  '#ff6b35', 2,  'sq-new');
-  renderSet(yardTiles,Z_SQ, 'rgba(88,166,255,.22)',  '#58a6ff', 1.5,'sq-yard');
-  renderSet(uberTiles,Z_SQ, 'rgba(255,214,10,.18)',  '#ffd60a', 2,  'sq-uber');
-  renderSet(ownedSQI,Z_SQI, 'rgba(145, 98, 186, .24)',   '#9050c0', 1.2,'sqi-own');
-  renderSet(newSQI,  Z_SQI, 'rgba(255, 216, 91, .55)',  '#ffcd38', 2,'sqi-new');
-  renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.15)', 'rgba(88,166,255,.5)',1,'sqi-yard');
-  renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.12)', 'rgba(255,214,10,.5)',1.5,'sqi-uber');
+  renderSet(ownedSQ,  Z_SQ, 'rgba(0,230,118,.35)',   0,0,'sq-own',   0);
+  renderSet(newSQ,    Z_SQ, 'rgba(255,107,53,.55)',   0,0,'sq-new',   0);
+  renderSet(yardTiles,Z_SQ, 'rgba(88,166,255,.30)',   0,0,'sq-yard',  0);
+  renderSet(uberTiles,Z_SQ, 'rgba(255,214,10,.25)',   0,0,'sq-uber',  0);
+  renderSet(ownedSQI, Z_SQI,'rgba(145,98,186,.40)',   0,0,'sqi-own',  12);
+  renderSet(newSQI,   Z_SQI,'rgba(255,216,91,.65)',   0,0,'sqi-new',  12);
+  renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)',  0,0,'sqi-yard', 12);
+  renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)',  0,0,'sqi-uber', 12);
 }
 
 const CanvasGridLayer = L.Layer.extend({
@@ -1274,14 +1298,15 @@ function togLyr(name,btn,c){
   if(VIS[name]){
     btn.className=`lb on-${c}`;
     // Render only what's needed
-    const fn={'sq-own':()=>renderSet(ownedSQ,Z_SQ,'rgba(0,230,118,.28)','#00e676',1.5,name),
-      'sq-new':()=>renderSet(newSQ,Z_SQ,'rgba(255,107,53,.40)','#ff6b35',2,name),
-      'sq-yard':()=>renderSet(yardTiles,Z_SQ,'rgba(88,166,255,.22)','#58a6ff',1.5,name),
-      'sq-uber':()=>renderSet(uberTiles,Z_SQ,'rgba(255,214,10,.18)','#ffd60a',2,name),
-      'sqi-own':()=>renderSet(ownedSQI,Z_SQI,'rgba(145, 98, 186, .24)','rgba(144, 80, 192, .85)',1.2,name),
-      'sqi-new':()=>renderSet(newSQI,Z_SQI,'rgba(255, 216, 91, .46)','rgba(255, 205, 56, .95)',1.6,name),
-      'sqi-yard':()=>renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.15)','rgba(88,166,255,.5)',1,name),
-      'sqi-uber':()=>renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.12)','rgba(255,214,10,.5)',1.5,name),
+    const fn={
+      'sq-own':  ()=>renderSet(ownedSQ,   Z_SQ, 'rgba(0,230,118,.35)',  0,0,name,0),
+      'sq-new':  ()=>renderSet(newSQ,     Z_SQ, 'rgba(255,107,53,.55)', 0,0,name,0),
+      'sq-yard': ()=>renderSet(yardTiles, Z_SQ, 'rgba(88,166,255,.30)', 0,0,name,0),
+      'sq-uber': ()=>renderSet(uberTiles, Z_SQ, 'rgba(255,214,10,.25)', 0,0,name,0),
+      'sqi-own': ()=>renderSet(ownedSQI,  Z_SQI,'rgba(145,98,186,.40)', 0,0,name,12),
+      'sqi-new': ()=>renderSet(newSQI,    Z_SQI,'rgba(255,216,91,.65)', 0,0,name,12),
+      'sqi-yard':()=>renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)', 0,0,name,12),
+      'sqi-uber':()=>renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,name,12),
       'grid14':redrawGrid,'grid17':redrawGrid
     };
     fn[name]?.();
@@ -1598,8 +1623,8 @@ async function calcRoute(){
     newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
 
     // Redraw new-tile layers
-    if(VIS['sq-new'])  renderSet(newSQ, Z_SQ,  'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
-    if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
+    if(VIS['sq-new'])  renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.55)',0,0,'sq-new',0);
+    if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,216,91,.65)',0,0,'sqi-new',12);
 
     const dist=route.distance/1000;
     const mins=Math.round(route.duration/60);
@@ -3071,8 +3096,8 @@ async function importKomoot(){
       newSQ.clear(); pd.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
       newSQI.clear(); pd.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
       clearLyr('sq-new'); clearLyr('sqi-new');
-      renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
-      renderSet(newSQI,Z_SQI,'rgba(255,216,91,.55)','#ffcd38',2,'sqi-new');
+      renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.55)',0,0,'sq-new',0);
+      renderSet(newSQI,Z_SQI,'rgba(255,216,91,.65)',0,0,'sqi-new',12);
       g('h-new').textContent=newSQ.size+newSQI.size;
       g('s-sq-new').textContent=newSQ.size;
       g('s-sqi-new').textContent=newSQI.size;
