@@ -1046,6 +1046,7 @@ let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
 let yardiTiles=new Set(), uberiTiles=new Set();
 let newSQ=new Set(), newSQI=new Set();
+let sqiOv=new Set(), sqiNewOv=new Set(); // Z_SQ-level aggregates of SQI tiles
 
 const LAYERS={};
 const VIS={
@@ -1187,8 +1188,9 @@ function clearLyr(name){
 }
 
 const CanvasTileLayer = L.Layer.extend({
-  initialize(tiles,Z,color,minZ){
+  initialize(tiles,Z,color,minZ,ovTiles,ovZ){
     this._tiles=tiles; this._Z=Z; this._color=color; this._minZ=minZ||0;
+    this._ov=ovTiles||null; this._ovZ=ovZ||Z;
     this._draw=this._draw.bind(this);
   },
   onAdd(map){
@@ -1203,11 +1205,15 @@ const CanvasTileLayer = L.Layer.extend({
     if(this._canvas){this._canvas.remove();this._canvas=null;}
     map.off('moveend zoomend resize',this._draw);
   },
-  redraw(){this._draw();},
   _draw(){
     if(!this._map||!this._canvas) return;
-    const map=this._map,Z=this._Z,c=this._canvas;
-    if(map.getZoom()<this._minZ||!this._tiles.size){c.style.display='none';return;}
+    const map=this._map,c=this._canvas,mapZ=map.getZoom();
+    // choose detail or overview based on zoom
+    let Z,tiles;
+    if(this._ov&&mapZ<12){Z=this._ovZ;tiles=this._ov;}
+    else if(mapZ<this._minZ||!this._tiles.size){c.style.display='none';return;}
+    else{Z=this._Z;tiles=this._tiles;}
+    if(!tiles.size){c.style.display='none';return;}
     c.style.display='';
     const size=map.getSize(),dpr=window.devicePixelRatio||1;
     c.width=size.x*dpr; c.height=size.y*dpr;
@@ -1220,7 +1226,7 @@ const CanvasTileLayer = L.Layer.extend({
     const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
     const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
     for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
-      if(!this._tiles.has(tileKey(x,y))) continue;
+      if(!tiles.has(tileKey(x,y))) continue;
       const p0=map.latLngToContainerPoint(L.latLng(tileNW(x,y,Z)));
       const p1=map.latLngToContainerPoint(L.latLng(tileNW(x+1,y+1,Z)));
       ctx.fillRect(Math.floor(p0.x),Math.floor(p1.y),Math.ceil(p1.x-p0.x),Math.ceil(p0.y-p1.y));
@@ -1228,21 +1234,28 @@ const CanvasTileLayer = L.Layer.extend({
   }
 });
 
-function renderSet(tiles,Z,color,_sc,_w,name,minZ){
+function renderSet(tiles,Z,color,_sc,_w,name,minZ,ovTiles,ovZ){
   clearLyr(name);
   if(!tiles.size||!VIS[name]) return;
-  LAYERS[name]=new CanvasTileLayer(tiles,Z,color,minZ||0).addTo(map);
+  LAYERS[name]=new CanvasTileLayer(tiles,Z,color,minZ||0,ovTiles||null,ovZ||Z).addTo(map);
 }
 
+function buildSQIOv(src,dst){
+  dst.clear();
+  const sh=Z_SQI-Z_SQ; // 17-14=3 → >>3
+  src.forEach(k=>{const{x,y}=parseKey(k);dst.add(tileKey(x>>sh,y>>sh));});
+}
 function redrawAll(){
-  renderSet(ownedSQ,  Z_SQ, 'rgba(0,230,118,.35)',   0,0,'sq-own',   0);
-  renderSet(newSQ,    Z_SQ, 'rgba(255,107,53,.55)',   0,0,'sq-new',   0);
-  renderSet(yardTiles,Z_SQ, 'rgba(88,166,255,.30)',   0,0,'sq-yard',  0);
-  renderSet(uberTiles,Z_SQ, 'rgba(255,214,10,.25)',   0,0,'sq-uber',  0);
-  renderSet(ownedSQI, Z_SQI,'rgba(145,98,186,.40)',   0,0,'sqi-own',  12);
-  renderSet(newSQI,   Z_SQI,'rgba(255,216,91,.65)',   0,0,'sqi-new',  12);
-  renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)',  0,0,'sqi-yard', 12);
-  renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)',  0,0,'sqi-uber', 12);
+  buildSQIOv(ownedSQI,sqiOv);
+  buildSQIOv(newSQI,sqiNewOv);
+  renderSet(ownedSQ,  Z_SQ, 'rgba(0,230,118,.35)',  0,0,'sq-own',  0);
+  renderSet(newSQ,    Z_SQ, 'rgba(255,107,53,.55)',  0,0,'sq-new',  0);
+  renderSet(yardTiles,Z_SQ, 'rgba(88,166,255,.30)',  0,0,'sq-yard', 0);
+  renderSet(uberTiles,Z_SQ, 'rgba(255,214,10,.25)',  0,0,'sq-uber', 0);
+  renderSet(ownedSQI, Z_SQI,'rgba(145,98,186,.40)',  0,0,'sqi-own', 12,sqiOv,   Z_SQ);
+  renderSet(newSQI,   Z_SQI,'rgba(255,216,91,.65)',  0,0,'sqi-new', 12,sqiNewOv,Z_SQ);
+  renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)', 0,0,'sqi-yard',12);
+  renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,'sqi-uber',12);
   redrawGrid();
 }
 
