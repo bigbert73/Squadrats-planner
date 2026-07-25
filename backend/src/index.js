@@ -774,24 +774,21 @@ app.post('/api/streetview/coverage', async (req, res) => {
 });
 
 // ── Strava Heatmap proxy ──────────────────────────────────────────────────────
-// Stores credentials per-user in memory (lost on restart, that's fine — tokens expire in ~2 weeks)
-const hmCreds = new Map(); // userId → {kp, pol, sig}
-
 app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
   const { kp, pol, sig } = req.body;
   if (!kp || !pol || !sig) return res.status(400).json({ error: 'Missing kp/pol/sig' });
-  hmCreds.set(req.userId, { kp, pol, sig });
+  db.setHeatmapCreds(req.userId, kp, pol, sig);
   res.json({ ok: true });
 });
 
 app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
-  const creds = hmCreds.get(req.userId);
-  if (!creds) return res.status(403).json({ error: 'No credentials — set them in Heat tab first' });
+  const creds = db.getHeatmapCreds(req.userId);
+  if (!creds?.hm_kp) return res.status(403).json({ error: 'No credentials — set them in Heat tab first' });
   const { z, x, y } = req.params;
   const act = req.query.act || 'ride';
   const col = req.query.col || 'hot';
   const sub = ['a','b','c'][parseInt(x) % 3];
-  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png?Key-Pair-Id=${creds.kp}&Policy=${creds.pol}&Signature=${creds.sig}`;
+  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png?Key-Pair-Id=${creds.hm_kp}&Policy=${creds.hm_pol}&Signature=${creds.hm_sig}`;
   try {
     const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
       headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.strava.com/' } });
