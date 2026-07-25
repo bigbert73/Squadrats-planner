@@ -2923,7 +2923,8 @@ async function fetchPOI(){
   g('poi-panel').style.display='block';
 
   try{
-    const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(query)}`});
+    const r=await fetch('/api/route/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const d=await r.json();
     if(d.remark) console.warn('Overpass remark:',d.remark);
     if(!d.elements?.length){el.innerHTML='<div class="hint">Brak punktów na tej trasie</div>';return;}
