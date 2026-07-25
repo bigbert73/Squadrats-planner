@@ -675,22 +675,17 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   <!-- TAB: HEATMAPA -->
   <div id="tp-hm" class="tp">
    <div class="ps">
-    <div class="sl">Strava Heatmapa</div>
-    <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
-      Globalna heatmapa Strava (wszystkich użytkowników). Wymaga zalogowania na <b>strava.com</b> oraz wyłączenia adblocker dla tej strony.
+    <div class="sl">Nakładka rowerowa</div>
+    <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:10px">
+      Trasy rowerowe z OpenStreetMap (Waymarked Trails). Publiczna, bez logowania.
     </div>
-    <div class="rg mb8">
-      <label><input type="radio" name="hma" value="ride" checked onchange="updHM()">🚴 Rowery</label>
-      <label><input type="radio" name="hma" value="run" onchange="updHM()">🏃 Bieganie</label>
-      <label><input type="radio" name="hma" value="all" onchange="updHM()">🌍 Wszystkie</label>
+    <button class="btn btn-b" onclick="showHM()"><i class="ti ti-route"></i>Pokaż trasy rowerowe</button>
+    <button class="btn btn-x" onclick="removeHM()"><i class="ti ti-eye-off"></i>Ukryj</button>
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:10px">
+      <div class="sl" style="font-size:12px;margin-bottom:6px">Strava Global Heatmap</div>
+      <div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:8px">Strava blokuje dostęp z zewnętrznych stron (SameSite cookies). Otwórz bezpośrednio:</div>
+      <a href="https://www.strava.com/maps/global-heatmap?sport=Ride&style=standard" target="_blank" class="btn btn-x" style="text-decoration:none;display:flex;align-items:center;gap:6px"><i class="ti ti-external-link"></i>Otwórz w Strava</a>
     </div>
-    <div class="rg mb8">
-      <label><input type="radio" name="hmc" value="hot" checked onchange="updHM()">🔥 Hot</label>
-      <label><input type="radio" name="hmc" value="blue" onchange="updHM()">🔵 Blue</label>
-      <label><input type="radio" name="hmc" value="purple" onchange="updHM()">🟣 Purple</label>
-    </div>
-    <button class="btn btn-b" onclick="showHM()"><i class="ti ti-flame"></i>Pokaż heatmapę</button>
-    <button class="btn btn-x" onclick="removeHM()"><i class="ti ti-eye-off"></i>Ukryj heatmapę</button>
    </div>
   </div>
 
@@ -1936,45 +1931,21 @@ function renderWL(){
 // ═══════════════════════════════════════════════════════════════════════
 //  HEATMAP
 // ═══════════════════════════════════════════════════════════════
-function _hmTileLayer(act,col){
-  return L.tileLayer(
-    `https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png`,
-    {subdomains:['a','b','c'],maxNativeZoom:15,maxZoom:22,opacity:.7,attribution:'© Strava',crossOrigin:false}
-  );
-}
 function showHM(){
-  const act=document.querySelector('input[name="hma"]:checked').value;
-  const col=document.querySelector('input[name="hmc"]:checked').value;
   if(hmLayer) map.removeLayer(hmLayer);
-  hmLayer=_hmTileLayer(act,col).addTo(map);
+  hmLayer=L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png',
+    {maxZoom:22,opacity:.8,attribution:'© <a href="https://waymarkedtrails.org">Waymarked Trails</a> (ODbL)'
+  }).addTo(map);
   localStorage.setItem('hm_on','1');
-  localStorage.setItem('hm_act',act);
-  localStorage.setItem('hm_col',col);
-  toast('✅ Heatmapa Strava załadowana');
+  toast('✅ Trasy rowerowe załadowane');
 }
-function updHM(){
-  if(!hmLayer) return;
-  const act=document.querySelector('input[name="hma"]:checked').value;
-  const col=document.querySelector('input[name="hmc"]:checked').value;
-  map.removeLayer(hmLayer);
-  hmLayer=_hmTileLayer(act,col).addTo(map);
-  localStorage.setItem('hm_act',act);
-  localStorage.setItem('hm_col',col);
-}
+function updHM(){ if(hmLayer) showHM(); }
 function removeHM(){
   if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}
   localStorage.removeItem('hm_on');
 }
 function restoreHM(){
-  if(localStorage.getItem('hm_on')!=='1') return;
-  const act=localStorage.getItem('hm_act')||'ride';
-  const col=localStorage.getItem('hm_col')||'hot';
-  const aEl=document.querySelector(`input[name="hma"][value="${act}"]`);
-  const cEl=document.querySelector(`input[name="hmc"][value="${col}"]`);
-  if(aEl) aEl.checked=true;
-  if(cEl) cEl.checked=true;
-  if(hmLayer) map.removeLayer(hmLayer);
-  hmLayer=_hmTileLayer(act,col).addTo(map);
+  if(localStorage.getItem('hm_on')==='1') showHM();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
