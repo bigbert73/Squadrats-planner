@@ -1222,47 +1222,19 @@ function redrawAll(){
   redrawGrid();
 }
 
-const CanvasGridLayer = L.Layer.extend({
-  initialize(Z, color){ this._Z=Z; this._color=color; this._draw=this._draw.bind(this); },
-  onAdd(map){
-    this._map=map;
-    const c=this._canvas=document.createElement('canvas');
-    c.style.cssText='position:absolute;top:0;left:0;pointer-events:none;z-index:300';
-    map.getContainer().appendChild(c);
-    map.on('move zoom resize moveend zoomend',this._draw);
-    this._draw();
-  },
-  onRemove(map){
-    if(this._canvas){this._canvas.remove();this._canvas=null;}
-    map.off('move zoom resize moveend zoomend',this._draw);
-  },
-  _draw(){
-    if(!this._map||!this._canvas) return;
-    const map=this._map, size=map.getSize(), c=this._canvas, Z=this._Z;
+const SQGridLayer = L.GridLayer.extend({
+  createTile(){
+    const c=document.createElement('canvas');
+    const s=this.getTileSize();
     const dpr=window.devicePixelRatio||1;
-    c.width=size.x*dpr; c.height=size.y*dpr;
-    c.style.width=size.x+'px'; c.style.height=size.y+'px';
-    const bnd=map.getBounds();
-    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
-    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
+    c.width=s.x*dpr; c.height=s.y*dpr;
+    c.style.width=s.x+'px'; c.style.height=s.y+'px';
     const ctx=c.getContext('2d');
     ctx.scale(dpr,dpr);
-    ctx.clearRect(0,0,size.x,size.y);
-    ctx.strokeStyle=this._color; ctx.lineWidth=1;
-    ctx.beginPath();
-    for(let x=t0.x;x<=t1.x+1;x++){
-      const nw=tileNW(x,t0.y,Z);
-      const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
-      const px=Math.round(p.x)+.5;
-      ctx.moveTo(px,0); ctx.lineTo(px,size.y);
-    }
-    for(let y=t0.y;y<=t1.y+1;y++){
-      const nw=tileNW(t0.x,y,Z);
-      const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
-      const py=Math.round(p.y)+.5;
-      ctx.moveTo(0,py); ctx.lineTo(size.x,py);
-    }
-    ctx.stroke();
+    ctx.strokeStyle=this.options.gridColor;
+    ctx.lineWidth=1;
+    ctx.strokeRect(.5,.5,s.x-1,s.y-1);
+    return c;
   }
 });
 
@@ -1270,12 +1242,16 @@ function redrawGrid(){
   clearLyr('grid14'); clearLyr('grid17');
   const z=map.getZoom();
   if(VIS['grid14']&&z>=9){
-    LAYERS['grid14']=new CanvasGridLayer(Z_SQ,'rgba(0,230,118,0.4)');
-    LAYERS['grid14'].addTo(map);
+    LAYERS['grid14']=new SQGridLayer({
+      minNativeZoom:Z_SQ,maxNativeZoom:Z_SQ,
+      gridColor:'rgba(0,230,118,0.45)',opacity:1,pane:'overlayPane'
+    }).addTo(map);
   }
   if(VIS['grid17']&&z>=13){
-    LAYERS['grid17']=new CanvasGridLayer(Z_SQI,'rgba(144,80,192,0.38)');
-    LAYERS['grid17'].addTo(map);
+    LAYERS['grid17']=new SQGridLayer({
+      minNativeZoom:Z_SQI,maxNativeZoom:Z_SQI,
+      gridColor:'rgba(144,80,192,0.4)',opacity:1,pane:'overlayPane'
+    }).addTo(map);
   }
 }
 
