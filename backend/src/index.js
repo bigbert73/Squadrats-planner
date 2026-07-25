@@ -788,12 +788,17 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
   const act = req.query.act || 'ride';
   const col = req.query.col || 'hot';
   const sub = ['a','b','c'][parseInt(x) % 3];
-  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png?Key-Pair-Id=${creds.hm_kp}&Policy=${creds.hm_pol}&Signature=${creds.hm_sig}`;
+  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png`;
   console.log(`[HM] tile z=${z} x=${x} y=${y} act=${act} kp=${creds.hm_kp?.slice(0,8)}`);
   try {
     const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.strava.com/' } });
-    console.log(`[HM] strava → ${r.status} ${r.headers['content-type']} len=${r.data?.byteLength}`);
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://www.strava.com/',
+        'Cookie': `CloudFront-Key-Pair-Id=${creds.hm_kp}; CloudFront-Policy=${creds.hm_pol}; CloudFront-Signature=${creds.hm_sig}`
+      }
+    });
+    console.log(`[HM] strava → ${r.status} len=${r.data?.byteLength}`);
     res.set('Content-Type', r.headers['content-type'] || 'image/png');
     res.set('Cache-Control', 'public, max-age=1800');
     res.send(r.data);
