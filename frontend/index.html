@@ -677,7 +677,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
    <div class="ps">
     <div class="sl">Strava Heatmapa</div>
     <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
-      Globalna heatmapa Strava — wszystkie aktywności wszystkich użytkowników. Dane publiczne, nie wymaga logowania.
+      Globalna heatmapa Strava (wszystkich użytkowników). Wymaga zalogowania na <b>strava.com</b> oraz wyłączenia adblocker dla tej strony.
     </div>
     <div class="rg mb8">
       <label><input type="radio" name="hma" value="ride" checked onchange="updHM()">🚴 Rowery</label>
@@ -1938,8 +1938,8 @@ function renderWL(){
 // ═══════════════════════════════════════════════════════════════
 function _hmTileLayer(act,col){
   return L.tileLayer(
-    `/api/heatmap/tile/{z}/{x}/{y}?act=${act}&col=${col}`,
-    {maxNativeZoom:12,maxZoom:22,opacity:.7,attribution:'© Strava'}
+    `https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png`,
+    {subdomains:['a','b','c'],maxNativeZoom:15,maxZoom:22,opacity:.7,attribution:'© Strava',crossOrigin:false}
   );
 }
 function showHM(){
