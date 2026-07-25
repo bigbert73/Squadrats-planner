@@ -1113,6 +1113,7 @@ async function initMap(){
   sbEl.addEventListener('mouseleave',()=>sbPeek(false));
 
   await checkAuth();
+  restoreHM();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1966,12 +1967,11 @@ function updHM(){
   // Direct Strava URL — tile layers use <img> (no CORS), CloudFront Policy is IP-bound to browser
   hmLayer=L.tileLayer(
     `https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png?Key-Pair-Id=${kp}&Policy=${pol}&Signature=${sig}`,
-    {subdomains:['a','b','c'],maxZoom:16,opacity:.7,attribution:'© Strava'}
+    {subdomains:['a','b','c'],maxNativeZoom:16,maxZoom:22,opacity:.7,attribution:'© Strava'}
   ).addTo(map);
 }
 function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
-// Restore heatmap credentials from localStorage on load
-(function restoreHM(){
+function restoreHM(){
   const kp=localStorage.getItem('hm_kp');
   const pol=localStorage.getItem('hm_pol');
   const sig=localStorage.getItem('hm_sig');
@@ -1979,9 +1979,8 @@ function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
   const setV=(id,val)=>{const el=g(id);if(el)el.value=val;};
   setV('hm-kp',kp);setV('hm-pol',pol);setV('hm-sig',sig);
   hmChg();
-  // auto-apply after map is ready
-  setTimeout(updHM,500);
-})();
+  updHM(); // map is already ready when this is called from initMap()
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  AUTH — LOGIN / REGISTER / USER MENU
