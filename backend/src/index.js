@@ -846,7 +846,7 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
     for (let i = 0; i < articles.length; i += 50) {
       const chunk = articles.slice(i, i + 50);
       const pageids = chunk.map(a => a.pageid).join('|');
-      const thumbUrl = `https://pl.wikipedia.org/w/api.php?action=query&pageids=${pageids}&prop=pageimages|extracts&pithumbsize=240&exintro=true&exsentences=2&explaintext=true&format=json&origin=*`;
+      const thumbUrl = `https://pl.wikipedia.org/w/api.php?action=query&pageids=${pageids}&prop=pageimages|extracts|info&pithumbsize=240&exintro=true&exsentences=2&explaintext=true&inprop=length&format=json&origin=*`;
       try {
         const r = await axios.get(thumbUrl, { timeout: 8000, headers: wikiHeaders });
         Object.assign(allPages, r.data?.query?.pages || {});
@@ -862,9 +862,12 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
         lng: a.lon,
         thumb: page?.thumbnail?.source || null,
         extract: page?.extract || '',
+        length: page?.length || 0,
         url: `https://pl.wikipedia.org/wiki/${encodeURIComponent(a.title.replace(/ /g, '_'))}`
       };
-    }).filter(p => p.thumb);
+    }).filter(p => p.thumb)
+      .sort((a, b) => b.length - a.length) // dłuższy artykuł = ważniejsze miejsce
+      .slice(0, 15);
 
     res.json({ pois });
   } catch (e) {
