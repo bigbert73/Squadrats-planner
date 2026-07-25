@@ -773,6 +773,74 @@ app.post('/api/streetview/coverage', async (req, res) => {
   } catch { res.json({ coverage: null }); }
 });
 
+// ── Strava Heatmap proxy ──────────────────────────────────────────────────────
+// Stores credentials per-user in memory (lost on restart, that's fine — tokens expire in ~2 weeks)
+const hmCreds = new Map(); // userId → {kp, pol, sig}
+
+app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
+  const { kp, pol, sig } = req.body;
+  if (!kp || !pol || !sig) return res.status(400).json({ error: 'Missing kp/pol/sig' });
+  hmCreds.set(req.userId, { kp, pol, sig });
+  res.json({ ok: true });
+});
+
+app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
+  const creds = hmCreds.get(req.userId);
+  if (!creds) return res.status(403).json({ error: 'No credentials — set them in Heat tab first' });
+  const { z, x, y } = req.params;
+  const act = req.query.act || 'ride';
+  const col = req.query.col || 'hot';
+  const sub = ['a','b','c'][parseInt(x) % 3];
+  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png?Key-Pair-Id=${creds.kp}&Policy=${creds.pol}&Signature=${creds.sig}`;
+  try {
+    const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.strava.com/' } });
+    res.set('Content-Type', r.headers['content-type'] || 'image/png');
+    res.set('Cache-Control', 'public, max-age=1800');
+    res.send(r.data);
+  } catch (e) {
+    res.status(502).send();
+  }
+});
+
+// ── Wikipedia POI near route ───────────────────────────────────────────────────
+app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
+  const { bounds } = req.body; // {north,south,east,west}
+  if (!bounds) return res.status(400).json({ error: 'Missing bounds' });
+  const { north, south, east, west } = bounds;
+  try {
+    // 1. Geosearch within bounding box (Polish Wikipedia)
+    const geoUrl = `https://pl.wikipedia.org/w/api.php?action=query&list=geosearch&gsbbox=${north}|${east}|${south}|${west}&gslimit=50&format=json&origin=*`;
+    const geoRes = await axios.get(geoUrl, { timeout: 8000, headers: {'User-Agent':'SquadratsApp/2.0'} });
+    const articles = geoRes.data?.query?.geosearch || [];
+    if (!articles.length) return res.json({ pois: [] });
+
+    // 2. Batch-fetch thumbnails + short extracts
+    const pageids = articles.map(a => a.pageid).join('|');
+    const thumbUrl = `https://pl.wikipedia.org/w/api.php?action=query&pageids=${pageids}&prop=pageimages|extracts&pithumbsize=240&exintro=true&exsentences=2&explaintext=true&format=json&origin=*`;
+    const thumbRes = await axios.get(thumbUrl, { timeout: 8000, headers: {'User-Agent':'SquadratsApp/2.0'} });
+    const pages = thumbRes.data?.query?.pages || {};
+
+    const pois = articles.map(a => {
+      const page = pages[String(a.pageid)];
+      return {
+        id: a.pageid,
+        title: a.title,
+        lat: a.lat,
+        lng: a.lon,
+        thumb: page?.thumbnail?.source || null,
+        extract: page?.extract || '',
+        url: `https://pl.wikipedia.org/wiki/${encodeURIComponent(a.title.replace(/ /g,'_'))}`
+      };
+    }).filter(p => p.thumb); // only show articles that have a photo
+
+    res.json({ pois });
+  } catch (e) {
+    console.error('Wiki POI error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── SPA fallback ──────────────────────────────────────────────────────────────
 
 app.get('*', (req, res) => res.sendFile(path.join(FRONTEND, 'index.html')));

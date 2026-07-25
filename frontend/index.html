@@ -394,6 +394,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .surf-val{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx);min-width:72px;text-align:right;flex-shrink:0}
 .coll-head{display:flex;align-items:center;cursor:pointer;user-select:none}
 .coll-head:hover .sl{color:var(--tx2)}
+/* Wikipedia POI popup */
+.wiki-popup img{width:100%;height:130px;object-fit:cover;border-radius:6px;margin-bottom:8px;display:block}
+.wiki-popup b{font-size:13px;color:#111;line-height:1.3;display:block;margin-bottom:4px}
+.wiki-popup p{font-size:11px;color:#555;margin:0 0 6px;line-height:1.5}
+.wiki-popup a{font-size:11px;color:#1a73e8;text-decoration:none}
+.wiki-popup a:hover{text-decoration:underline}
 .coll-body{overflow:hidden;transition:max-height .25s ease}
 .coll-body.shut{max-height:0!important}
 .poi-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
@@ -749,6 +755,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="mtb" id="mtb-sv"   onclick="toggleSV()"   title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
       <button class="mtb" id="mtb-elev" onclick="toggleElev()" title="Profil wysokościowy trasy"><i class="ti ti-chart-area-line"></i></button>
       <button class="mtb" id="mtb-poi"  onclick="togglePOIPanel()" title="Punkty na trasie (POI)" style="display:none"><i class="ti ti-map-pin"></i></button>
+      <button class="mtb" id="mtb-wiki" onclick="toggleWikiLayer()" title="Ciekawe miejsca (Wikipedia)" style="display:none"><i class="ti ti-book"></i></button>
     </div>
     <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
     <div id="ibar">
@@ -1607,6 +1614,7 @@ async function calcRoute(){
     processSurfaceProfile(route.surfaceProfile, dist);
     fetchSVCoverage();
     fetchPOI();
+    fetchWikiPOI();
 
     if(!loop){
       outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
@@ -1713,7 +1721,7 @@ function clearRoute(){
   if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
   clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue');
-  clearPOI();
+  clearPOI(); clearWikiPOI();
   if(g('route-summary')) g('route-summary').style.display='none';
   if(g('poi-panel')) g('poi-panel').style.display='none';
   renderWL(); previewRoute(); updDist(0);
@@ -1937,19 +1945,26 @@ function hmChg(){
   g('hm-st').textContent=ok?'✅ Gotowe — kliknij Zastosuj':'Uzupełnij wszystkie 3 pola';
   g('hm-st').style.color=ok?'var(--green)':'var(--tx3)';
 }
-function applyHM(){
+async function applyHM(){
   const kp=v('hm-kp'),pol=v('hm-pol'),sig=v('hm-sig');
-  if(!kp||!pol||!sig){toast('Uzupełnij tokeny');return;}
-  removeHM(); updHM(); toast('✅ Heatmapa Strava załadowana');
+  if(!kp||!pol||!sig){toast('Uzupełnij tokeny CloudFront');return;}
+  showLoad('Zapisuję dane heatmapy…');
+  try{
+    const r=await fetch('/api/heatmap/credentials',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kp,pol,sig})});
+    if(!r.ok) throw new Error('Błąd zapisu danych');
+    hideLoad();
+    updHM();
+    toast('✅ Heatmapa Strava załadowana');
+  }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 function updHM(){
-  const kp=v('hm-kp'),pol=v('hm-pol'),sig=v('hm-sig');
-  if(!kp||!pol||!sig) return;
   if(hmLayer) map.removeLayer(hmLayer);
   const act=document.querySelector('input[name="hma"]:checked').value;
   const col=document.querySelector('input[name="hmc"]:checked').value;
-  const url=`https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png?Key-Pair-Id=${encodeURIComponent(kp)}&Policy=${encodeURIComponent(pol)}&Signature=${encodeURIComponent(sig)}`;
-  hmLayer=L.tileLayer(url,{subdomains:'abc',maxZoom:16,opacity:.7,attribution:'© Strava'}).addTo(map);
+  // Use backend proxy — avoids CloudFront cross-origin cookie issues
+  hmLayer=L.tileLayer(`/api/heatmap/tile/{z}/{x}/{y}?act=${act}&col=${col}`,{
+    maxZoom:16,opacity:.7,attribution:'© Strava'
+  }).addTo(map);
 }
 function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
 
@@ -2809,6 +2824,82 @@ function routeBbox(){
   });
   const buf=0.008; // ~900m buffer
   return{s:minLat-buf,n:maxLat+buf,w:minLng-buf,e:maxLng+buf};
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WIKIPEDIA POI
+// ═══════════════════════════════════════════════════════════════════════
+let wikiLayer=null, wikiVisible=true;
+
+function clearWikiPOI(){
+  if(wikiLayer){map.removeLayer(wikiLayer);wikiLayer=null;}
+  g('mtb-wiki').style.display='none';
+  g('mtb-wiki').classList.remove('on');
+}
+
+function toggleWikiLayer(){
+  if(!wikiLayer) return;
+  wikiVisible=!wikiVisible;
+  if(wikiVisible) map.addLayer(wikiLayer);
+  else map.removeLayer(wikiLayer);
+  g('mtb-wiki').classList.toggle('on',wikiVisible);
+}
+
+async function fetchWikiPOI(){
+  clearWikiPOI();
+  if(routeCoords.length<2) return;
+
+  // Bounding box of route
+  let north=-90,south=90,east=-180,west=180;
+  routeCoords.forEach(c=>{
+    if(c.lat>north) north=c.lat; if(c.lat<south) south=c.lat;
+    if(c.lng>east)  east=c.lng;  if(c.lng<west)  west=c.lng;
+  });
+  // Small padding
+  const pad=0.005;
+  north+=pad; south-=pad; east+=pad; west-=pad;
+
+  try{
+    const r=await fetch('/api/route/wiki-poi',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({bounds:{north,south,east,west}})
+    });
+    if(!r.ok) return;
+    const d=await r.json();
+    if(!d.pois?.length) return;
+
+    // Filter: only POI within ~2km of actual route
+    const thresh=0.018; // ~2km in degrees
+    const nearby=d.pois.filter(p=>
+      routeCoords.some(c=>Math.abs(c.lat-p.lat)<thresh&&Math.abs(c.lng-p.lng)<thresh)
+    );
+    if(!nearby.length) return;
+
+    wikiLayer=L.layerGroup();
+    nearby.forEach(p=>{
+      const icon=L.divIcon({
+        className:'',iconSize:[36,36],iconAnchor:[18,18],
+        html:`<div style="width:36px;height:36px;border-radius:8px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.55);background:#111">
+          <img src="${p.thumb}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+        </div>`
+      });
+      const popup=`<div class="wiki-popup" style="min-width:200px;max-width:240px">
+        <img src="${p.thumb}" alt="">
+        <b>${p.title}</b>
+        <p>${p.extract?.slice(0,180)||''}${(p.extract?.length||0)>180?'…':''}</p>
+        <a href="${p.url}" target="_blank" rel="noopener">Czytaj na Wikipedii →</a>
+      </div>`;
+      L.marker([p.lat,p.lng],{icon,zIndexOffset:300}).bindPopup(popup,{maxWidth:260}).addTo(wikiLayer);
+    });
+
+    wikiLayer.addTo(map);
+    wikiVisible=true;
+    g('mtb-wiki').style.display='flex';
+    g('mtb-wiki').classList.add('on');
+    toast(`📚 ${nearby.length} ciekawych miejsc z Wikipedii`);
+  }catch(e){
+    console.warn('Wiki POI error:',e.message);
+  }
 }
 
 async function fetchPOI(){
