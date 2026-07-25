@@ -803,6 +803,22 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
   }
 });
 
+// ── Overpass API proxy ────────────────────────────────────────────────────────
+app.post('/api/route/overpass', requireAuth, async (req, res) => {
+  const { query } = req.body;
+  if (!query) return res.status(400).json({ error: 'Missing query' });
+  try {
+    const r = await axios.post('https://overpass-api.de/api/interpreter',
+      `data=${encodeURIComponent(query)}`,
+      { timeout: 60000, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SquadratsApp/2.0' } }
+    );
+    res.json(r.data);
+  } catch (e) {
+    console.error('Overpass proxy error:', e.message);
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // ── Wikipedia POI near route ───────────────────────────────────────────────────
 app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
   const { samples } = req.body; // [{lat,lng}, ...]
