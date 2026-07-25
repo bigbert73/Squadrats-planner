@@ -231,7 +231,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 .leaflet-control-attribution{background:rgba(7,9,15,.85)!important;color:var(--tx3)!important;font-size:9px!important}
 .leaflet-control-attribution a{color:var(--tx3)!important}
 
-#mtools{position:absolute;top:10px;right:10px;z-index:1000;display:flex;flex-direction:column;gap:4px}
+#mtools{position:absolute;top:10px;right:10px;z-index:1000;display:flex;flex-direction:column;gap:4px;max-height:calc(100vh - 30px);overflow-y:auto;scrollbar-width:none}
+#mtools::-webkit-scrollbar{display:none}
 .mtb{width:30px;height:30px;background:rgba(13,17,23,.9);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .mtb:hover{color:var(--tx);border-color:var(--bhi)}.mtb.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
 
@@ -746,16 +747,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <button class="mtb" onclick="fitAll()" title="Dopasuj"><i class="ti ti-focus-2"></i></button>
       <button class="mtb" onclick="locateMe()" title="Lokalizacja"><i class="ti ti-current-location"></i></button>
       <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
+      <button class="mtb" id="mtb-sv"   onclick="toggleSV()"   title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
+      <button class="mtb" id="mtb-elev" onclick="toggleElev()" title="Profil wysokościowy trasy"><i class="ti ti-chart-area-line"></i></button>
+      <button class="mtb" id="mtb-poi"  onclick="togglePOIPanel()" title="Punkty na trasie (POI)" style="display:none"><i class="ti ti-map-pin"></i></button>
+      <button class="mtb" id="mtb-wiki" onclick="toggleWikiLayer()" title="Ciekawe miejsca (Wikipedia)" style="display:none"><i class="ti ti-book"></i></button>
+      <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
       <button class="mtb"    data-base="dark"      onclick="chBase('dark')"      title="Dark"><i class="ti ti-moon"></i></button>
       <button class="mtb on" data-base="osm"        onclick="chBase('osm')"       title="OpenStreetMap"><i class="ti ti-map"></i></button>
       <button class="mtb"    data-base="satellite"  onclick="chBase('satellite')" title="Satelita"><i class="ti ti-satellite"></i></button>
       <button class="mtb"    data-base="topo"       onclick="chBase('topo')"      title="Topo"><i class="ti ti-mountain"></i></button>
       <button class="mtb"    data-base="cycle"      onclick="chBase('cycle')"     title="Rower"><i class="ti ti-bike"></i></button>
-      <div style="height:1px;background:var(--border);margin:2px 0;width:20px;align-self:center"></div>
-      <button class="mtb" id="mtb-sv"   onclick="toggleSV()"   title="Street View — podgląd trasy"><i class="ti ti-360"></i></button>
-      <button class="mtb" id="mtb-elev" onclick="toggleElev()" title="Profil wysokościowy trasy"><i class="ti ti-chart-area-line"></i></button>
-      <button class="mtb" id="mtb-poi"  onclick="togglePOIPanel()" title="Punkty na trasie (POI)" style="display:none"><i class="ti ti-map-pin"></i></button>
-      <button class="mtb" id="mtb-wiki" onclick="toggleWikiLayer()" title="Ciekawe miejsca (Wikipedia)" style="display:none"><i class="ti ti-book"></i></button>
     </div>
     <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
     <div id="ibar">
