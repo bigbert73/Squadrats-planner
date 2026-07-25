@@ -1047,7 +1047,7 @@ let yardTiles=new Set(), uberTiles=new Set();
 let yardiTiles=new Set(), uberiTiles=new Set();
 let newSQ=new Set(), newSQI=new Set();
 // SQI overview: three coarser levels [tileZ, minMapZ] finest→coarsest
-const SQI_OV=[[14,9],[12,6],[10,0]];
+const SQI_OV=[[14,10],[12,7],[10,0]];
 const sqiOvSets    =[new Set(),new Set(),new Set()];
 const sqiNewOvSets =[new Set(),new Set(),new Set()];
 let sqiOvLevels=[], sqiNewOvLevels=[];
@@ -1212,7 +1212,7 @@ const CanvasTileLayer = L.Layer.extend({
   },
   _draw(){
     if(!this._map||!this._canvas) return;
-    const map=this._map,c=this._canvas,mapZ=map.getZoom();
+    const map=this._map,c=this._canvas,mapZ=Math.floor(map.getZoom());
     let Z,tiles;
     if(mapZ>=this._minZ&&this._tiles.size){
       Z=this._Z; tiles=this._tiles;
