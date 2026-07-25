@@ -783,19 +783,22 @@ app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
 
 app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
   const creds = db.getHeatmapCreds(req.userId);
-  if (!creds?.hm_kp) return res.status(403).json({ error: 'No credentials — set them in Heat tab first' });
+  if (!creds?.hm_kp) { console.log('[HM] 403 no creds uid='+req.userId); return res.status(403).json({ error: 'No credentials' }); }
   const { z, x, y } = req.params;
   const act = req.query.act || 'ride';
   const col = req.query.col || 'hot';
   const sub = ['a','b','c'][parseInt(x) % 3];
   const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png?Key-Pair-Id=${creds.hm_kp}&Policy=${creds.hm_pol}&Signature=${creds.hm_sig}`;
+  console.log(`[HM] tile z=${z} x=${x} y=${y} act=${act} kp=${creds.hm_kp?.slice(0,8)}`);
   try {
     const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
       headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://www.strava.com/' } });
+    console.log(`[HM] strava → ${r.status} ${r.headers['content-type']} len=${r.data?.byteLength}`);
     res.set('Content-Type', r.headers['content-type'] || 'image/png');
     res.set('Cache-Control', 'public, max-age=1800');
     res.send(r.data);
   } catch (e) {
+    console.error(`[HM] strava error: ${e.response?.status} ${e.message}`);
     res.status(502).send();
   }
 });
@@ -804,16 +807,21 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
 app.post('/api/route/overpass', requireAuth, async (req, res) => {
   const { query } = req.body;
   if (!query) return res.status(400).json({ error: 'Missing query' });
-  try {
-    const r = await axios.post('https://overpass-api.de/api/interpreter',
-      `data=${encodeURIComponent(query)}`,
-      { timeout: 60000, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SquadratsApp/2.0' } }
-    );
-    res.json(r.data);
-  } catch (e) {
-    console.error('Overpass proxy error:', e.message);
-    res.status(502).json({ error: e.message });
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+  ];
+  const body = `data=${encodeURIComponent(query)}`;
+  const opts = { timeout: 45000, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SquadratsApp/2.0' } };
+  for (const ep of endpoints) {
+    try {
+      const r = await axios.post(ep, body, opts);
+      return res.json(r.data);
+    } catch (e) {
+      console.error(`Overpass proxy error (${ep}): ${e.response?.status || e.message}`);
+    }
   }
+  res.status(502).json({ error: 'All Overpass endpoints failed' });
 });
 
 // ── Wikipedia POI near route ───────────────────────────────────────────────────
