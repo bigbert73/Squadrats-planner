@@ -803,7 +803,8 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
     res.set('Cache-Control', 'public, max-age=1800');
     res.send(r.data);
   } catch (e) {
-    console.error(`[HM] strava error: ${e.response?.status} ${e.message}`);
+    const body = e.response?.data ? Buffer.from(e.response.data).toString('utf8').slice(0,300) : '';
+    console.error(`[HM] strava error: ${e.response?.status} body="${body}"`);
     res.status(502).send();
   }
 });
