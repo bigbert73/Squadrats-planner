@@ -1938,8 +1938,8 @@ function renderWL(){
 // ═══════════════════════════════════════════════════════════════
 function _hmTileLayer(act,col){
   return L.tileLayer(
-    `https://heatmap-external-{s}.strava.com/tiles/${act}/${col}/{z}/{x}/{y}.png`,
-    {subdomains:['a','b','c'],maxNativeZoom:12,maxZoom:22,opacity:.7,attribution:'© Strava'}
+    `/api/heatmap/tile/{z}/{x}/{y}?act=${act}&col=${col}`,
+    {maxNativeZoom:12,maxZoom:22,opacity:.7,attribution:'© Strava'}
   );
 }
 function showHM(){
