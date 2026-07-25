@@ -1781,7 +1781,7 @@ function clearRoute(){
   elevData=[]; clearElevCursor();
   if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
-  clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue');
+  clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue'); clearLyr('rt-click');
   clearPOI(); clearWikiPOI();
   if(g('route-summary')) g('route-summary').style.display='none';
   if(g('poi-panel')) g('poi-panel').style.display='none';
@@ -1996,6 +1996,85 @@ function renderWL(){
     if(w.type==='start'){tc='ws';tl='S';}else if(w.type==='end'){tc='we';tl='E';}else{mc2++;tc='wm';tl=mc2;}
     return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc">${ll.lat.toFixed(4)}°N ${ll.lng.toFixed(4)}°E</div><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
   }).join('');
+}
+
+function relabelWpts(){
+  let mc=0;
+  wpts.forEach(w=>{
+    const t=w.type;
+    const lbl=t==='start'?'S':t==='end'?'E':String(++mc);
+    const clr=t==='start'?'#00e676':t==='end'?'#ff6b35':'#58a6ff';
+    w.marker.setIcon(L.divIcon({className:'',
+      html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
+      iconSize:[24,24],iconAnchor:[12,12]}));
+  });
+}
+
+function findSegmentForClick(latlng){
+  if(!routeSegments.length) return 0;
+  let minD=Infinity,minIdx=0;
+  const lat=latlng.lat,lng=latlng.lng;
+  for(let i=0;i<routeCoords.length;i++){
+    const d=(routeCoords[i].lat-lat)**2+(routeCoords[i].lng-lng)**2;
+    if(d<minD){minD=d;minIdx=i;}
+  }
+  let cumLen=0;
+  for(let si=0;si<routeSegments.length;si++){
+    cumLen+=(si===0?routeSegments[si].coords.length:routeSegments[si].coords.length-1);
+    if(minIdx<cumLen) return si;
+  }
+  return routeSegments.length-1;
+}
+
+async function addViaPoint(latlng,segIdx){
+  const mc2=wpts.filter(w=>w.type==='mid').length;
+  const lbl=String(mc2+1);
+  const clr='#58a6ff';
+  const icon=L.divIcon({className:'',
+    html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
+    iconSize:[24,24],iconAnchor:[12,12]});
+  const marker=L.marker(latlng,{icon,draggable:true}).addTo(map);
+  marker.on('dragstart',()=>{clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
+  marker.on('drag',()=>{previewRoute();});
+  marker.on('dragend',async()=>{
+    if(rLine){map.removeLayer(rLine);rLine=null;}
+    renderWL();
+    const i=wpts.findIndex(w=>w.marker===marker);
+    if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
+    else previewRoute();
+  });
+  marker.on('contextmenu',async()=>{
+    const i=wpts.findIndex(w=>w.marker===marker);
+    if(i<0) return;
+    map.removeLayer(marker);
+    wpts.splice(i,1);
+    const rmSeg=Math.max(0,i-1);
+    if(routeSegments.length>0) routeSegments.splice(rmSeg,1);
+    relabelWpts(); renderWL();
+    if(routeSegments.length>0&&wpts.length>=2){
+      await recalcDraggedWpt(Math.min(i,wpts.length-1));
+    } else previewRoute();
+  });
+  const wp={type:'mid',marker};
+  wpts.splice(segIdx+1,0,wp);
+  routeSegments.splice(segIdx+1,0,{coords:[]}); // placeholder — recalcDraggedWpt replaces it
+  relabelWpts(); renderWL();
+  await recalcDraggedWpt(segIdx+1);
+}
+
+function addRouteClickOverlay(){
+  clearLyr('rt-click');
+  if(!routeCoords.length||!routeSegments.length) return;
+  const poly=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),
+    {weight:20,opacity:0,interactive:true,pane:'routePane'}).addTo(map);
+  poly.on('mouseover',()=>{if(!svMode) map.getContainer().style.cursor='copy';});
+  poly.on('mouseout', ()=>{if(!svMode) map.getContainer().style.cursor='';});
+  poly.on('click',e=>{
+    L.DomEvent.stopPropagation(e);
+    if(svMode){openSV(e.latlng.lat,e.latlng.lng);return;}
+    addViaPoint(e.latlng,findSegmentForClick(e.latlng));
+  });
+  LAYERS['rt-click']=poly;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2729,10 +2808,13 @@ let svKmCovered=0;
 
 function makeSVPoly(latlngs){
   const poly=L.polyline(latlngs,{color:'#3b82f6',weight:7,opacity:.95,interactive:true,pane:'routePane'});
-  poly.bindTooltip('<i class="ti ti-360"></i> Kliknij — otwórz Street View',{sticky:true,className:'sv-tip',offset:[12,0]});
+  poly.bindTooltip(()=>svMode
+    ?'<i class="ti ti-360"></i> Kliknij — Street View'
+    :'<i class="ti ti-map-pin-plus"></i> Kliknij — dodaj punkt pośredni',
+    {sticky:true,className:'sv-tip',offset:[12,0]});
   poly.on('mouseover',()=>{
     poly.setStyle({color:'#60a5fa',weight:10});
-    map.getContainer().style.cursor='pointer';
+    map.getContainer().style.cursor=svMode?'pointer':'copy';
   });
   poly.on('mouseout',()=>{
     poly.setStyle({color:'#3b82f6',weight:7});
@@ -2740,24 +2822,17 @@ function makeSVPoly(latlngs){
   });
   poly.on('click',e=>{
     L.DomEvent.stopPropagation(e);
-    if(!svMode){
-      svMode=true;
-      g('mtb-sv').classList.add('on');
-      g('mc').classList.add('sv-active');
-      map.getContainer().style.cursor='crosshair';
-      g('m-icon').className='ti ti-360';
-      g('m-txt').textContent='Street View — kliknij na mapie';
-      setTimeout(()=>map.invalidateSize(),60);
-    }
-    openSV(e.latlng.lat,e.latlng.lng);
+    if(svMode){openSV(e.latlng.lat,e.latlng.lng);}
+    else{addViaPoint(e.latlng,findSegmentForClick(e.latlng));}
   });
   return poly;
 }
 
 function drawSVColoredRoute(){
   if(rLine){map.removeLayer(rLine);rLine=null;}
-  clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue');
+  clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue'); clearLyr('rt-click');
   if(!routeCoords.length) return;
+  addRouteClickOverlay(); // invisible wide overlay for click-to-add-via-point (added first → below visual layers)
   if(!svCovData){
     rLine=L.polyline(routeCoords.map(p=>L.latLng(p.lat,p.lng)),{color:'#ff4d4d',weight:5,opacity:.95,interactive:false,pane:'routePane'}).addTo(map);
     return;
