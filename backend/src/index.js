@@ -775,27 +775,27 @@ app.post('/api/streetview/coverage', async (req, res) => {
 
 // ── Strava Heatmap proxy ──────────────────────────────────────────────────────
 app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
-  const { kp, pol, sig } = req.body;
-  if (!kp || !pol || !sig) return res.status(400).json({ error: 'Missing kp/pol/sig' });
-  db.setHeatmapCreds(req.userId, kp, pol, sig);
+  const cookie = (req.body.cookie || '').trim();
+  if (!cookie) return res.status(400).json({ error: 'Missing cookie' });
+  db.setHeatmapCreds(req.userId, cookie, '', '');
   res.json({ ok: true });
 });
 
 app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
   const creds = db.getHeatmapCreds(req.userId);
-  if (!creds?.hm_kp) { console.log('[HM] 403 no creds uid='+req.userId); return res.status(403).json({ error: 'No credentials' }); }
+  if (!creds?.hm_kp) { return res.status(403).json({ error: 'No credentials' }); }
   const { z, x, y } = req.params;
   const act = req.query.act || 'ride';
   const col = req.query.col || 'hot';
   const sub = ['a','b','c'][parseInt(x) % 3];
   const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png`;
-  console.log(`[HM] tile z=${z} x=${x} y=${y} act=${act} kp=${creds.hm_kp?.slice(0,8)}`);
+  console.log(`[HM] tile z=${z} x=${x} y=${y}`);
   try {
     const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://www.strava.com/',
-        'Cookie': `CloudFront-Key-Pair-Id=${creds.hm_kp}; CloudFront-Policy=${creds.hm_pol}; CloudFront-Signature=${creds.hm_sig}`
+        'Cookie': creds.hm_kp  // hm_kp stores full cookie string now
       }
     });
     console.log(`[HM] strava → ${r.status} len=${r.data?.byteLength}`);

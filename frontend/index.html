@@ -677,14 +677,13 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
    <div class="ps">
     <div class="sl">Strava Heatmapa</div>
     <div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:8px">
-      F12 → Application → Cookies → strava.com. Skopiuj 3 wartości CloudFront. Tokeny ważne ~2 tyg.
+      Na strava.com → F12 → <b>Sieć</b> → odśwież → kliknij dowolny request do <code>heatmap-external-*.strava.com</code> → <b>Nagłówki żądania</b> → <b>Cookie</b> → skopiuj całą wartość i wklej poniżej.
     </div>
     <div class="crb">
-      <label>CloudFront-Key-Pair-Id</label><input type="text" id="hm-kp" placeholder="APKA..." oninput="hmChg()">
-      <label>CloudFront-Policy</label><input type="text" id="hm-pol" placeholder="eyJ..." oninput="hmChg()">
-      <label>CloudFront-Signature</label><input type="text" id="hm-sig" placeholder="..." oninput="hmChg()">
+      <label>Cookie (pełny nagłówek z żądania do heatmap-external-*.strava.com)</label>
+      <textarea id="hm-cookie" rows="4" placeholder="CloudFront-Key-Pair-Id=...; CloudFront-Policy=...; CloudFront-Signature=...; _strava_idcf=..." oninput="hmChg()" style="width:100%;font-size:11px;font-family:monospace;resize:vertical;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--tx);padding:6px"></textarea>
     </div>
-    <div id="hm-st" style="font-size:12px;color:var(--tx3);margin-bottom:7px">Brak tokenów</div>
+    <div id="hm-st" style="font-size:12px;color:var(--tx3);margin-bottom:7px">Wklej cookies</div>
     <div class="rg mb8">
       <label><input type="radio" name="hma" value="ride" checked onchange="updHM()">🚴 Rowery</label>
       <label><input type="radio" name="hma" value="run" onchange="updHM()">🏃 Bieganie</label>
@@ -1943,25 +1942,21 @@ function renderWL(){
 //  HEATMAP
 // ═══════════════════════════════════════════════════════════════
 function hmChg(){
-  const ok=v('hm-kp')&&v('hm-pol')&&v('hm-sig');
-  g('hm-st').textContent=ok?'✅ Gotowe — kliknij Zastosuj':'Uzupełnij wszystkie 3 pola';
+  const ok=!!(g('hm-cookie')?.value?.trim());
+  g('hm-st').textContent=ok?'✅ Gotowe — kliknij Zastosuj':'Wklej cookies z żądania do heatmap-external-*.strava.com';
   g('hm-st').style.color=ok?'var(--green)':'var(--tx3)';
 }
 function applyHM(){
-  const kp=v('hm-kp'),pol=v('hm-pol'),sig=v('hm-sig');
-  if(!kp||!pol||!sig){toast('Uzupełnij tokeny CloudFront');return;}
-  localStorage.setItem('hm_kp',kp);
-  localStorage.setItem('hm_pol',pol);
-  localStorage.setItem('hm_sig',sig);
+  const cookie=(g('hm-cookie')?.value||'').trim();
+  if(!cookie){toast('Wklej cookies z żądania Strava');return;}
+  localStorage.setItem('hm_cookie',cookie);
   updHM();
   toast('✅ Heatmapa Strava załadowana');
 }
 function updHM(){
   if(hmLayer) map.removeLayer(hmLayer);
-  const kp=localStorage.getItem('hm_kp')||v('hm-kp');
-  const pol=localStorage.getItem('hm_pol')||v('hm-pol');
-  const sig=localStorage.getItem('hm_sig')||v('hm-sig');
-  if(!kp||!pol||!sig) return;
+  const cookie=localStorage.getItem('hm_cookie')||(g('hm-cookie')?.value||'').trim();
+  if(!cookie) return;
   const act=document.querySelector('input[name="hma"]:checked').value;
   const col=document.querySelector('input[name="hmc"]:checked').value;
   hmLayer=L.tileLayer(`/api/heatmap/tile/{z}/{x}/{y}?act=${act}&col=${col}`,{
@@ -1970,14 +1965,11 @@ function updHM(){
 }
 function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
 function restoreHM(){
-  const kp=localStorage.getItem('hm_kp');
-  const pol=localStorage.getItem('hm_pol');
-  const sig=localStorage.getItem('hm_sig');
-  if(!kp||!pol||!sig) return;
-  const setV=(id,val)=>{const el=g(id);if(el)el.value=val;};
-  setV('hm-kp',kp);setV('hm-pol',pol);setV('hm-sig',sig);
+  const cookie=localStorage.getItem('hm_cookie');
+  if(!cookie) return;
+  const el=g('hm-cookie'); if(el) el.value=cookie;
   hmChg();
-  updHM(); // map is already ready when this is called from initMap()
+  updHM();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
