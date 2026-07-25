@@ -1239,23 +1239,28 @@ const CanvasGridLayer = L.Layer.extend({
   _draw(){
     if(!this._map||!this._canvas) return;
     const map=this._map, size=map.getSize(), c=this._canvas, Z=this._Z;
-    c.width=size.x; c.height=size.y;
+    const dpr=window.devicePixelRatio||1;
+    c.width=size.x*dpr; c.height=size.y*dpr;
+    c.style.width=size.x+'px'; c.style.height=size.y+'px';
     const bnd=map.getBounds();
     const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
     const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
     const ctx=c.getContext('2d');
+    ctx.scale(dpr,dpr);
     ctx.clearRect(0,0,size.x,size.y);
-    ctx.strokeStyle=this._color; ctx.lineWidth=0.5;
+    ctx.strokeStyle=this._color; ctx.lineWidth=1;
     ctx.beginPath();
     for(let x=t0.x;x<=t1.x+1;x++){
       const nw=tileNW(x,t0.y,Z);
       const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
-      ctx.moveTo(Math.round(p.x)+.5,0); ctx.lineTo(Math.round(p.x)+.5,size.y);
+      const px=Math.round(p.x)+.5;
+      ctx.moveTo(px,0); ctx.lineTo(px,size.y);
     }
     for(let y=t0.y;y<=t1.y+1;y++){
       const nw=tileNW(t0.x,y,Z);
       const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
-      ctx.moveTo(0,Math.round(p.y)+.5); ctx.lineTo(size.x,Math.round(p.y)+.5);
+      const py=Math.round(p.y)+.5;
+      ctx.moveTo(0,py); ctx.lineTo(size.x,py);
     }
     ctx.stroke();
   }
@@ -1265,11 +1270,11 @@ function redrawGrid(){
   clearLyr('grid14'); clearLyr('grid17');
   const z=map.getZoom();
   if(VIS['grid14']&&z>=9){
-    LAYERS['grid14']=new CanvasGridLayer(Z_SQ,'rgba(0,230,118,0.28)');
+    LAYERS['grid14']=new CanvasGridLayer(Z_SQ,'rgba(0,230,118,0.4)');
     LAYERS['grid14'].addTo(map);
   }
   if(VIS['grid17']&&z>=13){
-    LAYERS['grid17']=new CanvasGridLayer(Z_SQI,'rgba(144,80,192,0.22)');
+    LAYERS['grid17']=new CanvasGridLayer(Z_SQI,'rgba(144,80,192,0.38)');
     LAYERS['grid17'].addTo(map);
   }
 }
