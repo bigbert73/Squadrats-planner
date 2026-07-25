@@ -782,30 +782,24 @@ app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
 });
 
 app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
-  const creds = db.getHeatmapCreds(req.userId);
-  if (!creds?.hm_kp) { return res.status(403).json({ error: 'No credentials' }); }
   const { z, x, y } = req.params;
   const act = req.query.act || 'ride';
   const col = req.query.col || 'hot';
   const sub = ['a','b','c'][parseInt(x) % 3];
-  const url = `https://heatmap-external-${sub}.strava.com/tiles-auth/${act}/${col}/${z}/${x}/${y}.png`;
-  console.log(`[HM] tile z=${z} x=${x} y=${y}`);
+  const url = `https://heatmap-external-${sub}.strava.com/tiles/${act}/${col}/${z}/${x}/${y}.png`;
   try {
-    const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 12000,
+    const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.strava.com/',
-        'Cookie': creds.hm_kp  // hm_kp stores full cookie string now
+        'Referer': 'https://www.strava.com/'
       }
     });
-    console.log(`[HM] strava → ${r.status} len=${r.data?.byteLength}`);
     res.set('Content-Type', r.headers['content-type'] || 'image/png');
-    res.set('Cache-Control', 'public, max-age=1800');
+    res.set('Cache-Control', 'public, max-age=86400');
     res.send(r.data);
   } catch (e) {
-    const body = e.response?.data ? Buffer.from(e.response.data).toString('utf8').slice(0,300) : '';
-    console.error(`[HM] strava error: ${e.response?.status} body="${body}"`);
-    res.status(502).send();
+    console.error(`[HM] strava error: ${e.response?.status || e.message}`);
+    res.status(404).send();
   }
 });
 
