@@ -1964,11 +1964,9 @@ function updHM(){
   if(!kp||!pol||!sig) return;
   const act=document.querySelector('input[name="hma"]:checked').value;
   const col=document.querySelector('input[name="hmc"]:checked').value;
-  // Direct Strava URL — tile layers use <img> (no CORS), CloudFront Policy is IP-bound to browser
-  hmLayer=L.tileLayer(
-    `https://heatmap-external-{s}.strava.com/tiles-auth/${act}/${col}/{z}/{x}/{y}.png?Key-Pair-Id=${kp}&Policy=${pol}&Signature=${sig}`,
-    {subdomains:['a','b','c'],maxNativeZoom:16,maxZoom:22,opacity:.7,attribution:'© Strava'}
-  ).addTo(map);
+  hmLayer=L.tileLayer(`/api/heatmap/tile/{z}/{x}/{y}?act=${act}&col=${col}`,{
+    maxNativeZoom:16,maxZoom:22,opacity:.7,attribution:'© Strava'
+  }).addTo(map);
 }
 function removeHM(){if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}}
 function restoreHM(){
