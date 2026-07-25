@@ -1222,34 +1222,55 @@ function redrawAll(){
   redrawGrid();
 }
 
+const CanvasGridLayer = L.Layer.extend({
+  initialize(Z, color){ this._Z=Z; this._color=color; this._draw=this._draw.bind(this); },
+  onAdd(map){
+    this._map=map;
+    const c=this._canvas=document.createElement('canvas');
+    c.style.cssText='position:absolute;top:0;left:0;pointer-events:none;z-index:300';
+    map.getContainer().appendChild(c);
+    map.on('move zoom resize moveend zoomend',this._draw);
+    this._draw();
+  },
+  onRemove(map){
+    if(this._canvas){this._canvas.remove();this._canvas=null;}
+    map.off('move zoom resize moveend zoomend',this._draw);
+  },
+  _draw(){
+    if(!this._map||!this._canvas) return;
+    const map=this._map, size=map.getSize(), c=this._canvas, Z=this._Z;
+    c.width=size.x; c.height=size.y;
+    const bnd=map.getBounds();
+    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
+    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
+    const ctx=c.getContext('2d');
+    ctx.clearRect(0,0,size.x,size.y);
+    ctx.strokeStyle=this._color; ctx.lineWidth=0.5;
+    ctx.beginPath();
+    for(let x=t0.x;x<=t1.x+1;x++){
+      const nw=tileNW(x,t0.y,Z);
+      const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
+      ctx.moveTo(Math.round(p.x)+.5,0); ctx.lineTo(Math.round(p.x)+.5,size.y);
+    }
+    for(let y=t0.y;y<=t1.y+1;y++){
+      const nw=tileNW(t0.x,y,Z);
+      const p=map.latLngToContainerPoint(L.latLng(nw.lat,nw.lng));
+      ctx.moveTo(0,Math.round(p.y)+.5); ctx.lineTo(size.x,Math.round(p.y)+.5);
+    }
+    ctx.stroke();
+  }
+});
+
 function redrawGrid(){
   clearLyr('grid14'); clearLyr('grid17');
-  const z=map.getZoom(), bnd=map.getBounds();
-
+  const z=map.getZoom();
   if(VIS['grid14']&&z>=9){
-    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z_SQ);
-    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z_SQ);
-    const rects=[];
-    for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
-      if(ownedSQ.has(tileKey(x,y))) continue;
-      rects.push(L.rectangle(tileBounds(x,y,Z_SQ),{color:'#00e676',weight:1,fillColor:'#00e676',fillOpacity:.04,interactive:false}));
-    }
-    LAYERS['grid14']=L.layerGroup(rects).addTo(map);
+    LAYERS['grid14']=new CanvasGridLayer(Z_SQ,'rgba(0,230,118,0.28)');
+    LAYERS['grid14'].addTo(map);
   }
-
   if(VIS['grid17']&&z>=13){
-    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z_SQI);
-    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z_SQI);
-    const rects=[];
-    let cnt=0;
-    for(let x=t0.x;x<=t1.x;x++){
-      for(let y=t0.y;y<=t1.y;y++){
-        if(cnt++>5000) break;
-        if(ownedSQI.has(tileKey(x,y))) continue;
-        rects.push(L.rectangle(tileBounds(x,y,Z_SQI),{color:'#9050c0',weight:.8,fillColor:'#9050c0',fillOpacity:.05,interactive:false}));
-      }
-    }
-    LAYERS['grid17']=L.layerGroup(rects).addTo(map);
+    LAYERS['grid17']=new CanvasGridLayer(Z_SQI,'rgba(144,80,192,0.22)');
+    LAYERS['grid17'].addTo(map);
   }
 }
 
