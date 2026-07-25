@@ -1243,6 +1243,7 @@ function redrawAll(){
   renderSet(newSQI,   Z_SQI,'rgba(255,216,91,.65)',   0,0,'sqi-new',  12);
   renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)',  0,0,'sqi-yard', 12);
   renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)',  0,0,'sqi-uber', 12);
+  redrawGrid();
 }
 
 const CanvasGridLayer = L.Layer.extend({
