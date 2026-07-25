@@ -2849,20 +2849,18 @@ async function fetchWikiPOI(){
   clearWikiPOI();
   if(routeCoords.length<2) return;
 
-  // Bounding box of route
-  let north=-90,south=90,east=-180,west=180;
-  routeCoords.forEach(c=>{
-    if(c.lat>north) north=c.lat; if(c.lat<south) south=c.lat;
-    if(c.lng>east)  east=c.lng;  if(c.lng<west)  west=c.lng;
-  });
-  // Small padding
-  const pad=0.005;
-  north+=pad; south-=pad; east+=pad; west-=pad;
+  // Sample route points every ~3km (max 20 points)
+  const totalPts=routeCoords.length;
+  const step=Math.max(1,Math.floor(totalPts/20));
+  const samples=[];
+  for(let i=0;i<totalPts;i+=step) samples.push({lat:routeCoords[i].lat,lng:routeCoords[i].lng});
+  if(samples[samples.length-1]!==routeCoords[totalPts-1])
+    samples.push({lat:routeCoords[totalPts-1].lat,lng:routeCoords[totalPts-1].lng});
 
   try{
     const r=await fetch('/api/route/wiki-poi',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({bounds:{north,south,east,west}})
+      body:JSON.stringify({samples})
     });
     if(!r.ok) return;
     const d=await r.json();

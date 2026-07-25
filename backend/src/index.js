@@ -805,24 +805,40 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
 
 // ── Wikipedia POI near route ───────────────────────────────────────────────────
 app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
-  const { bounds } = req.body; // {north,south,east,west}
-  if (!bounds) return res.status(400).json({ error: 'Missing bounds' });
-  const { north, south, east, west } = bounds;
+  const { samples } = req.body; // [{lat,lng}, ...]
+  if (!samples?.length) return res.status(400).json({ error: 'Missing samples' });
   try {
-    // 1. Geosearch within bounding box (Polish Wikipedia)
-    const geoUrl = `https://pl.wikipedia.org/w/api.php?action=query&list=geosearch&gsbbox=${north}|${east}|${south}|${west}&gslimit=50&format=json&origin=*`;
-    const geoRes = await axios.get(geoUrl, { timeout: 8000, headers: {'User-Agent':'SquadratsApp/2.0'} });
-    const articles = geoRes.data?.query?.geosearch || [];
+    const wikiHeaders = { 'User-Agent': 'SquadratsApp/2.0' };
+    const seen = new Set();
+    const articles = [];
+
+    // Search within 1km radius of each sampled route point, deduplicate
+    for (const pt of samples) {
+      const url = `https://pl.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${pt.lat}|${pt.lng}&gsradius=1000&gslimit=20&format=json&origin=*`;
+      try {
+        const r = await axios.get(url, { timeout: 6000, headers: wikiHeaders });
+        for (const a of (r.data?.query?.geosearch || [])) {
+          if (!seen.has(a.pageid)) { seen.add(a.pageid); articles.push(a); }
+        }
+      } catch (_) { /* skip failed point */ }
+    }
+
     if (!articles.length) return res.json({ pois: [] });
 
-    // 2. Batch-fetch thumbnails + short extracts
-    const pageids = articles.map(a => a.pageid).join('|');
-    const thumbUrl = `https://pl.wikipedia.org/w/api.php?action=query&pageids=${pageids}&prop=pageimages|extracts&pithumbsize=240&exintro=true&exsentences=2&explaintext=true&format=json&origin=*`;
-    const thumbRes = await axios.get(thumbUrl, { timeout: 8000, headers: {'User-Agent':'SquadratsApp/2.0'} });
-    const pages = thumbRes.data?.query?.pages || {};
+    // Batch-fetch thumbnails + short extracts (max 50 pageids per request)
+    const allPages = {};
+    for (let i = 0; i < articles.length; i += 50) {
+      const chunk = articles.slice(i, i + 50);
+      const pageids = chunk.map(a => a.pageid).join('|');
+      const thumbUrl = `https://pl.wikipedia.org/w/api.php?action=query&pageids=${pageids}&prop=pageimages|extracts&pithumbsize=240&exintro=true&exsentences=2&explaintext=true&format=json&origin=*`;
+      try {
+        const r = await axios.get(thumbUrl, { timeout: 8000, headers: wikiHeaders });
+        Object.assign(allPages, r.data?.query?.pages || {});
+      } catch (_) { /* skip */ }
+    }
 
     const pois = articles.map(a => {
-      const page = pages[String(a.pageid)];
+      const page = allPages[String(a.pageid)];
       return {
         id: a.pageid,
         title: a.title,
@@ -830,9 +846,9 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
         lng: a.lon,
         thumb: page?.thumbnail?.source || null,
         extract: page?.extract || '',
-        url: `https://pl.wikipedia.org/wiki/${encodeURIComponent(a.title.replace(/ /g,'_'))}`
+        url: `https://pl.wikipedia.org/wiki/${encodeURIComponent(a.title.replace(/ /g, '_'))}`
       };
-    }).filter(p => p.thumb); // only show articles that have a photo
+    }).filter(p => p.thumb);
 
     res.json({ pois });
   } catch (e) {
