@@ -1627,6 +1627,7 @@ async function calcRoute(){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked),kwadratownia})
     });
+    if(res.status===401){toast('Sesja wygasła — zaloguj się ponownie');hideLoad();return;}
     if(!res.ok) throw new Error('routing error '+res.status);
     const data=await res.json();
     if(!data.routes?.length) throw new Error('Brak trasy');
@@ -1734,7 +1735,7 @@ async function recalcDraggedWpt(wptIdx){
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({waypoints:[{lat:from.lat,lng:from.lng},{lat:to.lat,lng:to.lng}],
           mode,loop:false,targetKm:0,bikeProfile,avoidReturn:false,kwadratownia:false})
-      }).then(r=>{if(!r.ok)throw new Error('routing error');return r.json();})
+      }).then(r=>{if(r.status===401)throw new Error('SESSION_EXPIRED');if(!r.ok)throw new Error('routing error');return r.json();})
         .then(d=>({coords:d.routes[0].geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}))}));
     }));
     segs.forEach((si,ri)=>{routeSegments[si]=results[ri];});
@@ -1769,6 +1770,7 @@ async function recalcDraggedWpt(wptIdx){
       }).catch(()=>{});
   }catch(e){
     console.warn('Drag recalc failed:',e.message);
+    if(e.message==='SESSION_EXPIRED'){toast('Sesja wygasła — zaloguj się ponownie');return;}
     drawSVColoredRoute();
     toast('Błąd przeliczania segmentu');
   }finally{hideLoad();}
