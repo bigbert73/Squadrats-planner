@@ -17,8 +17,8 @@
   --green:#00e676;--orange:#ff6b35;--blue:#4da8ff;--yellow:#ffd60a;--red:#f87171;--purple:#c084fc;--cyan:#22d3ee;
   --r:8px;--r-sm:5px;--r-lg:14px;
 }
-html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tx);overflow:hidden}
-#app{display:flex;flex-direction:column;height:100vh}
+html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--tx);overflow:hidden;overscroll-behavior:none}
+#app{display:flex;flex-direction:column;height:100%}
 
 /* ── HEADER ── */
 #hdr{background:var(--panel);border-bottom:1px solid var(--border);padding:0 12px;height:44px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:2000;position:relative}
@@ -327,7 +327,9 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   /* header */
   #mob-menu-btn{display:flex}
   #hdr{padding:0 10px;gap:8px}
-  #hdr h1{font-size:12px}
+  #hdr h1{font-size:12px;min-width:0}
+  #hdr h1 .ttl{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  #mob-menu-btn,#user-menu-wrap,#hdr h1 .logo{flex-shrink:0}
   .hdiv{display:none}
   .hpills{overflow-x:auto;flex-wrap:nowrap;gap:3px;-webkit-overflow-scrolling:touch;max-width:calc(100vw - 170px)}
   .hpills::-webkit-scrollbar{display:none}
@@ -339,12 +341,12 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #sb-trigger{display:none!important}
 
   /* sidebar drawer — override autohide classes on mobile */
-  #sb,#sb.sb-autohide{position:fixed;left:-100%;top:0;width:90vw;max-width:320px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none;transform:none!important}
+  #sb,#sb.sb-autohide{position:fixed;left:-100%;top:0;width:82vw;max-width:290px;height:100vh;z-index:4000;transition:left .25s cubic-bezier(.4,0,.2,1);box-shadow:none;border-right:none;transform:none!important}
   #sb.mob-open,#sb.sb-autohide.mob-open{left:0;box-shadow:6px 0 32px rgba(0,0,0,.6)}
   #mob-overlay{display:block}
 
   /* layout: map fills full space */
-  #layout{display:block;height:calc(100vh - 48px)}
+  #layout{display:block;height:calc(100% - 48px)}
   #mc{height:100%;position:relative}
 
   /* Street View: vertical split on mobile (map top 50%, SV bottom 50%) */
@@ -360,6 +362,24 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
   #ibar::-webkit-scrollbar{display:none}
   #mind{font-size:9px;padding:3px 10px;max-width:55vw}
   #zlvl{top:auto;bottom:26px;right:6px}
+
+  /* iOS Safari zooms the page on focus when a field's font-size is below 16px */
+  input:not([type=range]):not([type=radio]):not([type=checkbox]),textarea,select{font-size:16px}
+
+  /* compact sidebar (inputs keep 16px above) */
+  #sb .sb-sec{font-size:10px;margin:12px 0 6px}
+  #sb .sb-sec i{font-size:11px}
+  #sb .addr-line{height:42px}
+  #sb .addr-ico-n{width:36px;height:42px;font-size:15px}
+  #sb .addr-srch{width:36px;height:42px;font-size:13px}
+  #sb .calc-btn{height:42px;font-size:14px}
+  #sb .calc-btn i{font-size:17px}
+  #sb .loop-opt{font-size:11px;padding:4px 9px;min-height:30px}
+  #sb .bp-btn{font-size:11px;padding:8px 4px 7px;min-height:42px;gap:3px}
+  #sb .bp-btn i{font-size:15px}
+  #sb .opt-pill{font-size:11px;padding:6px 8px;min-height:30px;gap:6px}
+  #sb .opt-pill i{font-size:13px}
+  #sb .adv-toggle{font-size:11px;padding:8px 10px}
 
   /* user dropdown - prevent overflow */
   #user-dropdown{right:0;min-width:150px}
@@ -456,7 +476,7 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
 <!-- HEADER -->
 <header id="hdr">
   <button id="mob-menu-btn" onclick="toggleMobileMenu()" title="Menu"><i class="ti ti-menu-2"></i></button>
-  <h1><span class="logo">SQ</span>Squadrats Route Planner</h1>
+  <h1><span class="logo">SQ</span><span class="ttl">Squadrats Route Planner</span></h1>
   <div class="hdiv"></div>
   <div id="sbt">
     <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
@@ -580,7 +600,11 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
     <div class="sb-sec" style="margin-top:14px"><i class="ti ti-map-pins"></i>Punkty pośrednie</div>
     <div class="wl" id="wl"><div class="hint">Brak punktów — kliknij mapę lub ustaw tryb edycji</div></div>
     <button class="wp-add" onclick="setMode('waypoint')"><i class="ti ti-plus"></i> Dodaj punkt pośredni</button>
-    <button class="wp-clear" onclick="clearRoute()"><i class="ti ti-trash"></i> Wyczyść trasę</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:6px">
+      <button class="wp-clear" onclick="undoLastWpt()" title="Cofnij ostatni punkt (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i> Cofnij</button>
+      <button class="wp-clear" onclick="reverseRoute()"><i class="ti ti-arrows-left-right"></i> Odwróć</button>
+    </div>
+    <button class="wp-clear" onclick="clearRoute()" style="margin-top:4px"><i class="ti ti-trash"></i> Wyczyść trasę</button>
 
     <!-- ROUTE SUMMARY -->
     <div id="route-summary" style="display:none;margin-top:10px">
@@ -759,6 +783,16 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
       <div><strong id="b-plan-dist">Plan: —</strong></div>
       <div id="b-plan-sq">Nowe SQ: 0</div>
       <div id="b-plan-sqi">Nowe SQI: 0</div>
+      <div id="b-plan-elev" style="display:none;color:var(--blue)"></div>
+      <div id="b-plan-time" style="display:none;border-top:1px solid var(--border);margin-top:5px;padding-top:5px">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:4px">
+          <i class="ti ti-clock" style="color:var(--tx3)"></i>
+          <strong id="b-eta" style="color:var(--green)">—</strong>
+          <span style="color:var(--tx3)">@</span>
+          <input id="avg-speed" type="number" min="5" max="60" value="20" oninput="updETA()" style="width:36px;background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1px 3px;font-size:11px;color:var(--tx);text-align:center;font-family:'JetBrains Mono',monospace;outline:none" title="Śr. prędkość (km/h)">
+          <span style="color:var(--tx3)">km/h</span>
+        </div>
+      </div>
     </div>
     <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
     <div id="elev-panel">
@@ -888,8 +922,8 @@ html,body{height:100%;font-family:'Space Grotesk',sans-serif;background:var(--bg
         <input id="reg-user" type="text" placeholder="min. 3 znaki" minlength="3" required autocomplete="username"></div>
       <div class="auth-field"><label>Email (opcjonalny)</label>
         <input id="reg-email" type="email" placeholder="twoj@email.com" autocomplete="email"></div>
-      <div class="auth-field"><label>Hasło * (min. 6 znaków)</label>
-        <input id="reg-pass" type="password" minlength="6" required autocomplete="new-password"></div>
+      <div class="auth-field"><label>Hasło * (min. 8 znaków, 1 cyfra)</label>
+        <input id="reg-pass" type="password" pattern="(?=.*[0-9]).{8,}" title="Min. 8 znaków i co najmniej 1 cyfra" required autocomplete="new-password"></div>
       <div class="auth-field"><label>Powtórz hasło *</label>
         <input id="reg-pass2" type="password" required autocomplete="new-password"></div>
       <div class="auth-strava-toggle" onclick="toggleRegStrava()">
@@ -1041,6 +1075,7 @@ let svMode=false, svCovData=null, svMarker=null;
 let bikeProfile='safety';
 let hasReturnLeg=false, outboundRouteData=null;
 let routeSegments=[]; // [{coords,elevProfile,distance}] per consecutive waypoint pair
+let _planKm=0;
 
 let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
@@ -1092,6 +1127,7 @@ async function initMap(){
   // Keyboard
   document.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT') return;
+    if(e.ctrlKey&&e.key==='z'){e.preventDefault();undoLastWpt();return;}
     if(e.key==='s'||e.key==='S') setMode('start');
     if(e.key==='e'||e.key==='E') setMode('end');
     if(e.key==='w'||e.key==='W') setMode('waypoint');
@@ -1573,12 +1609,7 @@ function drawElevChart(){
     <path d="${line}" fill="none" stroke="#4fa3ff" stroke-width="1.5"/>
     <text x="${PAD.l}" y="${PAD.t-1}" fill="#888" font-size="9" font-family="monospace">m n.p.m.</text>`;
 
-  // Stats
-  const statsEl=g('elev-stats');
-  if(statsEl) statsEl.innerHTML=
-    `<span>↑ wznios: <b style="color:#4fa3ff">${Math.round(ascent)} m</b></span>`+
-    `<span>max: <b style="color:#4fa3ff">${Math.round(maxE)} m</b></span>`+
-    `<span>min: <b style="color:#888">${Math.round(minE)} m</b></span>`;
+  updElevSummary();
 
   // Hover interaction
   wrap.onmousemove=e=>{
@@ -1639,6 +1670,7 @@ async function calcRoute(){
     drawSVColoredRoute();
     addKmMarkers(routeCoords);
     buildElevData(routeCoords, route.elevProfile||null);
+    updElevSummary();
     if(g('elev-panel').classList.contains('open')) drawElevChart();
 
     // Get new tiles for this route from server
@@ -1658,8 +1690,7 @@ async function calcRoute(){
 
     const dist=route.distance/1000;
     const mins=Math.round(route.duration/60);
-    updDist(dist);
-    g('b-plan-dist').textContent = `Plan: ${dist.toFixed(1)} km`;
+    updDist(dist); setPlanDist(dist);
     g('b-plan-sq').textContent = `Nowe SQ: ${newSQ.size}`;
     g('b-plan-sqi').textContent = `Nowe SQI: ${newSQI.size}`;
     g('h-new').textContent=newSQ.size+newSQI.size;
@@ -1748,11 +1779,11 @@ async function recalcDraggedWpt(wptIdx){
     drawSVColoredRoute();
     addKmMarkers(routeCoords);
     buildElevData(routeCoords,null);
+    updElevSummary();
     if(g('elev-panel').classList.contains('open')) drawElevChart();
     const totalDist=routeCoords.length>=2
       ?routeCoords.reduce((s,c,idx)=>idx===0?0:s+L.latLng(routeCoords[idx-1].lat,routeCoords[idx-1].lng).distanceTo(L.latLng(c.lat,c.lng)),0)/1000:0;
-    updDist(totalDist);
-    g('b-plan-dist').textContent=`Plan: ${totalDist.toFixed(1)} km`;
+    updDist(totalDist); setPlanDist(totalDist);
     const loopVal=document.querySelector('input[name="loop"]:checked').value;
     if(loopVal!=='loop'){const btn=g('return-leg-btn');if(btn)btn.style.display='flex';}
     fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})
@@ -1787,10 +1818,10 @@ function clearRoute(){
   clearPOI(); clearWikiPOI();
   if(g('route-summary')) g('route-summary').style.display='none';
   if(g('poi-panel')) g('poi-panel').style.display='none';
-  renderWL(); previewRoute(); updDist(0);
-  g('b-plan-dist').textContent = 'Plan: —';
+  renderWL(); previewRoute(); updDist(0); setPlanDist(0);
   g('b-plan-sq').textContent = 'Nowe SQ: 0';
   g('b-plan-sqi').textContent = 'Nowe SQI: 0';
+  const pe=g('b-plan-elev');if(pe)pe.style.display='none';
   g('b-sq').textContent='—'; g('b-new').textContent='—'; g('b-newi').textContent='—';
   g('h-new').textContent='0'; g('s-sq-new').textContent='0'; g('s-sqi-new').textContent='0';
   hasReturnLeg=false; outboundRouteData=null; routeSegments=[];
@@ -1824,6 +1855,7 @@ async function addReturnLeg(){
     drawSVColoredRoute();
     addKmMarkers(routeCoords);
     buildElevData(routeCoords,combinedElev);
+    updElevSummary();
     if(g('elev-panel').classList.contains('open')) drawElevChart();
     const totalDist=(outboundRouteData.distance+(retRoute.distance||0))/1000;
     updDist(totalDist);
@@ -1833,7 +1865,7 @@ async function addReturnLeg(){
     newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
     if(VIS['sq-new'])  renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
     if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
-    g('b-plan-dist').textContent=`Plan: ${totalDist.toFixed(1)} km`;
+    setPlanDist(totalDist);
     g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
     g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
     g('h-new').textContent=newSQ.size+newSQI.size;
@@ -1857,9 +1889,10 @@ function removeReturnLeg(){
   drawSVColoredRoute();
   addKmMarkers(routeCoords);
   buildElevData(routeCoords,outboundRouteData.elevProfile);
+  updElevSummary();
   if(g('elev-panel').classList.contains('open')) drawElevChart();
   const dist=outboundRouteData.distance/1000;
-  updDist(dist);
+  updDist(dist); setPlanDist(dist);
   const btn=g('return-leg-btn');
   btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';
   btn.style.color='var(--tx2)';
@@ -1870,7 +1903,7 @@ function removeReturnLeg(){
       newSQI.clear(); prv.newSQI.forEach(t=>newSQI.add(tileKey(t.tx,t.ty)));
       if(VIS['sq-new'])  renderSet(newSQ, Z_SQ, 'rgba(255,107,53,.40)','#ff6b35',2,'sq-new');
       if(VIS['sqi-new']) renderSet(newSQI,Z_SQI,'rgba(255,107,53,.28)','rgba(255,107,53,.7)',1.5,'sqi-new');
-      g('b-plan-dist').textContent=`Plan: ${dist.toFixed(1)} km`;
+      setPlanDist(dist);
       g('b-plan-sq').textContent=`Nowe SQ: ${newSQ.size}`;
       g('b-plan-sqi').textContent=`Nowe SQI: ${newSQI.size}`;
       g('h-new').textContent=newSQ.size+newSQI.size;
@@ -2012,6 +2045,49 @@ function relabelWpts(){
   });
 }
 
+function undoLastWpt(){
+  if(!wpts.length) return;
+  const last=wpts.pop();
+  map.removeLayer(last.marker);
+  if(routeSegments.length>0) routeSegments.pop();
+  routeCoords=[];
+  routeSegments.forEach((seg,si)=>{
+    if(si===0) routeCoords.push(...seg.coords);
+    else routeCoords.push(...seg.coords.slice(1));
+  });
+  if(routeCoords.length){
+    drawSVColoredRoute();
+    addKmMarkers(routeCoords);
+    buildElevData(routeCoords,null);
+    updElevSummary();
+    if(g('elev-panel').classList.contains('open')) drawElevChart();
+    const km=routeSegments.reduce((s,seg)=>s+(seg.distance||0),0)/1000;
+    updDist(km); setPlanDist(km);
+  } else {
+    if(rLine){map.removeLayer(rLine);rLine=null;}
+    clearKmMarkers();
+    elevData=[]; clearElevCursor();
+    if(g('elev-svg')) g('elev-svg').innerHTML='';
+    clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov');
+    clearLyr('rt-red'); clearLyr('rt-blue'); clearLyr('rt-click');
+    newSQ.clear(); newSQI.clear(); svCovData=null;
+    updDist(0); setPlanDist(0);
+    if(g('route-summary')) g('route-summary').style.display='none';
+    if(g('poi-panel')) g('poi-panel').style.display='none';
+  }
+  relabelWpts(); renderWL();
+}
+async function reverseRoute(){
+  if(wpts.length<2){toast('Potrzebny start i meta');return;}
+  const s=g('start-addr').value,e=g('end-addr').value;
+  g('start-addr').value=e; g('end-addr').value=s;
+  wpts.reverse();
+  wpts[0].type='start';
+  wpts[wpts.length-1].type='end';
+  for(let i=1;i<wpts.length-1;i++) wpts[i].type='mid';
+  relabelWpts(); renderWL();
+  if(routeCoords.length) await calcRoute();
+}
 function findSegmentForClick(latlng){
   if(!routeSegments.length) return 0;
   let minD=Infinity,minIdx=0;
@@ -2319,7 +2395,7 @@ function renderPasswordSection(){
         <span class="oauth-badge ${prov}"><i class="ti ${OAUTH_ICONS[prov]||'ti-login'}"></i>${OAUTH_LABELS[prov]||prov}</span>
         Logujesz się przez ${OAUTH_LABELS[prov]||prov} — możesz ustawić hasło awaryjne:
       </div>
-      <label>Nowe hasło (min. 6 znaków)</label><input id="prof-pass-new" type="password">
+      <label>Nowe hasło (min. 8 znaków, 1 cyfra)</label><input id="prof-pass-new" type="password">
       <label>Powtórz hasło</label><input id="prof-pass-new2" type="password">
       <div id="prof-pass-err" style="font-size:10px;color:var(--red);margin-top:4px;min-height:14px"></div>
       <button class="btn btn-b" style="margin-top:6px" onclick="setFirstPassword()"><i class="ti ti-key"></i>Ustaw hasło</button>`;
@@ -2393,7 +2469,7 @@ async function setFirstPassword(){
   const nw=v('prof-pass-new'), nw2=v('prof-pass-new2');
   if(!nw){g('prof-pass-err').textContent='Wpisz nowe hasło';return;}
   if(nw!==nw2){g('prof-pass-err').textContent='Hasła nie są zgodne';return;}
-  if(nw.length<6){g('prof-pass-err').textContent='Hasło min. 6 znaków';return;}
+  if(!/^(?=.*[0-9]).{8,}$/.test(nw)){g('prof-pass-err').textContent='Hasło min. 8 znaków i co najmniej 1 cyfra';return;}
   try{
     const r=await fetch('/api/profile/set-password',{method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({new_password:nw})});
@@ -2410,7 +2486,7 @@ async function changePassword(){
   const cur=v('prof-pass-cur'), nw=v('prof-pass-new'), nw2=v('prof-pass-new2');
   if(!cur||!nw){g('prof-pass-err').textContent='Wypełnij wszystkie pola';return;}
   if(nw!==nw2){g('prof-pass-err').textContent='Hasła nie są zgodne';return;}
-  if(nw.length<6){g('prof-pass-err').textContent='Hasło min. 6 znaków';return;}
+  if(!/^(?=.*[0-9]).{8,}$/.test(nw)){g('prof-pass-err').textContent='Hasło min. 8 znaków i co najmniej 1 cyfra';return;}
   try{
     const r=await fetch('/api/profile/password',{method:'PUT',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({current_password:cur,new_password:nw})});
@@ -2523,6 +2599,32 @@ function locateMe(){map.locate({setView:true,maxZoom:14});map.once('locationfoun
 function haversine(a,b){const R=6371,dL=(b.lat-a.lat)*Math.PI/180,dG=(b.lng-a.lng)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
 function compDist(pts){let d=0;for(let i=0;i<pts.length-1;i++)d+=(pts[i].distanceTo?pts[i].distanceTo(pts[i+1])/1000:haversine(pts[i],pts[i+1]));return d;}
 function updDist(km){g('h-dist').textContent=km.toFixed(1);g('b-dist').textContent=km>0?km.toFixed(1)+' km':'—';}
+function setPlanDist(km){
+  _planKm=km;
+  g('b-plan-dist').textContent=km>0?`Plan: ${km.toFixed(1)} km`:'Plan: —';
+  updETA();
+}
+function updETA(){
+  const el=g('b-plan-time');if(!el)return;
+  if(_planKm<=0){el.style.display='none';return;}
+  const speed=parseFloat(g('avg-speed').value)||20;
+  const h=_planKm/speed;
+  const hrs=Math.floor(h),mins=Math.round((h-hrs)*60);
+  g('b-eta').textContent=hrs>0?`${hrs}h ${mins}min`:`${mins}min`;
+  el.style.display='';
+}
+function updElevSummary(){
+  const el=g('b-plan-elev');
+  if(!elevData.length||!elevData.some(p=>p.elev>0)){if(el)el.style.display='none';return;}
+  let asc=0,dsc=0;
+  for(let i=1;i<elevData.length;i++){const d=elevData[i].elev-elevData[i-1].elev;if(d>0)asc+=d;else dsc-=d;}
+  if(el){el.textContent=`↑ ${Math.round(asc)}m ↓ ${Math.round(dsc)}m`;el.style.display='';}
+  const se=g('elev-stats');
+  if(se) se.innerHTML=
+    `<span>↑ <b style="color:#4fa3ff">${Math.round(asc)} m</b></span>`+
+    `<span>↓ <b style="color:#f87171">${Math.round(dsc)} m</b></span>`+
+    `<span>max: <b style="color:#4fa3ff">${Math.round(Math.max(...elevData.map(p=>p.elev)))} m</b></span>`;
+}
 function showLoad(msg){g('lmsg').textContent=msg||'…';g('loading').classList.remove('h');}
 function hideLoad(){g('loading').classList.add('h');}
 function v(id){return document.getElementById(id)?.value.trim()||'';}
@@ -3191,6 +3293,7 @@ async function importKomoot(){
     drawSVColoredRoute();
     addKmMarkers(routeCoords);
     buildElevData(routeCoords,null);
+    updElevSummary();
     if(g('elev-panel')?.classList.contains('open'))drawElevChart();
     fetchSVCoverage();
     fetchPOI();
@@ -3218,6 +3321,7 @@ async function importKomoot(){
     swTab('plan',document.querySelector('.tb[onclick*="plan"]'));
 
     const km=(d.distanceM/1000).toFixed(1);
+    setPlanDist(d.distanceM/1000);
     const sportLabel={'touringbicycle':'rower turystyczny','mtb':'MTB','racingbike':'szosa','hike':'pieszy','running':'bieg'}[d.sport]||d.sport;
     toast(`✅ Komoot: „${d.name}" · ${km} km · +${newSQ.size} SQ · +${newSQI.size} SQI${sportLabel?' · '+sportLabel:''}`);
   }catch(e){

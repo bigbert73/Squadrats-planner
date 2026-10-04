@@ -172,20 +172,10 @@ const hasUsers = db.prepare("SELECT count(*) as n FROM sqlite_master WHERE type=
 if (!hasUsers) runMigration();
 db.exec(SCHEMA_SQL);
 
-// ── Home point migration ───────────────────────────────────────────────────────
-(function migrateHomePoint() {
-  try { db.exec("ALTER TABLE users ADD COLUMN home_lat REAL"); } catch(_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN home_lng REAL"); } catch(_) {}
-})();
-
-// ── Heatmap credentials migration ─────────────────────────────────────────────
-(function migrateHeatmap() {
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_kp  TEXT"); } catch(_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_pol TEXT"); } catch(_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_sig TEXT"); } catch(_) {}
-})();
-
 // ── OAuth migration (add oauth_provider/oauth_id, make password_hash nullable) ──
+// Must run before the home-point/heatmap column migrations below: on a fresh DB
+// it rebuilds the `users` table (DROP+RENAME), which would otherwise wipe out
+// columns those migrations had just added.
 (function migrateOAuth() {
   const cols = db.prepare("PRAGMA table_info(users)").all().map(c => c.name);
   if (!cols.includes('oauth_provider')) {
@@ -221,6 +211,19 @@ db.exec(SCHEMA_SQL);
       db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth ON users(oauth_provider,oauth_id) WHERE oauth_provider IS NOT NULL");
     } catch(_) {}
   }
+})();
+
+// ── Home point migration ───────────────────────────────────────────────────────
+(function migrateHomePoint() {
+  try { db.exec("ALTER TABLE users ADD COLUMN home_lat REAL"); } catch(_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN home_lng REAL"); } catch(_) {}
+})();
+
+// ── Heatmap credentials migration ─────────────────────────────────────────────
+(function migrateHeatmap() {
+  try { db.exec("ALTER TABLE users ADD COLUMN hm_kp  TEXT"); } catch(_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN hm_pol TEXT"); } catch(_) {}
+  try { db.exec("ALTER TABLE users ADD COLUMN hm_sig TEXT"); } catch(_) {}
 })();
 
 // ── Prepared statements ───────────────────────────────────────────────────────
