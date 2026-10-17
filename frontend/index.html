@@ -534,7 +534,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <input id="start-addr" type="text" placeholder="Skąd? Wpisz adres startu…" onkeydown="if(event.key==='Enter') searchAddress('start')">
         <button class="addr-srch" onclick="searchAddress('start')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
       </div>
-      <div class="addr-line" id="end-addr-line">
+      <div class="addr-line" id="end-addr-line" style="display:none">
         <div class="addr-ico-n"><i class="ti ti-flag" style="color:var(--red)"></i></div>
         <input id="end-addr" type="text" placeholder="Dokąd? Wpisz adres mety…" onkeydown="if(event.key==='Enter') searchAddress('end')">
         <button class="addr-srch" onclick="searchAddress('end')" title="Szukaj adresu"><i class="ti ti-search"></i></button>
@@ -552,10 +552,10 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
     <!-- 3. TYP TRASY + DŁUGOŚĆ -->
     <div class="route-meta">
       <div class="loop-grp">
-        <label class="loop-opt"><input type="radio" name="loop" value="ab" checked onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
-        <label class="loop-opt"><input type="radio" name="loop" value="loop" onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex';g('return-leg-btn').style.display='none';hasReturnLeg=false;outboundRouteData=null"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="ab" onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none'"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop" checked onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex';g('return-leg-btn').style.display='none';hasReturnLeg=false;outboundRouteData=null"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
       </div>
-      <label id="avoid-return-grp" class="opt-pill" style="display:none;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
+      <label id="avoid-return-grp" class="opt-pill" style="display:flex;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
         <input type="checkbox" id="avoid-return-cb">
         <i class="ti ti-arrows-split-2"></i> Różne drogi tam i z powrotem
       </label>
@@ -592,7 +592,6 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
         <label class="opt-pill" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Pop.</label>
         <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
-        <label class="opt-pill" title="Kwadratownia: jedź do najbliższego wolnego SQI, wróć przez wolne SQI. Działa w A→B i Pętla."><input type="radio" name="opt" value="kwadratownia"><i class="ti ti-crosshair" style="color:var(--orange)"></i>Kwadratownia</label>
       </div>
     </div>
 
@@ -1644,7 +1643,6 @@ async function calcRoute(){
   const loopVal=document.querySelector('input[name="loop"]:checked').value;
   const loop=loopVal==='loop';
   const opt=document.querySelector('input[name="opt"]:checked').value;
-  const kwadratownia=opt==='kwadratownia';
   if(loop && wpts.length<1){toast('Dodaj punkt startu!');return;}
   if(!loop && wpts.length<2){toast('Dodaj start i metę!');return;}
   if(rLine){map.removeLayer(rLine);rLine=null;}
@@ -1656,7 +1654,7 @@ async function calcRoute(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked),kwadratownia})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked)})
     });
     if(res.status===401){toast('Sesja wygasła — zaloguj się ponownie');hideLoad();return;}
     if(!res.ok) throw new Error('routing error '+res.status);
@@ -1757,15 +1755,14 @@ async function recalcDraggedWpt(wptIdx){
   if(wptIdx<n-1) segs.push(wptIdx);
   showLoad('Przeliczam segment…');
   try{
-    const opt=document.querySelector('input[name="opt"]:checked').value;
-    const mode=opt==='kwadratownia'?'sq':opt;
+    const mode=document.querySelector('input[name="opt"]:checked').value;
     const results=await Promise.all(segs.map(si=>{
       const from=wpts[si].marker.getLatLng();
       const to=wpts[si+1].marker.getLatLng();
       return fetch('/api/route/detour',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({waypoints:[{lat:from.lat,lng:from.lng},{lat:to.lat,lng:to.lng}],
-          mode,loop:false,targetKm:0,bikeProfile,avoidReturn:false,kwadratownia:false})
+          mode,loop:false,targetKm:0,bikeProfile,avoidReturn:false})
       }).then(r=>{if(r.status===401)throw new Error('SESSION_EXPIRED');if(!r.ok)throw new Error('routing error');return r.json();})
         .then(d=>({coords:d.routes[0].geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}))}));
     }));
@@ -1827,6 +1824,7 @@ function clearRoute(){
   hasReturnLeg=false; outboundRouteData=null; routeSegments=[];
   g('return-leg-btn').style.display='none';
   toast('Trasa wyczyszczona');
+  applyHomePoint();
 }
 
 async function addReturnLeg(){
@@ -1839,7 +1837,7 @@ async function addReturnLeg(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints:[{lat:B.lat,lng:B.lng},{lat:A.lat,lng:A.lng}],mode:opt,loop:false,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:false,kwadratownia:false,returnLeg:true})
+      body:JSON.stringify({waypoints:[{lat:B.lat,lng:B.lng},{lat:A.lat,lng:A.lng}],mode:opt,loop:false,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:false,returnLeg:true})
     });
     if(!res.ok) throw new Error('routing error '+res.status);
     const data=await res.json();

@@ -343,36 +343,17 @@ function buildDetourWaypoints(waypoints, ownedSQ, ownedSQI, mode, targetKm = 0) 
   return route;
 }
 
-// ── Kwadratownia: greedy nearest-unvisited-SQI algorithm ─────────────────────
-//
-// Phase 1 (outbound): from start, repeatedly route to the nearest unvisited SQI
-// tile until cumulative haversine distance ≥ targetKm/2.
-// Phase 2 (return): from the turnaround point, greedily visit nearest unvisited
-// tiles whose direction has a positive dot-product with the home vector (i.e.
-// closer to start). Stop when within 1.5 km of start or waypoint cap is reached.
-// Last 1-2 km approaching home may share roads — expected and acceptable.
-
-// end === start (or null) → loop mode; end ≠ start → A→B mode.
-function buildKwadratowniaWaypoints(start, end, targetKm, sqiRows) {
-  const dest    = end || start;
-  const isLoop  = haversineDistance(start, dest) < 0.5;
-  const ownedSet = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
-
-  // Search area: loop → around start; A→B → around midpoint of A-B
-  const center = isLoop ? start : { lat: (start.lat + dest.lat) / 2, lng: (start.lng + dest.lng) / 2 };
-  const searchKm = isLoop
-    ? targetKm * 0.65
-    : Math.max(haversineDistance(start, dest) * 0.8, targetKm * 0.4);
-
-  const { x: sTx, y: sTy } = latLngToTile(center.lat, center.lng, Z_SQI);
-  const degPerTile  = 360 / (1 << Z_SQI);
+// ── Shared candidate grid: unowned tile centers within searchKm of center ────
+function buildUnownedTileCandidates(center, searchKm, z, ownedSet) {
+  const { x: sTx, y: sTy } = latLngToTile(center.lat, center.lng, z);
+  const degPerTile   = 360 / (1 << z);
   const kmPerTileLat = degPerTile * 111;
   const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(center.lat));
   const radX = Math.ceil(searchKm / kmPerTileLng);
   const radY = Math.ceil(searchKm / kmPerTileLat);
 
-  const nw0  = tileNW(sTx, sTy, Z_SQI);
-  const nw1  = tileNW(sTx + 1, sTy + 1, Z_SQI);
+  const nw0  = tileNW(sTx, sTy, z);
+  const nw1  = tileNW(sTx + 1, sTy + 1, z);
   const dLat = nw0.lat - nw1.lat;
 
   const candidates = [];
@@ -383,73 +364,76 @@ function buildKwadratowniaWaypoints(start, end, targetKm, sqiRows) {
       const key = `${tx},${ty}`;
       if (!ownedSet.has(key)) {
         const lng = nw0.lng + (dx + 0.5) * degPerTile;
-        candidates.push({ lat, lng, key });
+        candidates.push({ lat, lng, key, tx, ty });
       }
     }
   }
-  if (!candidates.length) return [start, dest];
+  return candidates;
+}
 
-  const visited  = new Set();
-  const waypoints = [start];
-  let cur   = { lat: start.lat, lng: start.lng };
-  let cumKm = 0;
-  const MAX_PER_PHASE = 20;
+function bearingFrom(from, to) {
+  const φ1 = toRad(from.lat), φ2 = toRad(to.lat), Δλ = toRad(to.lng - from.lng);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
 
-  function nearestUnvisited(from, dirDx, dirDy) {
-    let best = null, bestSd = Infinity;
-    for (const c of candidates) {
-      if (visited.has(c.key)) continue;
-      const dx = c.lng - from.lng, dy = c.lat - from.lat;
-      if (dirDx !== null && dx * dirDx + dy * dirDy <= 0) continue;
-      const sd = dx * dx + dy * dy;
-      if (sd < bestSd) { bestSd = sd; best = c; }
+// ── Tile loop: angular sweep, no backtracking ────────────────────────────────
+//
+// A per-step "generally toward home" filter is too weak a guarantee — it only
+// checks the immediate direction, so a greedy walk can still swing wide (e.g.
+// jump 15 km north then 15 km back south) as long as each individual hop has
+// some component toward home. Visiting candidate clusters in strictly
+// increasing compass-bearing order around `start` is a stronger, geometric
+// guarantee: a monotonic sweep around a center point can never double back on
+// itself. We pick a handful of rich unowned-tile clusters, sort them by
+// bearing, then try every rotation of that order to find the contiguous arc
+// (within the distance budget) that collects the most new tiles.
+// z = Z_SQ for squares or Z_SQI for squadratinhos; ownedRows = c.sqRows/sqiRows.
+function buildTileLoopWaypoints(start, targetKm, ownedRows, z) {
+  const ownedSet = new Set(ownedRows.map(r => `${r.tx},${r.ty}`));
+  const searchKm = Math.max(3, targetKm * 0.45);
+  const candidates = buildUnownedTileCandidates(start, searchKm, z, ownedSet);
+  if (!candidates.length) return [start, start];
+
+  for (const c of candidates) c.richness = countNewTilesNear(c.tx, c.ty, ownedSet);
+
+  // Greedy cluster-seed selection: take the richest remaining candidate as a
+  // stop, then suppress nearby candidates so stops don't crowd each other.
+  const CLUSTER_RADIUS_KM = Math.max(1.2, targetKm * 0.035);
+  const pool  = candidates.slice().sort((a, b) => b.richness - a.richness);
+  const stops = [];
+  for (const c of pool) {
+    if (stops.some(s => haversineDistance(s, c) < CLUSTER_RADIUS_KM)) continue;
+    stops.push(c);
+    if (stops.length >= 16) break;
+  }
+  stops.sort((a, b) => bearingFrom(start, a) - bearingFrom(start, b));
+
+  // Real road distance runs past this haversine sum (roads aren't straight
+  // lines), sometimes substantially on the "safety" profile. Use the raw
+  // target as the haversine ceiling here — generous enough to still reach a
+  // worthwhile but distant cluster when nothing closer is unowned — and let
+  // the caller correct against the real routed distance afterwards.
+  const budgetKm = targetKm;
+  let bestArc = [], bestRichness = -1;
+  for (let rot = 0; rot < stops.length; rot++) {
+    const ordered = [...stops.slice(rot), ...stops.slice(0, rot)];
+    const arc = [];
+    let cur = start, cumKm = 0, richness = 0;
+    for (const s of ordered) {
+      const legKm  = haversineDistance(cur, s);
+      const homeKm = haversineDistance(s, start);
+      if (cumKm + legKm + homeKm > budgetKm) break;
+      arc.push(s);
+      cumKm += legKm;
+      richness += s.richness;
+      cur = s;
     }
-    return best;
+    if (richness > bestRichness) { bestRichness = richness; bestArc = arc; }
   }
 
-  if (isLoop) {
-    // Phase 1: outbound in any direction up to halfKm
-    const halfKm = targetKm / 2;
-    for (let i = 0; i < MAX_PER_PHASE; i++) {
-      const best = nearestUnvisited(cur, null, null);
-      if (!best) break;
-      const d = haversineDistance(cur, best);
-      if (cumKm + d > halfKm) break;
-      visited.add(best.key);
-      waypoints.push({ lat: best.lat, lng: best.lng });
-      cumKm += d;
-      cur = best;
-    }
-    // Phase 2: return toward start
-    for (let i = 0; i < MAX_PER_PHASE; i++) {
-      if (haversineDistance(cur, start) < 1.5) break;
-      const hx = start.lng - cur.lng, hy = start.lat - cur.lat;
-      const best = nearestUnvisited(cur, hx, hy);
-      if (!best) break;
-      visited.add(best.key);
-      waypoints.push({ lat: best.lat, lng: best.lng });
-      cumKm += haversineDistance(cur, best);
-      cur = best;
-    }
-  } else {
-    // A→B: always move toward destination, stop at 80% of targetKm
-    const stopKm = targetKm * 0.8;
-    for (let i = 0; i < MAX_PER_PHASE * 2; i++) {
-      if (haversineDistance(cur, dest) < 1.5) break;
-      const hx = dest.lng - cur.lng, hy = dest.lat - cur.lat;
-      const best = nearestUnvisited(cur, hx, hy);
-      if (!best) break;
-      const d = haversineDistance(cur, best);
-      if (cumKm + d > stopKm) break;
-      visited.add(best.key);
-      waypoints.push({ lat: best.lat, lng: best.lng });
-      cumKm += d;
-      cur = best;
-    }
-  }
-
-  waypoints.push(dest);
-  return waypoints;
+  return [start, ...bestArc.map(s => ({ lat: s.lat, lng: s.lng })), start];
 }
 
 module.exports = {
@@ -460,5 +444,6 @@ module.exports = {
   decodePolyline,
   computeYard, computeUber,
   buildDetourWaypoints,
-  buildKwadratowniaWaypoints,
+  buildTileLoopWaypoints,
+  countNewTilesNear,
 };

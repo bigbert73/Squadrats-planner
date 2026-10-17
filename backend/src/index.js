@@ -481,7 +481,7 @@ async function fetchRoute(points, bikeProfile, altIdx = 0) {
 function routeDistanceKm(d) { return d?.routes?.[0]?.distance / 1000 || 0; }
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, kwadratownia = false, returnLeg = false } = req.body;
+  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, returnLeg = false } = req.body;
   const altIdx = returnLeg ? 1 : 0;
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
@@ -493,12 +493,49 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   const start = waypoints[0], end = waypoints[waypoints.length - 1];
   const samePoint = tiles.haversineDistance(start, end) < 0.4;
 
-  // Kwadratownia: greedy nearest-unvisited-SQI algorithm
-  if (kwadratownia) {
-    const kpts = tiles.buildKwadratowniaWaypoints(start, end, targetKm || 20, c.sqiRows);
-    if (kpts.length < 3) return res.status(500).json({ error: 'Brak wolnych SQI w zasięgu trasy' });
-    try { return res.json(await fetchRoute(kpts, bikeProfile)); }
+  // SQ-maximizing loop: directional greedy (no backtracking) instead of the
+  // generic zigzag detour pass below, which jabs sideways off the route and
+  // reads as "zawracanie" on a loop.
+  const TILE_LOOP_CFG = {
+    sq:  { z: tiles.Z_SQ,  rows: c.sqRows,  owned: ownedSQSet,  errMsg: 'Brak wolnych SQ w zasięgu trasy' },
+    sqi: { z: tiles.Z_SQI, rows: c.sqiRows, owned: ownedSQISet, errMsg: 'Brak wolnych SQI w zasięgu trasy' },
+  };
+  if ((loop || samePoint) && TILE_LOOP_CFG[mode] && (waypoints.length === 1 || (samePoint && waypoints.length === 2))) {
+    const cfg = TILE_LOOP_CFG[mode];
+    const tileTarget = targetKm || 15;
+    let lpts = tiles.buildTileLoopWaypoints(start, tileTarget, cfg.rows, cfg.z);
+    if (lpts.length < 3) return res.status(500).json({ error: cfg.errMsg });
+
+    let data;
+    try { data = await fetchRoute(lpts, bikeProfile); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+
+    // Real road distance (especially on the "safety" profile, which favours
+    // quiet roads over the direct line) can run well past the haversine
+    // estimate used to build the loop. Drop the stop with the worst
+    // detour-cost-per-new-tile ratio — not just the farthest one — so a rich
+    // distant cluster survives trimming while a marginal lone tile goes
+    // first, and re-route until back within tolerance.
+    const richnessOf = (p) => {
+      const t = tiles.latLngToTile(p.lat, p.lng, cfg.z);
+      return tiles.countNewTilesNear(t.x, t.y, cfg.owned);
+    };
+    let km = routeDistanceKm(data), attempts = 0;
+    while (km > tileTarget * 1.15 && lpts.length > 3 && attempts < 5) {
+      let worstIdx = 1, worstRatio = Infinity;
+      for (let i = 1; i < lpts.length - 1; i++) {
+        const prev = lpts[i - 1], cur = lpts[i], next = lpts[i + 1];
+        const detourKm = tiles.haversineDistance(prev, cur) + tiles.haversineDistance(cur, next)
+                        - tiles.haversineDistance(prev, next);
+        const ratio = richnessOf(cur) / Math.max(0.2, detourKm);
+        if (ratio < worstRatio) { worstRatio = ratio; worstIdx = i; }
+      }
+      lpts = [...lpts.slice(0, worstIdx), ...lpts.slice(worstIdx + 1)];
+      try { data = await fetchRoute(lpts, bikeProfile); } catch (e) { break; }
+      km = routeDistanceKm(data);
+      attempts++;
+    }
+    return res.json(data);
   }
 
   if (loop || samePoint) {
