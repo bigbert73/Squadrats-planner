@@ -1271,18 +1271,34 @@ const CanvasTileLayer = L.Layer.extend({
     this._tiles=tiles; this._Z=Z; this._color=color; this._minZ=minZ||0;
     this._ovLevels=ovLevels||[];
     this._draw=this._draw.bind(this);
+    this._animateZoom=this._animateZoom.bind(this);
   },
   onAdd(map){
     this._map=map;
     const c=this._canvas=document.createElement('canvas');
     c.style.cssText='position:absolute;pointer-events:none;z-index:420';
+    L.DomUtil.addClass(c,'leaflet-zoom-animated');
     map.getPanes().overlayPane.appendChild(c);
     map.on('moveend zoomend resize',this._draw);
+    map.on('zoomanim',this._animateZoom);
     this._draw();
   },
   onRemove(map){
     if(this._canvas){this._canvas.remove();this._canvas=null;}
     map.off('moveend zoomend resize',this._draw);
+    map.off('zoomanim',this._animateZoom);
+  },
+  // Panning moves for free (Leaflet transforms mapPane as a whole, which
+  // our canvas lives inside via overlayPane), but an animated zoom scales
+  // each zoom-animated layer individually via its own 'zoomanim' handler —
+  // without this, the canvas sits frozen through the whole zoom transition
+  // and only snaps into place at zoomend.
+  _animateZoom(e){
+    if(!this._canvas||!this._topLeftLatLng) return;
+    const map=this._map;
+    const scale=map.getZoomScale(e.zoom,map.getZoom());
+    const offset=map._latLngToNewLayerPoint(this._topLeftLatLng,e.zoom,e.center);
+    L.DomUtil.setTransform(this._canvas,offset,scale);
   },
   _draw(){
     if(!this._map||!this._canvas) return;
@@ -1304,6 +1320,7 @@ const CanvasTileLayer = L.Layer.extend({
     // space (same pane the map itself pans/zooms via CSS transform), so it
     // tracks the map live instead of only snapping into place at moveend.
     const topLeft=map.containerPointToLayerPoint([0,0]);
+    this._topLeftLatLng=map.containerPointToLatLng([0,0]);
     L.DomUtil.setPosition(c,topLeft);
     c.width=size.x*dpr; c.height=size.y*dpr;
     c.style.width=size.x+'px'; c.style.height=size.y+'px';
@@ -1354,18 +1371,32 @@ function redrawAll(){
 }
 
 const CanvasGridLayer = L.Layer.extend({
-  initialize(Z,color,minZ){this._Z=Z;this._color=color;this._minZ=minZ||0;this._draw=this._draw.bind(this);},
+  initialize(Z,color,minZ){
+    this._Z=Z;this._color=color;this._minZ=minZ||0;
+    this._draw=this._draw.bind(this);
+    this._animateZoom=this._animateZoom.bind(this);
+  },
   onAdd(map){
     this._map=map;
     const c=this._canvas=document.createElement('canvas');
     c.style.cssText='position:absolute;pointer-events:none;z-index:450';
+    L.DomUtil.addClass(c,'leaflet-zoom-animated');
     map.getPanes().overlayPane.appendChild(c);
     map.on('moveend zoomend resize',this._draw);
+    map.on('zoomanim',this._animateZoom);
     this._draw();
   },
   onRemove(map){
     if(this._canvas){this._canvas.remove();this._canvas=null;}
     map.off('moveend zoomend resize',this._draw);
+    map.off('zoomanim',this._animateZoom);
+  },
+  _animateZoom(e){
+    if(!this._canvas||!this._topLeftLatLng) return;
+    const map=this._map;
+    const scale=map.getZoomScale(e.zoom,map.getZoom());
+    const offset=map._latLngToNewLayerPoint(this._topLeftLatLng,e.zoom,e.center);
+    L.DomUtil.setTransform(this._canvas,offset,scale);
   },
   _draw(){
     if(!this._map||!this._canvas) return;
@@ -1374,6 +1405,7 @@ const CanvasGridLayer = L.Layer.extend({
     c.style.display='';
     const size=map.getSize(),dpr=window.devicePixelRatio||1;
     const topLeft=map.containerPointToLayerPoint([0,0]);
+    this._topLeftLatLng=map.containerPointToLatLng([0,0]);
     L.DomUtil.setPosition(c,topLeft);
     c.width=size.x*dpr; c.height=size.y*dpr;
     c.style.width=size.x+'px'; c.style.height=size.y+'px';
