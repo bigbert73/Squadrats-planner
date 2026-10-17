@@ -66,6 +66,15 @@ const SCHEMA_SQL = `
     ty      INTEGER NOT NULL,
     PRIMARY KEY (user_id, tx, ty)
   );
+
+  -- squadratinhos the rider marked as impossible to collect (private land,
+  -- no access); routing ignores them until they are actually collected
+  CREATE TABLE IF NOT EXISTS blocked_sqi (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tx      INTEGER NOT NULL,
+    ty      INTEGER NOT NULL,
+    PRIMARY KEY (user_id, tx, ty)
+  );
 `;
 
 // ── Migration (single-user → multi-user) ──────────────────────────────────────
@@ -266,6 +275,14 @@ const q = {
   countTilesSQI:    db.prepare("SELECT count(*) as n FROM tiles_sqi WHERE user_id = ?"),
   getTilesSQI:      db.prepare("SELECT tx,ty FROM tiles_sqi WHERE user_id = ?"),
   getTilesSQIBbox:  db.prepare("SELECT tx,ty FROM tiles_sqi WHERE user_id = ? AND tx BETWEEN ? AND ? AND ty BETWEEN ? AND ?"),
+  hasTileSQI:       db.prepare("SELECT 1 FROM tiles_sqi WHERE user_id = ? AND tx = ? AND ty = ?"),
+
+  getBlockedSQI:    db.prepare("SELECT tx,ty FROM blocked_sqi WHERE user_id = ?"),
+  hasBlockedSQI:    db.prepare("SELECT 1 FROM blocked_sqi WHERE user_id = ? AND tx = ? AND ty = ?"),
+  addBlockedSQI:    db.prepare("INSERT OR IGNORE INTO blocked_sqi (user_id,tx,ty) VALUES (?,?,?)"),
+  delBlockedSQI:    db.prepare("DELETE FROM blocked_sqi WHERE user_id = ? AND tx = ? AND ty = ?"),
+  // once collected after all, a blocked tile stops being blocked
+  clearOwnedBlocked: db.prepare("DELETE FROM blocked_sqi WHERE user_id = ? AND EXISTS (SELECT 1 FROM tiles_sqi t WHERE t.user_id = blocked_sqi.user_id AND t.tx = blocked_sqi.tx AND t.ty = blocked_sqi.ty)"),
 };
 
 // return the count of rows actually inserted (vs. ignored as already-owned),
@@ -326,4 +343,12 @@ module.exports = {
   getAllTilesSQI(userId)                    { return q.getTilesSQI.all(userId); },
   getTilesSQIBbox(userId, x0, x1, y0, y1) { return q.getTilesSQIBbox.all(userId, x0, x1, y0, y1); },
   insertTilesSQIBatch(userId, tiles)       { return batchSQI(userId, tiles); },
+  hasTileSQI(userId, tx, ty)               { return !!q.hasTileSQI.get(userId, tx, ty); },
+
+  // Blocked (uncollectable) SQI
+  getBlockedSQI(userId)                    { q.clearOwnedBlocked.run(userId); return q.getBlockedSQI.all(userId); },
+  toggleBlockedSQI(userId, tx, ty) {
+    if (q.hasBlockedSQI.get(userId, tx, ty)) { q.delBlockedSQI.run(userId, tx, ty); return false; }
+    q.addBlockedSQI.run(userId, tx, ty); return true;
+  },
 };

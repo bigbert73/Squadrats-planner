@@ -75,10 +75,14 @@ function reuseAnalysis(coords) {
 
 // ── objective ───────────────────────────────────────────────────────────────
 
-function buildContext({ mode, sqRows, sqiRows, yard, yardi }) {
+function buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI }) {
   const ownedSQ  = new Set(sqRows.map(r => `${r.tx},${r.ty}`));
   const ownedSQI = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
-  const ctx = { mode, sqRows, sqiRows, ownedSQ, ownedSQI, yardBefore: yard?.size || 0, yardiBefore: yardi?.size || 0 };
+  // Squadratinhos marked as impossible to collect: never a target, never
+  // counted as collected by a route.
+  const blocked = new Set((blockedSQI || []).map(r => `${r.tx},${r.ty}`));
+  const takenSQI = blocked.size ? new Set([...ownedSQI, ...blocked]) : ownedSQI;
+  const ctx = { mode, sqRows, sqiRows, ownedSQ, ownedSQI, takenSQI, yardBefore: yard?.size || 0, yardiBefore: yardi?.size || 0 };
 
   // Unowned tiles within 2 of the Yard(inho): visiting them is what can turn
   // owned border tiles "complete" and grow it.
@@ -101,8 +105,8 @@ function buildContext({ mode, sqRows, sqiRows, yard, yardi }) {
 
   if (mode === 'sqi') {
     ctx.z = tiles.Z_SQI;
-    ctx.isTarget = (k) => !ownedSQI.has(k);
-    ctx.valueOf = (x, y) => tiles.countNewTilesNear(x, y, ownedSQI, 3);
+    ctx.isTarget = (k) => !takenSQI.has(k);
+    ctx.valueOf = (x, y) => tiles.countNewTilesNear(x, y, takenSQI, 3);
   } else if (mode === 'sq') {
     ctx.z = tiles.Z_SQ;
     ctx.isTarget = (k) => !ownedSQ.has(k);
@@ -112,7 +116,7 @@ function buildContext({ mode, sqRows, sqiRows, yard, yardi }) {
     nearYard(yard?.tiles, ownedSQ);
   } else if (mode === 'yardi') {
     ctx.z = tiles.Z_SQI;
-    nearYard(yardi?.tiles, ownedSQI);
+    nearYard(yardi?.tiles, takenSQI);
   } else {
     ctx.z = null; // 'shortest': no tile objective, just a clean loop
   }
@@ -126,7 +130,7 @@ function evaluate(data, ctx, targetKm) {
   let newSQ = 0, newSQI = 0;
   const newSQKeys = [], newSQIKeys = [];
   for (const k of sq14) if (!ctx.ownedSQ.has(k)) { newSQ++; newSQKeys.push(k); }
-  for (const k of sq17) if (!ctx.ownedSQI.has(k)) { newSQI++; newSQIKeys.push(k); }
+  for (const k of sq17) if (!ctx.takenSQI.has(k)) { newSQI++; newSQIKeys.push(k); }
 
   const toRows = (keys) => keys.map(k => { const [tx, ty] = k.split(',').map(Number); return { tx, ty }; });
   let yardGain = 0;
@@ -322,10 +326,10 @@ async function mapLimit(items, limit, fn) {
 
 class PlannerError extends Error {}
 
-async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi }) {
+async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi, blockedSQI }) {
   const t0 = Date.now(), overBudget = () => Date.now() - t0 > SOFT_BUDGET_MS;
   const profile = routing.brouterProfile(bikeProfile);
-  const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi });
+  const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI });
   const target = Math.max(5, targetKm || 15);
   const reach = PETAL_REACH * target * (1 + LEN_TOLERANCE);
 

@@ -310,8 +310,9 @@ function buildUserCache(userId) {
   const uber    = tiles.computeUber(sqRows);
   const yardi   = tiles.computeYard(sqiRows);
   const uberi   = tiles.computeUber(sqiRows);
+  const blockedSQI = db.getBlockedSQI(userId);
   const c = {
-    sqRows, sqiRows, yard, uber, yardi, uberi,
+    sqRows, sqiRows, yard, uber, yardi, uberi, blockedSQI,
     stats: {
       sq:         db.getSQCount(userId),
       sqi:        db.getSQICount(userId),
@@ -419,8 +420,19 @@ app.get('/api/tiles/all', requireAuth, (req, res) => {
     uber:      c.uber,
     yardinho:  c.yardi,
     uberinho:  c.uberi,
+    blockedSqi: c.blockedSQI,
     stats:     c.stats,
   });
+});
+
+// Toggle a squadratinho as "impossible to collect" (long press on the map).
+app.post('/api/tiles/blocked/toggle', requireAuth, (req, res) => {
+  const tx = parseInt(req.body.tx, 10), ty = parseInt(req.body.ty, 10);
+  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return res.status(400).json({ error: 'tx, ty required' });
+  if (db.hasTileSQI(req.userId, tx, ty)) return res.status(409).json({ error: 'Ten SQI jest już zdobyty' });
+  const blocked = db.toggleBlockedSQI(req.userId, tx, ty);
+  invalidateUserCache(req.userId);
+  res.json({ blocked, tx, ty });
 });
 
 // ── Route planning ────────────────────────────────────────────────────────────
@@ -444,6 +456,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
     try {
       return res.json(await planner.planLoop({
         start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard, yardi: c.yardi,
+        blockedSQI: c.blockedSQI,
       }));
     } catch (e) {
       if (e instanceof planner.PlannerError) return res.status(422).json({ error: e.message });
@@ -473,6 +486,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
 
   const ownedSQSet  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
   const ownedSQISet = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
+  for (const r of c.blockedSQI) ownedSQISet.add(`${r.tx},${r.ty}`); // never a detour target
   const tolerance = 0.15, target = Math.max(0, targetKm);
   let routeData;
   try { routeData = await route(pts); }
@@ -633,6 +647,7 @@ app.post('/api/route/preview-tiles', requireAuth, (req, res) => {
   if (!coords?.length) return res.status(400).json({ error: 'coords required' });
   const ownedSQ  = new Set(db.getAllTilesSQ(req.userId).map(r => `${r.tx},${r.ty}`));
   const ownedSQI = new Set(db.getAllTilesSQI(req.userId).map(r => `${r.tx},${r.ty}`));
+  for (const r of getUserCache(req.userId).blockedSQI) ownedSQI.add(`${r.tx},${r.ty}`); // can't be collected
   const { sq14, sq17 } = tiles.trackToTiles(coords);
   const newSQ  = [...sq14].filter(k => !ownedSQ.has(k)).map(k => { const [tx,ty]=k.split(',').map(Number); return {tx,ty}; });
   const newSQI = [...sq17].filter(k => !ownedSQI.has(k)).map(k => { const [tx,ty]=k.split(',').map(Number); return {tx,ty}; });

@@ -212,7 +212,12 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 #mc{flex:1;display:flex;overflow:hidden}
 #mc-left{flex:1;position:relative;overflow:hidden}
 #mc.sv-active #mc-left{flex:0 0 50%;min-width:300px}
-#map{width:100%;height:100%;background:#07090f}
+#map{width:100%;height:100%;background:#07090f;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#hold-ring{position:absolute;z-index:1500;pointer-events:none;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:4px}
+#hold-ring svg{filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+#hold-ring circle.p{stroke-dasharray:151;stroke-dashoffset:151;animation:holdfill linear forwards}
+#hold-ring span{font-size:11px;color:#fff;background:rgba(13,17,23,.85);padding:2px 8px;border-radius:10px;white-space:nowrap}
+@keyframes holdfill{to{stroke-dashoffset:0}}
 #elev-panel{display:none;position:absolute;bottom:0;left:0;right:0;height:32%;z-index:450;background:rgba(13,17,23,.93);backdrop-filter:blur(6px);border-top:1px solid var(--border);flex-direction:column;pointer-events:auto}
 #elev-panel.open{display:flex}
 #elev-head{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--tx2)}
@@ -1115,6 +1120,7 @@ let _planKm=0;
 let ownedSQ=new Set(), ownedSQI=new Set();
 let yardTiles=new Set(), uberTiles=new Set();
 let yardiTiles=new Set(), uberiTiles=new Set();
+let blockedSQI=new Set(); // squadratinhos marked as impossible to collect
 let newSQ=new Set(), newSQI=new Set();
 // SQI overview: three coarser levels [tileZ, minMapZ] finest→coarsest
 const SQI_OV=[[14,10],[12,7],[10,0]];
@@ -1149,12 +1155,17 @@ async function initMap(){
   baseLayers.osm.addTo(map);
 
   map.on('click',e=>{
+    if(_suppressClick){_suppressClick=false;return;}
     const pop=g('mtools-pop');
     if(pop.classList.contains('open')){pop.classList.remove('open');return;}
     if(g('sb').classList.contains('mob-open')){closeMobileMenu();return;}
     onMapClick(e);
   });
-  map.on('contextmenu',e=>{if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);});
+  map.on('contextmenu',e=>{
+    if(_hold){_hold.pendingCtx=e;return;} // may turn into a 5 s "block" hold — decide on release
+    onMapContext(e);
+  });
+  initBlockHold();
   map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();});
   map.on('zoomend',renderKmMarkers);
 
@@ -1207,6 +1218,7 @@ async function loadTilesFromDB(){
     uberTiles.clear();  (d.uber?.tiles||[]).forEach(t=>uberTiles.add(tileKey(t.tx,t.ty)));
     yardiTiles.clear(); (d.yardinho?.tiles||[]).forEach(t=>yardiTiles.add(tileKey(t.tx,t.ty)));
     uberiTiles.clear(); (d.uberinho?.tiles||[]).forEach(t=>uberiTiles.add(tileKey(t.tx,t.ty)));
+    blockedSQI.clear(); (d.blockedSqi||[]).forEach(t=>blockedSQI.add(tileKey(t.tx,t.ty)));
 
     applyStats(d.stats);
     redrawAll();
@@ -1390,6 +1402,7 @@ function redrawAll(){
   renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)', 0,0,'sqi-yard',12);
   renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,'sqi-uber',12);
   redrawGrid();
+  renderBlocked();
 }
 
 const CanvasGridLayer = CanvasOverlay.extend({
@@ -1410,6 +1423,27 @@ const CanvasGridLayer = CanvasOverlay.extend({
     ctx.stroke();
   }
 });
+
+// Blocked squadratinhos: red, crossed out.
+const CanvasBlockedLayer = CanvasOverlay.extend({
+  initialize(){this._zIndex=460;},
+  _visible(){return blockedSQI.size>0&&this._map.getZoom()>=12;},
+  _paint(ctx,origin,w,h,nw,se){
+    const r=this._tileRange(nw,se,Z_SQI);
+    ctx.fillStyle='rgba(248,113,113,.25)'; ctx.strokeStyle='rgba(248,113,113,.95)';
+    for(const k of blockedSQI){
+      const{x,y}=parseKey(k);
+      if(x<r.x0||x>r.x1||y<r.y0||y>r.y1) continue;
+      const a=tileNW(x,y,Z_SQI), b=tileNW(x+1,y+1,Z_SQI);
+      const p0=this._px(a.lat,a.lng,origin), p1=this._px(b.lat,b.lng,origin), tw=p1.x-p0.x, th=p1.y-p0.y;
+      ctx.fillRect(p0.x,p0.y,tw,th);
+      ctx.lineWidth=Math.max(1.5,Math.min(3,tw/20));
+      ctx.beginPath(); ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.moveTo(p1.x,p0.y); ctx.lineTo(p0.x,p1.y);
+      ctx.rect(p0.x,p0.y,tw,th); ctx.stroke();
+    }
+  }
+});
+function renderBlocked(){clearLyr('sqi-blocked'); LAYERS['sqi-blocked']=new CanvasBlockedLayer().addTo(map);}
 
 function redrawGrid(){
   clearLyr('grid14'); clearLyr('grid17');
@@ -2019,6 +2053,78 @@ function exportGPXGarmin(){
 // ═══════════════════════════════════════════════════════════════════════
 //  WAYPOINTS
 // ═══════════════════════════════════════════════════════════════════════
+function onMapContext(e){if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);}
+
+// Hold a finger (or the mouse button) still on the map for 5 s to mark the
+// squadratinho under it as impossible to collect — or to unmark it.
+const BLOCK_HOLD_MS=5000, HOLD_RING_DELAY_MS=400;
+let _hold=null, _suppressClick=false;
+function initBlockHold(){
+  const el=map.getContainer();
+  el.addEventListener('pointerdown',e=>{
+    if(_hold){cancelHold();return;} // second finger = pinch, not a hold
+    if(e.button!==0) return;
+    const p=map.mouseEventToContainerPoint(e);
+    _hold={id:e.pointerId,x:e.clientX,y:e.clientY,p,ll:map.containerPointToLatLng(p),pendingCtx:null,
+      ringT:setTimeout(showHoldRing,HOLD_RING_DELAY_MS),doneT:setTimeout(finishHold,BLOCK_HOLD_MS)};
+  });
+  el.addEventListener('pointermove',e=>{
+    if(_hold&&e.pointerId===_hold.id&&Math.hypot(e.clientX-_hold.x,e.clientY-_hold.y)>10) cancelHold();
+  });
+  const release=e=>{
+    if(!_hold||e.pointerId!==_hold.id) return;
+    const ctx=_hold.pendingCtx;
+    cancelHold();
+    if(ctx) onMapContext(ctx); // a short long-press keeps its old meaning
+  };
+  el.addEventListener('pointerup',release);
+  el.addEventListener('pointercancel',()=>cancelHold());
+  map.on('movestart zoomstart',()=>cancelHold());
+}
+function showHoldRing(){
+  if(!_hold) return;
+  const ring=document.createElement('div');
+  ring.id='hold-ring';
+  ring.style.left=_hold.p.x+'px'; ring.style.top=_hold.p.y+'px';
+  const tile=latLngToTile(_hold.ll.lat,_hold.ll.lng,Z_SQI), on=blockedSQI.has(tileKey(tile.x,tile.y));
+  ring.innerHTML=`<svg width="56" height="56" viewBox="0 0 56 56"><circle cx="28" cy="28" r="24" fill="rgba(13,17,23,.6)" stroke="rgba(255,255,255,.25)" stroke-width="4"/>
+    <circle class="p" cx="28" cy="28" r="24" fill="none" stroke="${on?'#4ade80':'#f87171'}" stroke-width="4" transform="rotate(-90 28 28)" style="animation-duration:${BLOCK_HOLD_MS-HOLD_RING_DELAY_MS}ms"/></svg>
+    <span>${on?'Przytrzymaj, by odznaczyć':'Przytrzymaj, by oznaczyć jako niezdobywalny'}</span>`;
+  g('mc-left').appendChild(ring);
+}
+function cancelHold(){
+  if(!_hold) return;
+  clearTimeout(_hold.ringT); clearTimeout(_hold.doneT);
+  _hold=null;
+  g('hold-ring')?.remove();
+}
+function finishHold(){
+  if(!_hold) return;
+  const ll=_hold.ll;
+  _hold.pendingCtx=null;
+  cancelHold();
+  _suppressClick=true; setTimeout(()=>{_suppressClick=false;},800);
+  navigator.vibrate?.(60);
+  toggleBlockedAt(ll);
+}
+async function toggleBlockedAt(ll){
+  if(map.getZoom()<14){toast('Przybliż mapę (z14+), żeby oznaczać pojedyncze SQI');return;}
+  const t=latLngToTile(ll.lat,ll.lng,Z_SQI), key=tileKey(t.x,t.y);
+  if(ownedSQI.has(key)){toast('Ten SQI jest już zdobyty');return;}
+  try{
+    const r=await fetch('/api/tiles/blocked/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tx:t.x,ty:t.y})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+    if(d.blocked) blockedSQI.add(key); else blockedSQI.delete(key);
+    renderBlocked();
+    toast(d.blocked?'SQI oznaczony jako niezdobywalny — trasy będą go pomijać':'Odznaczono — ten SQI znów jest do zdobycia');
+    if(routeCoords.length){ // the current route's "new SQI" count changes
+      const prv=await (await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})).json();
+      applyNewTiles(prv);
+    }
+  }catch(e){toast(e.message);}
+}
+
 function onMapClick(e){
   if(svMode){openSV(e.latlng.lat,e.latlng.lng);return;}
   if(mode==='view') return;
@@ -2302,7 +2408,7 @@ function showAuthGate(){
 function clearTileData(){
   ownedSQ=new Set();ownedSQI=new Set();
   yardTiles=new Set();uberTiles=new Set();
-  yardiTiles=new Set();uberiTiles=new Set();
+  yardiTiles=new Set();uberiTiles=new Set();blockedSQI=new Set();
   newSQ=new Set();newSQI=new Set();
   redrawAll();
 }
