@@ -1142,7 +1142,9 @@ let currentUser=null;
 //  MAP INIT
 // ═══════════════════════════════════════════════════════════════════════
 async function initMap(){
-  map=L.map('map',{zoomControl:false,preferCanvas:true}).setView([52.23,21.01],12);
+  // tapHold off: on iOS Leaflet would fake a 'contextmenu' after 0.6 s of
+  // holding, which ended our 5 s hold early; initBlockHold() handles holds.
+  map=L.map('map',{zoomControl:false,preferCanvas:true,tapHold:false}).setView([52.23,21.01],12);
   map.createPane('coveragePane'); map.getPane('coveragePane').style.zIndex='401';
   map.createPane('routePane');    map.getPane('routePane').style.zIndex='402';
   map.createPane('kmPane');       map.getPane('kmPane').style.zIndex='403';
@@ -2059,26 +2061,45 @@ function onMapContext(e){if(mode==='view'){setMode('waypoint');onMapClick(e);set
 // squadratinho under it as impossible to collect — or to unmark it.
 const BLOCK_HOLD_MS=5000, HOLD_RING_DELAY_MS=400;
 let _hold=null, _suppressClick=false;
+// Touch is tracked with touch events (iOS Safari cancels pointer events
+// partway through a still finger) and the mouse with mouse events.
+// Releasing between LONG_PRESS_MS and BLOCK_HOLD_MS keeps the old long-press
+// meaning (add a waypoint) — iOS never sends a contextmenu for that itself.
+const LONG_PRESS_MS=600;
 function initBlockHold(){
   const el=map.getContainer();
-  el.addEventListener('pointerdown',e=>{
-    if(_hold){cancelHold();return;} // second finger = pinch, not a hold
-    if(e.button!==0) return;
-    const p=map.mouseEventToContainerPoint(e);
-    _hold={id:e.pointerId,x:e.clientX,y:e.clientY,p,ll:map.containerPointToLatLng(p),pendingCtx:null,
+  const begin=(x,y,touch)=>{
+    const r=el.getBoundingClientRect(), p=L.point(x-r.left,y-r.top);
+    _hold={x,y,p,ll:map.containerPointToLatLng(p),touch,t0:Date.now(),pendingCtx:null,
       ringT:setTimeout(showHoldRing,HOLD_RING_DELAY_MS),doneT:setTimeout(finishHold,BLOCK_HOLD_MS)};
-  });
-  el.addEventListener('pointermove',e=>{
-    if(_hold&&e.pointerId===_hold.id&&Math.hypot(e.clientX-_hold.x,e.clientY-_hold.y)>10) cancelHold();
-  });
-  const release=e=>{
-    if(!_hold||e.pointerId!==_hold.id) return;
-    const ctx=_hold.pendingCtx;
-    cancelHold();
-    if(ctx) onMapContext(ctx); // a short long-press keeps its old meaning
   };
-  el.addEventListener('pointerup',release);
-  el.addEventListener('pointercancel',()=>cancelHold());
+  const moved=(x,y)=>{ if(_hold&&Math.hypot(x-_hold.x,y-_hold.y)>10) cancelHold(); };
+  const release=()=>{
+    if(!_hold) return;
+    const h=_hold;
+    cancelHold();
+    if(h.pendingCtx) onMapContext(h.pendingCtx);                       // Android / right-click
+    else if(h.touch&&Date.now()-h.t0>=LONG_PRESS_MS){                  // iOS long-press
+      _suppressClick=true; setTimeout(()=>{_suppressClick=false;},800);
+      onMapContext({latlng:h.ll});
+    }
+  };
+  el.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1){cancelHold();return;} // pinch
+    begin(e.touches[0].clientX,e.touches[0].clientY,true);
+  },{passive:true});
+  el.addEventListener('touchmove',e=>{
+    if(e.touches.length!==1){cancelHold();return;}
+    moved(e.touches[0].clientX,e.touches[0].clientY);
+  },{passive:true});
+  el.addEventListener('touchend',release);
+  el.addEventListener('touchcancel',()=>cancelHold());
+  el.addEventListener('mousedown',e=>{
+    if(e.button!==0||(_hold&&_hold.touch)) return; // ignore mouse events emulated from touch
+    begin(e.clientX,e.clientY,false);
+  });
+  el.addEventListener('mousemove',e=>{ if(_hold&&!_hold.touch) moved(e.clientX,e.clientY); });
+  el.addEventListener('mouseup',()=>{ if(_hold&&!_hold.touch) release(); });
   map.on('movestart zoomstart',()=>cancelHold());
 }
 function showHoldRing(){
