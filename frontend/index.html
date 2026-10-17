@@ -723,7 +723,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
     <button class="btn btn-b" onclick="g('gpx-in').click()"><i class="ti ti-file-import"></i>Importuj GPX</button>
     <input type="file" id="gpx-in" accept=".gpx" multiple style="display:none" onchange="importGPX(event)">
     <button class="btn" style="background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.35);color:var(--green)" onclick="g('squadrats-kml-in').click()" title="Oficjalny eksport kwadratów ze squadrats.com — 'Pobierz KML' w ich aplikacji"><i class="ti ti-cloud-download"></i>Importuj z Squadrats.com (KML)</button>
-    <input type="file" id="squadrats-kml-in" accept=".kml,.xml" style="display:none" onchange="importSquadratsKML(event)">
+    <input type="file" id="squadrats-kml-in" accept=".kml,.xml,.txt" style="display:none" onchange="importSquadratsKML(event)">
     <button class="btn" style="background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.35);color:#ff6b35" onclick="openKomootModal()"><i class="ti ti-mountains"></i>Importuj z Komoot</button>
     <button class="btn btn-x" onclick="exportGPX()"><i class="ti ti-download"></i>Eksportuj trasę GPX</button>
     <button class="btn btn-x" onclick="exportGPXGarmin()" title="GPX z danymi wysokości, gotowy do importu jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
