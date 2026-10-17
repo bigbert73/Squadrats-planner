@@ -720,6 +720,33 @@ app.post('/api/gpx/import', requireAuth, (req, res) => {
   }
 });
 
+// ── Squadrats.com KML import (gold-source owned squares) ──────────────────────
+// Their export is a merged-outline polygon per zoom level (not a square
+// list), so kml.js rasterizes it back onto our tile grid. Additive only —
+// never removes tiles — so it's safe to re-run after every fresh export.
+
+app.post('/api/squadrats/import-kml', requireAuth, express.text({ limit: '30mb', type: '*/*' }), (req, res) => {
+  const xml = req.body;
+  if (!xml || typeof xml !== 'string' || xml.length < 50) return res.status(400).json({ error: 'Pusty plik KML' });
+  try {
+    const { parseSquadratsKml } = require('./kml');
+    const { sq, sqi, sqSize, sqiSize } = parseSquadratsKml(xml);
+    db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
+    db.insertTilesSQIBatch(req.userId, [...sqi].map(k => k.split(',').map(Number)));
+    invalidateUserCache(req.userId);
+    res.json({
+      parsedSQ: sq.size,
+      parsedSQI: sqi.size,
+      reportedSQ: sqSize,
+      reportedSQI: sqiSize,
+      totalSQ:  db.getSQCount(req.userId),
+      totalSQI: db.getSQICount(req.userId),
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Błąd parsowania KML: ' + e.message });
+  }
+});
+
 // ── Preview tiles ─────────────────────────────────────────────────────────────
 
 app.post('/api/route/preview-tiles', requireAuth, (req, res) => {
