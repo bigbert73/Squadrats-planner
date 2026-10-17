@@ -470,6 +470,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .poi-name{color:var(--tx2);flex:1;line-height:1.3}
 .poi-name b{color:var(--tx);display:block;font-size:12px}
 .poi-name span{color:var(--tx3);font-size:11px}
+.poi-name .poi-km{display:block;color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:10.5px;margin:1px 0}
 .poi-cat{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:8px 0 3px}
 
 /* ── USER MENU ── */
@@ -2820,6 +2821,7 @@ function sbPeek(show){
 
 function toggleMobileMenu(){
   const open=g('sb').classList.toggle('mob-open');
+  if(open) g('mtools-pop').classList.remove('open');
   g('mob-overlay').classList.toggle('on',open);
   if(open) setTimeout(()=>map.invalidateSize(),260);
 }
@@ -3353,6 +3355,42 @@ function ptOnRoute(lat,lng){
   return routeCoords.some(p=>Math.abs(p.lat-lat)<thresh&&Math.abs(p.lng-lng)<thresh);
 }
 
+// Cumulative km along the current route, per vertex (memoised per route).
+let _routeCum={coords:null,len:0,cum:[]};
+function routeCum(){
+  if(_routeCum.coords===routeCoords&&_routeCum.len===routeCoords.length) return _routeCum.cum;
+  const cum=[0];
+  for(let i=1;i<routeCoords.length;i++) cum.push(cum[i-1]+haversine(routeCoords[i-1],routeCoords[i]));
+  _routeCum={coords:routeCoords,len:routeCoords.length,cum};
+  return cum;
+}
+// Where a point sits relative to the route: one entry per separate pass
+// within maxKm (a loop can pass the same place on the way out and back),
+// each with the km along the route and the straight-line distance off it.
+function routePasses(lat,lng,maxKm=0.6){
+  const cum=routeCum(), kx=111.32*Math.cos(lat*Math.PI/180), ky=110.57, hits=[];
+  for(let i=1;i<routeCoords.length;i++){
+    const a=routeCoords[i-1], b=routeCoords[i];
+    const ax=(a.lng-lng)*kx, ay=(a.lat-lat)*ky, dx=(b.lng-a.lng)*kx, dy=(b.lat-a.lat)*ky, l2=dx*dx+dy*dy;
+    const t=l2?Math.max(0,Math.min(1,-(ax*dx+ay*dy)/l2)):0;
+    const off=Math.hypot(ax+t*dx,ay+t*dy);
+    if(off<=maxKm) hits.push({km:cum[i-1]+t*(cum[i]-cum[i-1]),off});
+  }
+  const passes=[];
+  for(const h of hits){ // hits are already in route order
+    const last=passes[passes.length-1];
+    if(last&&h.km-last.end<2){last.end=h.km;if(h.off<last.off){last.off=h.off;last.km=h.km;}}
+    else passes.push({km:h.km,off:h.off,end:h.km});
+  }
+  return passes;
+}
+function fmtPasses(passes){
+  const off=Math.min(...passes.map(p=>p.off));
+  const offTxt=off<0.03?'przy trasie':off<1?`${Math.round(off*100)*10} m od trasy`:`${off.toFixed(1).replace('.',',')} km od trasy`;
+  return passes.map(p=>'km '+p.km.toFixed(1).replace('.',',')).join(' / ')+' · '+offTxt;
+}
+const poiLabel=(t)=>{const v=(t.cuisine||t.amenity||t.shop||t.tourism||t.leisure||'').split(';')[0].replace(/_/g,' ');return v?v[0].toUpperCase()+v.slice(1):'';};
+
 function renderPOI(elements){
   const bycat={};
   POI_CATS.forEach(c=>{bycat[c.key]=[];});
@@ -3360,9 +3398,12 @@ function renderPOI(elements){
     if(!el.lat||!el.lon) return;
     const cat=poiCatFor(el);
     if(!cat) return;
+    const passes=routePasses(el.lat,el.lon);
+    if(!passes.length) return;
     if(!bycat[cat.key]) bycat[cat.key]=[];
-    bycat[cat.key].push({...el, _cat:cat});
+    bycat[cat.key].push({...el, _cat:cat, _passes:passes, _where:fmtPasses(passes)});
   });
+  Object.values(bycat).forEach(list=>list.sort((a,b)=>a._passes[0].km-b._passes[0].km));
 
   // Add map markers grouped by category LayerGroup
   const sideToggles=g('poi-cat-toggles');
@@ -3380,7 +3421,7 @@ function renderPOI(elements){
       const icon=L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
         html:`<div style="width:22px;height:22px;border-radius:50%;background:${cat.color};border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)"><i class="ti ${cat.icon}" style="font-size:11px;color:#fff"></i></div>`});
       L.marker([el.lat,el.lon],{icon,zIndexOffset:200})
-        .bindPopup(`<b>${el.tags?.name||cat.label}</b><br><span style="font-size:11px;color:#666">${el.tags?.opening_hours||''}</span>`)
+        .bindPopup(`<b>${esc(el.tags?.name||poiLabel(el.tags||{})||cat.label)}</b><br><span style="font-size:11px;color:#2563eb">${el._where}</span><br><span style="font-size:11px;color:#666">${esc(el.tags?.opening_hours||'')}</span>`)
         .addTo(lg);
     });
     const pillCss=`display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:20px;border:1.5px solid ${cat.color};background:${cat.color};color:#000;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap`;
@@ -3407,15 +3448,21 @@ function renderPOI(elements){
     if(!items.length) return;
     html+=`<div class="poi-cat" style="color:${cat.color}">${cat.label} (${items.length})</div>`;
     items.forEach(node=>{
-      const name=node.tags?.name||'—';
-      const sub=[node.tags?.cuisine,node.tags?.opening_hours].filter(Boolean).join(' · ')||node.tags?.amenity||node.tags?.shop||node.tags?.tourism||'';
-      html+=`<div class="poi-item" onclick="map.setView([${node.lat},${node.lon}],17)">
+      const t=node.tags||{};
+      const name=t.name||poiLabel(t)||cat.label;
+      const sub=[t.name?(t.cuisine||'').replace(/;/g,', '):'',t.opening_hours].filter(Boolean).join(' · ');
+      html+=`<div class="poi-item" onclick="showPOI(${node.lat},${node.lon})">
         <div class="poi-icon" style="background:${cat.bg};color:${cat.color}"><i class="ti ${cat.icon}"></i></div>
-        <div class="poi-name"><b>${name}</b><span>${sub}</span></div>
+        <div class="poi-name"><b>${esc(name)}</b><span class="poi-km">${node._where}</span><span>${esc(sub)}</span></div>
       </div>`;
     });
   });
   el.innerHTML=html||'<div class="hint">Brak punktów blisko trasy</div>';
+}
+
+function showPOI(lat,lng){
+  if(window.innerWidth<=768) closeMobileMenu();
+  map.setView([lat,lng],17);
 }
 
 window.addEventListener('DOMContentLoaded',initMap);
