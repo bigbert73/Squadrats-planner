@@ -3202,15 +3202,26 @@ function clearPOI(){
   g('mtb-poi').style.display='none';
 }
 
+// Category pills filter both the list and the map markers. With everything
+// shown, a tap means "only this"; further taps add/remove; clearing the last
+// one brings everything back.
 function togglePOICat(key){
-  poiCatVisible[key]=!poiCatVisible[key];
-  const lg=poiLayerGroups[key];
-  if(!lg) return;
-  if(poiCatVisible[key]) map.addLayer(lg); else map.removeLayer(lg);
-  document.querySelectorAll(`[data-poi-cat="${key}"]`).forEach(btn=>{
+  const keys=Object.keys(poiLayerGroups);
+  if(keys.every(k=>poiCatVisible[k])) keys.forEach(k=>{poiCatVisible[k]=k===key;});
+  else poiCatVisible[key]=!poiCatVisible[key];
+  if(!keys.some(k=>poiCatVisible[k])) keys.forEach(k=>{poiCatVisible[k]=true;});
+  applyPOIFilter();
+}
+function applyPOIFilter(){
+  Object.entries(poiLayerGroups).forEach(([key,lg])=>{
+    const on=!!poiCatVisible[key];
+    if(on) map.addLayer(lg); else map.removeLayer(lg);
     const cat=POI_CATS.find(c=>c.key===key);
-    btn.style.background=poiCatVisible[key]?cat.color:'transparent';
-    btn.style.color=poiCatVisible[key]?'#000':cat.color;
+    document.querySelectorAll(`[data-poi-cat="${key}"]`).forEach(btn=>{
+      btn.style.background=on?cat.color:'transparent';
+      btn.style.color=on?'#000':cat.color;
+    });
+    document.querySelectorAll(`[data-poi-sec="${key}"]`).forEach(sec=>{sec.style.display=on?'':'none';});
   });
 }
 
@@ -3406,7 +3417,18 @@ function fmtPasses(passes){
   const offTxt=off<0.03?'przy trasie':off<1?`${Math.round(off*100)*10} m od trasy`:`${off.toFixed(1).replace('.',',')} km od trasy`;
   return passes.map(p=>'km '+p.km.toFixed(1).replace('.',',')).join(' / ')+' · '+offTxt;
 }
-const poiLabel=(t)=>{const v=(t.cuisine||t.amenity||t.shop||t.tourism||t.leisure||'').split(';')[0].replace(/_/g,' ');return v?v[0].toUpperCase()+v.slice(1):'';};
+const POI_TYPE_PL={restaurant:'Restauracja',cafe:'Kawiarnia',fast_food:'Fast food',bar:'Bar',bakery:'Piekarnia',drinking_water:'Woda pitna',
+  supermarket:'Supermarket',convenience:'Sklep spożywczy',sports:'Sklep sportowy',bicycle:'Sklep rowerowy',bicycle_repair_station:'Stacja naprawy rowerów',
+  bicycle_rental:'Wypożyczalnia rowerów',viewpoint:'Punkt widokowy',attraction:'Atrakcja',museum:'Muzeum',artwork:'Dzieło sztuki',
+  castle:'Zamek',monument:'Pomnik',church:'Kościół'};
+const CUISINE_PL={pizza:'pizza',burger:'burgery',kebab:'kebab',asian:'azjatycka',italian:'włoska',polish:'polska',regional:'regionalna',
+  sushi:'sushi',chinese:'chińska',vietnamese:'wietnamska',hungarian:'węgierska',indian:'indyjska',thai:'tajska',georgian:'gruzińska',
+  ukrainian:'ukraińska',turkish:'turecka',greek:'grecka',mexican:'meksykańska',japanese:'japońska',french:'francuska',american:'amerykańska',
+  coffee_shop:'kawa',chicken:'kurczak',sandwich:'kanapki',ice_cream:'lody',cake:'ciasta',pasta:'makarony',seafood:'ryby i owoce morza',
+  fish:'ryby',vegetarian:'wegetariańska',vegan:'wegańska',steak_house:'steki',grill:'grill',breakfast:'śniadania',donut:'pączki'};
+const cuisinePL=(c)=>(c||'').split(';').map(x=>CUISINE_PL[x.trim()]||x.trim().replace(/_/g,' ')).filter(Boolean).join(', ');
+const hoursPL=(h)=>(h||'').replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,d=>({Mo:'Pn',Tu:'Wt',We:'Śr',Th:'Cz',Fr:'Pt',Sa:'So',Su:'Nd',PH:'Św.'}[d])).replace(/\boff\b/g,'nieczynne').replace(/24\/7/,'całą dobę');
+const poiLabel=(t)=>{const v=(t.amenity||t.shop||t.tourism||t.historic||'');return POI_TYPE_PL[v]||(cuisinePL(t.cuisine)?cuisinePL(t.cuisine)[0].toUpperCase()+cuisinePL(t.cuisine).slice(1):v.replace(/_/g,' '));};
 
 function renderPOI(elements){
   const bycat={};
@@ -3438,7 +3460,7 @@ function renderPOI(elements){
       const icon=L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
         html:`<div style="width:22px;height:22px;border-radius:50%;background:${cat.color};border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)"><i class="ti ${cat.icon}" style="font-size:11px;color:#fff"></i></div>`});
       L.marker([el.lat,el.lon],{icon,zIndexOffset:200})
-        .bindPopup(`<b>${esc(el.tags?.name||poiLabel(el.tags||{})||cat.label)}</b><br><span style="font-size:11px;color:#2563eb">${el._where}</span><br><span style="font-size:11px;color:#666">${esc(el.tags?.opening_hours||'')}</span>`)
+        .bindPopup(`<b>${esc(el.tags?.name||poiLabel(el.tags||{})||cat.label)}</b><br><span style="font-size:11px;color:#2563eb">${el._where}</span><br><span style="font-size:11px;color:#666">${esc(hoursPL(el.tags?.opening_hours))}</span>`)
         .addTo(lg);
     });
     const pillCss=`display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:20px;border:1.5px solid ${cat.color};background:${cat.color};color:#000;font-family:'Space Grotesk',sans-serif;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap`;
@@ -3463,16 +3485,17 @@ function renderPOI(elements){
   POI_CATS.forEach(cat=>{
     const items=bycat[cat.key]||[];
     if(!items.length) return;
-    html+=`<div class="poi-cat" style="color:${cat.color}">${cat.label} (${items.length})</div>`;
+    html+=`<div data-poi-sec="${cat.key}"><div class="poi-cat" style="color:${cat.color}">${cat.label} (${items.length})</div>`;
     items.forEach(node=>{
       const t=node.tags||{};
       const name=t.name||poiLabel(t)||cat.label;
-      const sub=[t.name?(t.cuisine||'').replace(/;/g,', '):'',t.opening_hours].filter(Boolean).join(' · ');
+      const sub=[t.name?cuisinePL(t.cuisine):'',hoursPL(t.opening_hours)].filter(Boolean).join(' · ');
       html+=`<div class="poi-item" onclick="showPOI(${node.lat},${node.lon})">
         <div class="poi-icon" style="background:${cat.bg};color:${cat.color}"><i class="ti ${cat.icon}"></i></div>
         <div class="poi-name"><b>${esc(name)}</b><span class="poi-km">${node._where}</span><span>${esc(sub)}</span></div>
       </div>`;
     });
+    html+='</div>';
   });
   el.innerHTML=html||'<div class="hint">Brak punktów blisko trasy</div>';
 }

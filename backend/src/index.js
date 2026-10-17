@@ -868,10 +868,12 @@ app.post('/api/route/pois', requireAuth, (req, res) => {
     const kind = ['amenity', 'shop', 'tourism', 'historic'].find(k => tags[k] && (!want.size || want.has(`${k}=${tags[k]}`)));
     if (!kind) continue;
     if (!near(r.lat, r.lng)) continue;
-    if (tags.name) {
-      const k = `${tags.name.toLowerCase()}|${kind}=${tags[kind]}`;
+    {
+      // Same name+type within 80 m, or same unnamed type within 40 m.
+      const k = `${(tags.name || '').toLowerCase()}|${kind}=${tags[kind]}`;
+      const lim = tags.name ? 0.08 : 0.04;
       const prev = byName.get(k) || [];
-      if (prev.some(p => Math.hypot((p.lat - r.lat) * ky, (p.lng - r.lng) * kx) < 0.08)) continue;
+      if (prev.some(p => Math.hypot((p.lat - r.lat) * ky, (p.lng - r.lng) * kx) < lim)) continue;
       prev.push(r); byName.set(k, prev);
     }
     elements.push({ type: 'node', id: r.osm, lat: r.lat, lon: r.lng, tags });
