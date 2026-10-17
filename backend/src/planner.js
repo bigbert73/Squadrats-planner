@@ -35,11 +35,12 @@ const PETAL_REACH = 0.36;
 
 const coordsOf = (data) => data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
 
-// Resample the track every ~20 m and flag samples that lie within 25 m of a
-// part of the track more than 1 km away along it — i.e. the same road ridden
-// twice (out-and-back, or a dead-end spur into a waypoint).
+// Resample the track every ~20 m and flag samples that lie within 20 m of a
+// part of the track more than ~160 m away along it — the same road ridden
+// twice: out-and-back legs, but also short dead-end jabs into a waypoint
+// (a 1 km threshold used to hide those).
 function reuseAnalysis(coords) {
-  const STEP_KM = 0.02, GAP = 50, NEAR_KM = 0.025;
+  const STEP_KM = 0.02, GAP = 8, NEAR_KM = 0.02;
   const pts = [];
   for (let i = 1; i < coords.length; i++) {
     const a = coords[i - 1], b = coords[i];
@@ -129,8 +130,10 @@ function evaluate(data, ctx, targetKm) {
   const reuse = reuseAnalysis(coords);
   const dev = Math.abs(km - targetKm) / targetKm;
   const lenFactor = dev <= LEN_TOLERANCE ? 1 : Math.max(0.02, 1 - 5 * (dev - LEN_TOLERANCE));
-  const reuseFactor = Math.max(0.05, 1 - 2.5 * reuse.fraction);
-  return { km, newSQ, newSQI, yardGain, reuse, score: (value + 1) * lenFactor * reuseFactor };
+  // Riding the same road twice is something the rider actively dislikes:
+  // 8% repeated road costs about half the score.
+  const reuseFactor = Math.max(0.05, 1 - 6 * reuse.fraction);
+  return { km, newSQ, newSQI, yardGain, value, reuse, score: (value + 1) * lenFactor * reuseFactor };
 }
 
 // ── candidate geometry ──────────────────────────────────────────────────────
@@ -294,21 +297,6 @@ async function mapLimit(items, limit, fn) {
   return res;
 }
 
-// Drop waypoints that sit at the tip of a dead-end spur (the track arrives and
-// leaves along the same road) — they cost twice the distance for the tiles.
-function spurWaypoints(pts, reuse) {
-  const bad = [];
-  for (let i = 1; i < pts.length - 1; i++) {
-    let bj = 0, bd = Infinity;
-    reuse.pts.forEach((p, j) => { const d = tiles.haversineDistance(p, pts[i]); if (d < bd) { bd = d; bj = j; } });
-    const W = 15; // ±300 m
-    let n = 0, f = 0;
-    for (let j = Math.max(0, bj - W); j <= Math.min(reuse.pts.length - 1, bj + W); j++) { n++; f += reuse.flags[j]; }
-    if (n && f / n > 0.6) bad.push(i);
-  }
-  return bad;
-}
-
 // ── entry point ─────────────────────────────────────────────────────────────
 
 class PlannerError extends Error {}
@@ -400,16 +388,25 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
   // over/under-length loop when nothing fits.
   let best = results.find(x => !off(x)) || results[0];
 
-  // Spur pruning on the winner.
-  const spurs = spurWaypoints(best.pts, best.ev.reuse);
-  if (spurs.length && best.pts.length - spurs.length >= 3) {
-    const pts = best.pts.filter((_, i) => !spurs.includes(i));
-    try {
+  // Second pass: a waypoint is redundant if the loop collects (almost) the
+  // same without it — typically a jab into a tile the route covers anyway
+  // elsewhere. Try dropping each one; keep the best drop that loses <2% of
+  // the value while being shorter or repeating less road, or that simply
+  // scores better (less same-road riding outweighs a few tiles). Two rounds.
+  for (let round = 0; round < 2 && best.pts.length > 3; round++) {
+    const idx = best.pts.map((_, i) => i).slice(1, -1);
+    const trials = (await mapLimit(idx, CONCURRENCY, async (i) => {
+      const pts = best.pts.filter((_, j) => j !== i);
       const data = await routeLoopHalves(pts, profile);
-      const ev = evaluate(data, ctx, target);
-      const cand = { ...best, pts, data, ev };
-      if (ev.score > best.ev.score && (!off(cand) || off(best))) best = cand;
-    } catch (_) {}
+      return { ...best, pts, data, ev: evaluate(data, ctx, target) };
+    })).filter(Boolean).filter(t =>
+      (!off(t) || off(best)) && (
+        t.ev.score > best.ev.score ||
+        (t.ev.value >= best.ev.value * 0.98 &&
+         (t.ev.km < best.ev.km - 0.2 || t.ev.reuse.fraction < best.ev.reuse.fraction - 0.002))));
+    if (!trials.length) break;
+    trials.sort((x, y) => y.ev.score - x.ev.score);
+    best = trials[0];
   }
 
   const out = best.data;
@@ -418,6 +415,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
     candidates: results.length,
     newSQ: best.ev.newSQ, newSQI: best.ev.newSQI, yardGain: best.ev.yardGain,
     reuse: best.ev.reuse.fraction,
+    waypoints: best.pts.map(p => ({ lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) })),
   };
   return out;
 }

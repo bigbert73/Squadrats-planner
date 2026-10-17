@@ -2716,8 +2716,8 @@ function refreshRouteUI(){
 }
 function toggleRouteForm(){routeFormOpen=!routeFormOpen;refreshRouteUI();}
 
-// Share of the route ridden on a road already used >1 km earlier/later along
-// it (out-and-back, dead-end spurs) — same metric as the server's planner.
+// Share of the route ridden on a road already used >~160 m earlier/later
+// along it (out-and-back, dead-end jabs) — same metric as the server's planner.
 let _reuseMemo={coords:null,len:0,v:0};
 function routeReuse(coords){
   if(_reuseMemo.coords===coords&&_reuseMemo.len===coords.length) return _reuseMemo.v;
@@ -2733,7 +2733,7 @@ function routeReuse(coords){
     const cy=Math.floor(p.lat/cell),cx=Math.floor(p.lng/cell);
     let hit=false;
     for(let dy=-1;dy<=1&&!hit;dy++)for(let dx=-1;dx<=1&&!hit;dx++)
-      for(const j of grid.get(key(cy+dy,cx+dx))||[]) if(Math.abs(i-j)>50&&haversine(p,pts[j])<0.025){hit=true;break;}
+      for(const j of grid.get(key(cy+dy,cx+dx))||[]) if(Math.abs(i-j)>8&&haversine(p,pts[j])<0.02){hit=true;break;}
     if(hit) reused++;
   });
   _reuseMemo={coords,len:coords.length,v:pts.length?reused/pts.length:0};
