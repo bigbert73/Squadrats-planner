@@ -461,7 +461,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .wiki-popup p{font-size:11px;color:#555;margin:0 0 6px;line-height:1.5}
 .wiki-popup a{font-size:11px;color:#1a73e8;text-decoration:none}
 .wiki-popup a:hover{text-decoration:underline}
-.coll-body{overflow:hidden;transition:max-height .25s ease}
+.coll-body{overflow:hidden}
 .coll-body.shut{max-height:0!important}
 .poi-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
 .poi-item:last-child{border-bottom:none}
@@ -677,7 +677,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Podsumowanie trasy</div>
         <i class="ti ti-chevron-down" id="rs-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
       </div>
-      <div class="coll-body" id="rs-body" style="max-height:400px">
+      <div class="coll-body" id="rs-body">
         <div id="rs-surface" style="margin-top:6px"></div>
         <!-- SV coverage kept hidden — JS still updates these elements -->
         <div style="display:none"><span id="rs-sv-km"></span><span id="rs-sv-pct"></span><div><div id="rs-sv-bar" style="width:0"></div></div></div>
@@ -690,7 +690,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Punkty na trasie</div>
         <i class="ti ti-chevron-down" id="poi-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
       </div>
-      <div class="coll-body" id="poi-body" style="max-height:600px">
+      <div class="coll-body" id="poi-body">
         <div id="poi-cat-toggles" style="display:none;flex-wrap:wrap;gap:4px;margin-top:6px;margin-bottom:2px"></div>
         <div id="poi-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div>
       </div>
