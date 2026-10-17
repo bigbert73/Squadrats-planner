@@ -430,7 +430,7 @@ const { fetchRoute, routeDistanceKm } = routing;
 app.post('/api/route/detour', requireAuth, async (req, res) => {
   const { waypoints, loop = false, targetKm = 0, bikeProfile = 'standard', returnLeg = false, avoidCoords = null } = req.body;
   // 'heatmap' (old "Pop." option) never had data behind it; treat as SQI.
-  const mode = ['sq', 'sqi', 'yard', 'shortest'].includes(req.body.mode) ? req.body.mode : 'sqi';
+  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest'].includes(req.body.mode) ? req.body.mode : 'sqi';
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -443,7 +443,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   if (isLoop && (waypoints.length === 1 || (samePoint && waypoints.length === 2))) {
     try {
       return res.json(await planner.planLoop({
-        start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard,
+        start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard, yardi: c.yardi,
       }));
     } catch (e) {
       if (e instanceof planner.PlannerError) return res.status(422).json({ error: e.message });

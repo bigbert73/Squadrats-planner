@@ -43,10 +43,12 @@ function haversineKm(a, b) {
   return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-async function fetchBRouterRoute(points, profile, altIdx = 0, avoid = null) {
+// timeoutMs: callers exploring many optional candidates pass a short limit so
+// one hard-to-route candidate can't stall the whole batch.
+async function fetchBRouterRoute(points, profile, altIdx = 0, avoid = null, timeoutMs = 90000) {
   const lonlats = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join('|');
-  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=${altIdx}&format=geojson&timeout=60${avoidParam(avoid)}`;
-  const r = await axios.get(url, { timeout: 90000 });
+  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=${altIdx}&format=geojson&timeout=${Math.ceil(Math.min(timeoutMs, 60000) / 1000)}${avoidParam(avoid)}`;
+  const r = await axios.get(url, { timeout: timeoutMs });
   const feat = r.data?.features?.[0];
   if (!feat) throw new Error('BRouter: pusta odpowiedź');
 

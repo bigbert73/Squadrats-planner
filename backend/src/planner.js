@@ -28,6 +28,10 @@ const CONCURRENCY = 8;
 const ASPECTS = [1, 0.6, 0.35];
 const DIRECTIONS = 16;
 const ROUTED_CANDIDATES = 16;
+// Optional refinement rounds are skipped once planning has taken this long
+// (dense city streets make every BRouter call slower).
+const SOFT_BUDGET_MS = 9000;
+const SEARCH_START_BUDGET_MS = 6000;
 // A petal loop's farthest point sits at ≈ this × its routed length.
 const PETAL_REACH = 0.36;
 
@@ -71,10 +75,29 @@ function reuseAnalysis(coords) {
 
 // ── objective ───────────────────────────────────────────────────────────────
 
-function buildContext({ mode, sqRows, sqiRows, yard }) {
+function buildContext({ mode, sqRows, sqiRows, yard, yardi }) {
   const ownedSQ  = new Set(sqRows.map(r => `${r.tx},${r.ty}`));
   const ownedSQI = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
-  const ctx = { mode, sqRows, ownedSQ, ownedSQI, yardBefore: yard?.size || 0 };
+  const ctx = { mode, sqRows, sqiRows, ownedSQ, ownedSQI, yardBefore: yard?.size || 0, yardiBefore: yardi?.size || 0 };
+
+  // Unowned tiles within 2 of the Yard(inho): visiting them is what can turn
+  // owned border tiles "complete" and grow it.
+  const nearYard = (yardTiles, owned) => {
+    const near = new Set();
+    for (const t of yardTiles || []) {
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+        const k = `${t.tx + dx},${t.ty + dy}`;
+        if (!owned.has(k)) near.add(k);
+      }
+    }
+    ctx.targets = near;
+    ctx.isTarget = (k) => near.has(k);
+    ctx.valueOf = (x, y) => {
+      let n = 0;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (near.has(`${x + dx},${y + dy}`)) n++;
+      return n;
+    };
+  };
 
   if (mode === 'sqi') {
     ctx.z = tiles.Z_SQI;
@@ -85,22 +108,11 @@ function buildContext({ mode, sqRows, sqiRows, yard }) {
     ctx.isTarget = (k) => !ownedSQ.has(k);
     ctx.valueOf = (x, y) => 1 + tiles.countNewTilesNear(x, y, ownedSQ, 1);
   } else if (mode === 'yard') {
-    // Unowned squares within 2 of the Yard: visiting them is what can turn
-    // owned border squares "complete" and grow the Yard.
     ctx.z = tiles.Z_SQ;
-    const near = new Set();
-    for (const t of yard?.tiles || []) {
-      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
-        const k = `${t.tx + dx},${t.ty + dy}`;
-        if (!ownedSQ.has(k)) near.add(k);
-      }
-    }
-    ctx.isTarget = (k) => near.has(k);
-    ctx.valueOf = (x, y) => {
-      let n = 0;
-      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if (near.has(`${x + dx},${y + dy}`)) n++;
-      return n;
-    };
+    nearYard(yard?.tiles, ownedSQ);
+  } else if (mode === 'yardi') {
+    ctx.z = tiles.Z_SQI;
+    nearYard(yardi?.tiles, ownedSQI);
   } else {
     ctx.z = null; // 'shortest': no tile objective, just a clean loop
   }
@@ -112,20 +124,23 @@ function evaluate(data, ctx, targetKm) {
   const km = routing.routeDistanceKm(data);
   const { sq14, sq17 } = tiles.trackToTiles(coords);
   let newSQ = 0, newSQI = 0;
-  const newSQKeys = [];
+  const newSQKeys = [], newSQIKeys = [];
   for (const k of sq14) if (!ctx.ownedSQ.has(k)) { newSQ++; newSQKeys.push(k); }
-  for (const k of sq17) if (!ctx.ownedSQI.has(k)) newSQI++;
+  for (const k of sq17) if (!ctx.ownedSQI.has(k)) { newSQI++; newSQIKeys.push(k); }
 
+  const toRows = (keys) => keys.map(k => { const [tx, ty] = k.split(',').map(Number); return { tx, ty }; });
   let yardGain = 0;
   if (ctx.mode === 'yard' && newSQKeys.length) {
-    const rows = ctx.sqRows.concat(newSQKeys.map(k => { const [tx, ty] = k.split(',').map(Number); return { tx, ty }; }));
-    yardGain = tiles.computeYard(rows).size - ctx.yardBefore;
+    yardGain = tiles.computeYard(ctx.sqRows.concat(toRows(newSQKeys))).size - ctx.yardBefore;
+  } else if (ctx.mode === 'yardi' && newSQIKeys.length) {
+    yardGain = tiles.computeYard(ctx.sqiRows.concat(toRows(newSQIKeys))).size - ctx.yardiBefore;
   }
 
   const value =
     ctx.mode === 'sqi'  ? newSQI + 20 * newSQ :
     ctx.mode === 'sq'   ? 100 * newSQ + 0.5 * newSQI :
     ctx.mode === 'yard' ? 100 * yardGain + 20 * newSQ + 0.2 * newSQI :
+    ctx.mode === 'yardi' ? 10 * yardGain + newSQI + 20 * newSQ :
     10;
   const reuse = reuseAnalysis(coords);
   const dev = Math.abs(km - targetKm) / targetKm;
@@ -205,16 +220,15 @@ function proxyScore(pts, ctx) {
   if (ctx.z === null) return 0;
   const { sq14, sq17 } = tiles.trackToTiles(pts);
   let v = 0;
-  if (ctx.mode === 'sqi') { for (const k of sq17) if (!ctx.ownedSQI.has(k)) v++; }
-  else { for (const k of sq14) if (ctx.isTarget(k)) v++; }
+  for (const k of (ctx.z === tiles.Z_SQI ? sq17 : sq14)) if (ctx.isTarget(k)) v++;
   return v;
 }
 
 // Target clusters within reach, richest first, spread out in distance and
 // bearing so candidates explore different areas. Rated on SQ-sized blocks:
-// for SQI by unowned squadratinhos in the block's 3×3 neighbourhood (big
-// unexplored areas beat lone blocks), plus a bonus for a block that is itself
-// an unowned SQ; for SQ/Yard by the target tiles themselves.
+// for SQI/Yardinho by target squadratinhos in the block's 3×3 neighbourhood
+// (big unexplored areas beat lone blocks; SQI also gets a bonus for a block
+// that is itself an unowned SQ); for SQ/Yard by the target tiles themselves.
 function targetClusters(start, minKm, maxKm, ctx, max = 6) {
   if (ctx.z === null) return [];
   const sqiMode = ctx.z === tiles.Z_SQI;
@@ -226,7 +240,7 @@ function targetClusters(start, minKm, maxKm, ctx, max = 6) {
     for (let dx = -rad; dx <= rad; dx++) for (let dy = -rad; dy <= rad; dy++) {
       const x = cx + dx, y = cy + dy;
       let v = 0;
-      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (!ctx.ownedSQI.has(`${x * 8 + i},${y * 8 + j}`)) v++;
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (ctx.isTarget(`${x * 8 + i},${y * 8 + j}`)) v++;
       blockFree.set(`${x},${y}`, v);
     }
   }
@@ -235,10 +249,10 @@ function targetClusters(start, minKm, maxKm, ctx, max = 6) {
     const x = cx + dx, y = cy + dy;
     let v;
     if (sqiMode) {
-      if (blockFree.get(`${x},${y}`) < 24) continue;
+      if (blockFree.get(`${x},${y}`) < (ctx.mode === 'sqi' ? 24 : 1)) continue;
       v = 0;
       for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) v += blockFree.get(`${x + i},${y + j}`) || 0;
-      if (!ctx.ownedSQ.has(`${x},${y}`)) v += 200;
+      if (ctx.mode === 'sqi' && !ctx.ownedSQ.has(`${x},${y}`)) v += 200;
     } else {
       if (!ctx.isTarget(`${x},${y}`)) continue;
       v = ctx.valueOf(x, y);
@@ -259,6 +273,14 @@ function targetClusters(start, minKm, maxKm, ctx, max = 6) {
 }
 
 function nearestTargetKm(start, ctx, limitKm = 80) {
+  if (ctx.targets) {
+    let best = Infinity;
+    for (const k of ctx.targets) {
+      const [x, y] = k.split(',').map(Number);
+      best = Math.min(best, tiles.haversineDistance(start, tiles.tileCenter(x, y, ctx.z)));
+    }
+    return best <= limitKm ? best : Infinity;
+  }
   const { x: cx, y: cy } = tiles.latLngToTile(start.lat, start.lng, ctx.z);
   const rad = Math.ceil(limitKm / tileKm(ctx.z, start.lat));
   let best = Infinity;
@@ -273,17 +295,16 @@ function nearestTargetKm(start, ctx, limitKm = 80) {
 
 // Route a closed loop [start, …, start] in two halves; the second half avoids
 // the first half's roads.
-async function routeLoopHalves(pts, profile) {
-  if (pts.length < 4) {
-    const out = await routing.fetchBRouterRoute(pts.slice(0, 2), profile);
-    const back = await routing.fetchBRouterRoute(pts.slice(1), profile, 0, coordsOf(out));
-    return routing.mergeLegs([out, back]);
-  }
-  const mid = Math.ceil((pts.length - 1) / 2);
-  const out = await routing.fetchBRouterRoute(pts.slice(0, mid + 1), profile);
-  const back = await routing.fetchBRouterRoute(pts.slice(mid), profile, 0, coordsOf(out));
+async function routeLoopHalves(pts, profile, timeoutMs = 90000) {
+  const mid = pts.length < 4 ? 1 : Math.ceil((pts.length - 1) / 2);
+  const out = await routing.fetchBRouterRoute(pts.slice(0, mid + 1), profile, 0, null, timeoutMs);
+  const back = await routing.fetchBRouterRoute(pts.slice(mid), profile, 0, coordsOf(out), timeoutMs);
   return routing.mergeLegs([out, back]);
 }
+// Exploring candidates: a leg that BRouter can't find within this long is
+// dropped rather than waited for (it's one of dozens of options).
+const CANDIDATE_LEG_TIMEOUT_MS = 6000;
+const routeCandidate = (pts, profile) => routeLoopHalves(pts, profile, CANDIDATE_LEG_TIMEOUT_MS);
 
 async function mapLimit(items, limit, fn) {
   const res = new Array(items.length);
@@ -301,16 +322,17 @@ async function mapLimit(items, limit, fn) {
 
 class PlannerError extends Error {}
 
-async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard }) {
+async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi }) {
+  const t0 = Date.now(), overBudget = () => Date.now() - t0 > SOFT_BUDGET_MS;
   const profile = routing.brouterProfile(bikeProfile);
-  const ctx = buildContext({ mode, sqRows, sqiRows, yard });
+  const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi });
   const target = Math.max(5, targetKm || 15);
   const reach = PETAL_REACH * target * (1 + LEN_TOLERANCE);
 
-  if (ctx.mode === 'sq' || ctx.mode === 'yard') {
+  if (ctx.mode === 'sq' || ctx.mode === 'yard' || ctx.mode === 'yardi') {
     const nearest = nearestTargetKm(start, ctx);
     if (nearest > reach) {
-      const what = ctx.mode === 'sq' ? 'nowych SQ' : 'kwadratów powiększających Yard';
+      const what = { sq: 'nowych SQ', yard: 'kwadratów powiększających Yard', yardi: 'kwadratów powiększających Yardinho' }[ctx.mode];
       if (!isFinite(nearest)) throw new PlannerError(`Brak ${what} w promieniu 80 km`);
       const minKm = Math.ceil(nearest / (PETAL_REACH * (1 + LEN_TOLERANCE)) / 5) * 5;
       throw new PlannerError(`Brak ${what} w zasięgu ${Math.round(target)} km — najbliższe ~${nearest.toFixed(0)} km stąd, ustaw pętlę ≥ ${minKm} km`);
@@ -344,7 +366,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
 
   const tryLoop = async (sh, km) => {
     const pts = km === target ? sh.pts : loopPts(start, sh, km, ctx);
-    const data = await routeLoopHalves(pts, profile);
+    const data = await routeCandidate(pts, profile);
     return { sh, km, pts, data, ev: evaluate(data, ctx, target) };
   };
 
@@ -367,6 +389,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
     return out;
   };
   for (const [n, step] of [[4, 12], [2, 6]]) {
+    if (Date.now() - t0 > (step === 12 ? SEARCH_START_BUDGET_MS : SOFT_BUDGET_MS)) break;
     results.sort((x, y) => y.ev.score - x.ev.score);
     const next = results.slice(0, n).flatMap(x => variants(x, step));
     results = results.concat((await mapLimit(next, CONCURRENCY, (v) => tryLoop(v.sh, v.km))).filter(Boolean));
@@ -393,11 +416,11 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
   // elsewhere. Try dropping each one; keep the best drop that loses <2% of
   // the value while being shorter or repeating less road, or that simply
   // scores better (less same-road riding outweighs a few tiles). Two rounds.
-  for (let round = 0; round < 2 && best.pts.length > 3; round++) {
+  for (let round = 0; round < 2 && best.pts.length > 3 && !(round && overBudget()); round++) {
     const idx = best.pts.map((_, i) => i).slice(1, -1);
     const trials = (await mapLimit(idx, CONCURRENCY, async (i) => {
       const pts = best.pts.filter((_, j) => j !== i);
-      const data = await routeLoopHalves(pts, profile);
+      const data = await routeCandidate(pts, profile);
       return { ...best, pts, data, ev: evaluate(data, ctx, target) };
     })).filter(Boolean).filter(t =>
       (!off(t) || off(best)) && (
