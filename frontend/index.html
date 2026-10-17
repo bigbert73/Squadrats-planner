@@ -3309,33 +3309,56 @@ async function fetchWikiPOI(){
 async function fetchPOI(){
   clearPOI();
   if(!routeCoords.length) return;
-
-  // Sample route to max 80 points — keep query size manageable
-  const maxPts=80;
-  const step=Math.max(1,Math.floor(routeCoords.length/maxPts));
-  const sample=routeCoords.filter((_,i)=>i%step===0||i===routeCoords.length-1);
-  const coords=sample.map(p=>`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(',');
-  const A=`(around:400,${coords})`;
-
-  // Individual exact-match queries per tag (same style as before, but with around: corridor)
-  const filters=POI_CATS.flatMap(c=>c.tags.map(t=>{
-    const [k,v]=t.split('=');
-    return `node["${k}"="${v}"]${A};`;
-  })).join('\n');
-  const query=`[out:json][timeout:60];\n(\n${filters}\n);\nout body 600;`;
-
   const el=g('poi-list');
   el.innerHTML='<div class="hint">Pobieranie punktów na trasie…</div>';
   g('poi-panel').style.display='block';
-
+  const forRoute=routeCoords;
   try{
-    const r=await fetch('/api/route/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d=await r.json();
+    const d=await fetchPOILocal()||await fetchPOIOverpass();
+    if(routeCoords!==forRoute) return; // route changed meanwhile
     if(d.remark) console.warn('Overpass remark:',d.remark);
     if(!d.elements?.length){el.innerHTML='<div class="hint">Brak punktów na tej trasie</div>';return;}
     renderPOI(d.elements);
-  }catch(e){console.error('POI fetch error',e);el.innerHTML='<div class="hint" style="color:var(--red)">Błąd pobierania POI</div>';}
+    if(d.osmTimestamp) el.insertAdjacentHTML('beforeend',`<div class="hint" style="margin-top:6px">Dane: OpenStreetMap, stan na ${esc(d.osmTimestamp.slice(0,10))}</div>`);
+  }catch(e){
+    if(routeCoords!==forRoute) return;
+    console.error('POI fetch error',e);
+    el.innerHTML=`<div class="hint" style="color:var(--red)">${esc(e.message)}</div>
+      <button class="rc-btn" style="width:100%;margin-top:6px" onclick="fetchPOI()"><i class="ti ti-refresh"></i>Spróbuj ponownie</button>`;
+  }
+}
+
+// Local OSM extract on our server (tools/update-pois.sh) — instant and
+// independent of the public Overpass servers. null = not installed.
+async function fetchPOILocal(){
+  const coords=[];
+  let acc=0;
+  routeCoords.forEach((p,i)=>{
+    if(i) acc+=haversine(routeCoords[i-1],p);
+    if(i===0||acc>=0.1||i===routeCoords.length-1){coords.push({lat:+p.lat.toFixed(5),lng:+p.lng.toFixed(5)});acc=0;}
+  });
+  const r=await fetch('/api/route/pois',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({coords,radiusM:400,tags:POI_CATS.flatMap(c=>c.tags)})});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===503&&d.fallback) return null;
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
+}
+
+async function fetchPOIOverpass(){
+  const maxPts=80;
+  const step=Math.max(1,Math.floor(routeCoords.length/maxPts));
+  const sample=routeCoords.filter((_,i)=>i%step===0||i===routeCoords.length-1);
+  const A=`(around:400,${sample.map(p=>`${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join(',')})`;
+  // One regex filter per key (4 corridor searches instead of one per tag).
+  const byKey={};
+  POI_CATS.forEach(c=>c.tags.forEach(t=>{const[k,v]=t.split('=');(byKey[k]||=[]).push(v);}));
+  const filters=Object.entries(byKey).map(([k,vs])=>`node["${k}"~"^(${vs.join('|')})$"]${A};`).join('\n');
+  const query=`[out:json][timeout:60];\n(\n${filters}\n);\nout body 600;`;
+  const r=await fetch('/api/route/overpass',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+  return d;
 }
 
 function poiCatFor(el){
@@ -3347,12 +3370,6 @@ function poiCatFor(el){
     }
   }
   return null;
-}
-
-function ptOnRoute(lat,lng){
-  // Check if point is reasonably close to route (within ~300m)
-  const thresh=0.003;
-  return routeCoords.some(p=>Math.abs(p.lat-lat)<thresh&&Math.abs(p.lng-lng)<thresh);
 }
 
 // Cumulative km along the current route, per vertex (memoised per route).

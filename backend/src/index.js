@@ -5,6 +5,7 @@
 const express      = require('express');
 const compression  = require('compression');
 const path         = require('path');
+const fs           = require('fs');
 const cookieParser = require('cookie-parser');
 const jwt          = require('jsonwebtoken');
 const bcrypt       = require('bcryptjs');
@@ -746,24 +747,138 @@ app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
 });
 
 // ── Overpass API proxy ────────────────────────────────────────────────────────
+// Public Overpass mirrors are frequently "at capacity" (502/429/500) for a
+// few seconds to minutes; overpass-api.de itself asks clients to retry with
+// exponential backoff. Rotate through mirrors, back off between full rounds,
+// and cache successes so reopening the same route doesn't hit them again.
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
+const OVERPASS_BUDGET_MS = 75000;
+const OVERPASS_CACHE_TTL_MS = 24 * 3600 * 1000;
+const overpassCache = new Map();
+
 app.post('/api/route/overpass', requireAuth, async (req, res) => {
   const { query } = req.body;
   if (!query) return res.status(400).json({ error: 'Missing query' });
-  const endpoints = [
-    'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-  ];
+
+  const key = require('crypto').createHash('sha1').update(query).digest('hex');
+  const hit = overpassCache.get(key);
+  if (hit && Date.now() - hit.t < OVERPASS_CACHE_TTL_MS) return res.json(hit.data);
+
   const body = `data=${encodeURIComponent(query)}`;
-  const opts = { timeout: 45000, headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SquadratsApp/2.0' } };
-  for (const ep of endpoints) {
+  const headers = { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'SquadratsApp/2.0 (personal route planner)' };
+  const deadline = Date.now() + OVERPASS_BUDGET_MS;
+  let delay = 1000;
+  for (let attempt = 0; Date.now() < deadline; attempt++) {
+    const ep = OVERPASS_ENDPOINTS[attempt % OVERPASS_ENDPOINTS.length];
     try {
-      const r = await axios.post(ep, body, opts);
+      const r = await axios.post(ep, body, { headers, timeout: Math.max(5000, Math.min(45000, deadline - Date.now())) });
+      // A server-side timeout comes back as 200 with a remark and no data.
+      if (r.data?.remark && !r.data.elements?.length) throw new Error(`remark: ${r.data.remark.slice(0, 80)}`);
+      if (r.data?.elements?.length) {
+        overpassCache.set(key, { t: Date.now(), data: r.data });
+        if (overpassCache.size > 100) overpassCache.delete(overpassCache.keys().next().value);
+      }
+      if (attempt) console.log(`Overpass OK on attempt ${attempt + 1} (${ep})`);
       return res.json(r.data);
     } catch (e) {
-      console.error(`Overpass proxy error (${ep}): ${e.response?.status || e.message}`);
+      const status = e.response?.status;
+      console.error(`Overpass error (${ep}): ${status || e.message}`);
+      if (status === 400) return res.status(400).json({ error: 'Błędne zapytanie Overpass' });
+    }
+    if (attempt % OVERPASS_ENDPOINTS.length === OVERPASS_ENDPOINTS.length - 1) {
+      await new Promise(r => setTimeout(r, Math.min(delay, Math.max(0, deadline - Date.now()))));
+      delay = Math.min(delay * 2, 15000);
     }
   }
-  res.status(502).json({ error: 'All Overpass endpoints failed' });
+  res.status(503).json({ error: 'Serwery OpenStreetMap (Overpass) są teraz przeciążone' });
+});
+
+// ── Local POI database (data/pois.db, built by tools/update-pois.sh) ──────────
+// Same answer shape as Overpass ({elements:[{type,id,lat,lon,tags}]}) so the
+// frontend renders either. Reopened automatically when an update swaps the file.
+
+const POI_DB_PATH = path.join(path.dirname(process.env.DB_PATH || './data/squadrats.db'), 'pois.db');
+let poiDb = null, poiDbMtime = 0;
+function getPoiDb() {
+  let st;
+  try { st = fs.statSync(POI_DB_PATH); } catch { return null; }
+  if (!poiDb || st.mtimeMs !== poiDbMtime) {
+    try { poiDb?.close(); } catch {}
+    poiDb = new (require('better-sqlite3'))(POI_DB_PATH, { readonly: true });
+    poiDbMtime = st.mtimeMs;
+  }
+  return poiDb;
+}
+
+app.post('/api/route/pois', requireAuth, (req, res) => {
+  const { coords, radiusM = 400, tags: wanted = [] } = req.body;
+  const pdb = getPoiDb();
+  if (!pdb) return res.status(503).json({ error: 'Brak lokalnej bazy POI', fallback: true });
+  if (!Array.isArray(coords) || coords.length < 2) return res.status(400).json({ error: 'coords required' });
+
+  const rKm = Math.min(2, Math.max(0.05, radiusM / 1000));
+  const lat0 = coords[0].lat, kx = 111.32 * Math.cos(lat0 * Math.PI / 180), ky = 110.57;
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (const p of coords) {
+    if (p.lat < minLat) minLat = p.lat; if (p.lat > maxLat) maxLat = p.lat;
+    if (p.lng < minLng) minLng = p.lng; if (p.lng > maxLng) maxLng = p.lng;
+  }
+  const dLat = rKm / ky, dLng = rKm / kx;
+
+  // Route segments bucketed on a ~1 km grid so each candidate only checks
+  // nearby segments.
+  const CELL = 0.01, grid = new Map(), cellKey = (la, ln) => `${Math.floor(la / CELL)},${Math.floor(ln / CELL)}`;
+  for (let i = 1; i < coords.length; i++) {
+    const a = coords[i - 1], b = coords[i];
+    const seen = new Set();
+    for (const t of [0, 0.5, 1]) {
+      const k = cellKey(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t);
+      if (seen.has(k)) continue; seen.add(k);
+      (grid.get(k) || grid.set(k, []).get(k)).push(i);
+    }
+  }
+  const near = (lat, lng) => {
+    const cy = Math.floor(lat / CELL), cx = Math.floor(lng / CELL);
+    const ry = Math.ceil(dLat / CELL) + 1, rx = Math.ceil(dLng / CELL) + 1;
+    for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+      for (const i of grid.get(`${y},${x}`) || []) {
+        const a = coords[i - 1], b = coords[i];
+        const ax = (a.lng - lng) * kx, ay = (a.lat - lat) * ky, dx = (b.lng - a.lng) * kx, dy = (b.lat - a.lat) * ky;
+        const l2 = dx * dx + dy * dy;
+        const t = l2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / l2)) : 0;
+        if (Math.hypot(ax + t * dx, ay + t * dy) <= rKm) return true;
+      }
+    }
+    return false;
+  };
+
+  const want = new Set(wanted);
+  const rows = pdb.prepare(`SELECT p.id, p.osm, p.lat, p.lng, p.tags FROM pois_rtree r JOIN pois p ON p.id = r.id
+    WHERE r.min_lat >= ? AND r.max_lat <= ? AND r.min_lng >= ? AND r.max_lng <= ?`)
+    .all(minLat - dLat, maxLat + dLat, minLng - dLng, maxLng + dLng);
+  const elements = [];
+  const byName = new Map(); // the same place is often mapped twice (a point and its building)
+  for (const r of rows) {
+    const tags = JSON.parse(r.tags);
+    const kind = ['amenity', 'shop', 'tourism', 'historic'].find(k => tags[k] && (!want.size || want.has(`${k}=${tags[k]}`)));
+    if (!kind) continue;
+    if (!near(r.lat, r.lng)) continue;
+    if (tags.name) {
+      const k = `${tags.name.toLowerCase()}|${kind}=${tags[kind]}`;
+      const prev = byName.get(k) || [];
+      if (prev.some(p => Math.hypot((p.lat - r.lat) * ky, (p.lng - r.lng) * kx) < 0.08)) continue;
+      prev.push(r); byName.set(k, prev);
+    }
+    elements.push({ type: 'node', id: r.osm, lat: r.lat, lon: r.lng, tags });
+    if (elements.length >= 2000) break;
+  }
+  const meta = Object.fromEntries(pdb.prepare('SELECT key, value FROM meta').all().map(m => [m.key, m.value]));
+  res.json({ elements, source: 'local', osmTimestamp: meta.osm_timestamp || null });
 });
 
 // ── Wikipedia POI near route ───────────────────────────────────────────────────
