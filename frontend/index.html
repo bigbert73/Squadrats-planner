@@ -258,6 +258,29 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .rc-stat b{display:block;font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--tx)}
 .rc-stat span{font-size:10px;color:var(--tx3)}
 .rc-stat .no{color:var(--orange)}.rc-stat .ny{color:var(--yellow)}
+#rc-save-form{margin-top:10px;display:grid;gap:5px}
+#rc-save-form[hidden]{display:none}
+#rc-save-form label{font-size:11px;color:var(--tx3)}
+.rc-save-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px}
+.rc-save-row input{min-width:0;height:36px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;color:var(--tx);padding:0 10px;font-family:'Space Grotesk',sans-serif}
+.rc-save-row .rc-btn{padding:0 12px}
+.rc-save-row .rc-btn.pri{grid-column:auto}
+.sv-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+.sv-item:last-child{border-bottom:none}
+.sv-main{flex:1;min-width:0;cursor:pointer}
+.sv-main b{display:block;color:var(--tx);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-main span{font-size:11px;color:var(--tx3);font-family:'JetBrains Mono',monospace}
+.sv-del{flex-shrink:0;height:28px;padding:0 8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--tx3);cursor:pointer;font-size:11px}
+.sv-del.armed{border-color:var(--red);color:var(--red)}
+#ride-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:1200;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(13,17,23,.94);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:22px;padding:6px 6px 6px 14px;font-size:12.5px;color:var(--tx);box-shadow:0 6px 20px rgba(0,0,0,.5)}
+#ride-bar[hidden]{display:none}
+body.riding #toast{bottom:64px}
+body.riding #zlvl{display:none}
+#ride-bar.off{border-color:var(--orange)} #ride-bar.off #ride-ico{color:var(--orange)}
+#ride-ico{color:var(--blue);font-size:15px}
+#ride-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'JetBrains Mono',monospace}
+#ride-bar button{flex-shrink:0;height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--border2);background:var(--card);color:var(--tx);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer}
+#ride-bar button[hidden]{display:none}
 .rc-reuse{font-size:11px;color:var(--tx3);margin:-4px 0 10px;display:flex;align-items:center;gap:5px}
 .rc-reuse.warn{color:var(--orange)}
 .rc-act{display:grid;grid-template-columns:1fr 1fr;gap:5px}
@@ -406,6 +429,8 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
   #mind{font-size:9px;padding:3px 10px;max-width:55vw}
   #zlvl{top:auto;bottom:calc(84px + env(safe-area-inset-bottom));right:6px}
   #toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+  #ride-bar{bottom:calc(84px + env(safe-area-inset-bottom))}
+  body.riding #toast{bottom:calc(140px + env(safe-area-inset-bottom))}
 
   /* iOS Safari zooms the page on focus when a field's font-size is below 16px */
   input:not([type=range]):not([type=radio]):not([type=checkbox]),textarea,select{font-size:16px}
@@ -592,11 +617,21 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
       <div class="rc-act">
         <button class="rc-btn pri" onclick="exportGPXGarmin()" title="GPX z wysokościami — import jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
         <button class="rc-btn" onclick="exportGPX()"><i class="ti ti-download"></i>GPX</button>
+        <button class="rc-btn" onclick="shareRoute()" title="Udostępnij plik GPX aplikacji licznika (np. Wahoo ELEMNT)"><i class="ti ti-share"></i>Wyślij</button>
         <button class="rc-btn" onclick="toggleElev()"><i class="ti ti-chart-area-line"></i>Profil</button>
+        <button class="rc-btn" id="rc-save" onclick="openSaveRoute()"><i class="ti ti-bookmark"></i>Zapisz</button>
         <button id="return-leg-btn" class="rc-btn wide" style="display:none" onclick="addReturnLeg()"><i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą</button>
         <button class="rc-btn" onclick="calcRoute()"><i class="ti ti-refresh"></i>Przelicz</button>
         <button class="rc-btn" id="rc-edit" onclick="toggleRouteForm()"><i class="ti ti-adjustments-horizontal"></i>Ustawienia</button>
       </div>
+      <form id="rc-save-form" hidden onsubmit="event.preventDefault();saveRoute()">
+        <label for="rc-save-name">Nazwa trasy</label>
+        <div class="rc-save-row">
+          <input id="rc-save-name" type="text" maxlength="80" autocomplete="off">
+          <button class="rc-btn pri" type="submit">Zapisz</button>
+          <button class="rc-btn" type="button" onclick="g('rc-save-form').hidden=true">Anuluj</button>
+        </div>
+      </form>
     </div>
 
     <div id="route-form">
@@ -672,6 +707,15 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
     </div>
     <button class="wp-clear" onclick="clearRoute()" style="margin-top:4px"><i class="ti ti-trash"></i> Wyczyść trasę</button>
 
+    <!-- SAVED ROUTES -->
+    <div id="saved-panel" style="margin-top:10px">
+      <div class="coll-head" onclick="toggleColl('saved-body','saved-chev')">
+        <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Moje trasy <span id="saved-count"></span></div>
+        <i class="ti ti-chevron-down" id="saved-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
+      </div>
+      <div class="coll-body" id="saved-body"><div id="saved-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div></div>
+    </div>
+
     <!-- ROUTE SUMMARY -->
     <div id="route-summary" style="display:none;margin-top:10px">
       <div class="coll-head" onclick="toggleColl('rs-body','rs-chev')">
@@ -736,6 +780,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
     <div class="hint" style="margin:-4px 0 12px;display:flex;gap:6px;align-items:flex-start;text-align:left"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><span>Trzy szybkie kliknięcia w kwadrat SQI na mapie (tryb Widok, zoom 14+) oznaczają go jako niezdobywalny — trasy go pominą. Trzy kolejne kliknięcia odznaczają.</span></div>
 
     <div class="sl mt12">Synchronizacja</div>
+    <div id="autosync-status" class="hint" style="text-align:left;margin:-2px 0 8px"></div>
     <div id="sync-progress">
       <div id="sync-msg">Inicjalizacja…</div>
       <div id="sync-bar-track"><div id="sync-bar-fill"></div></div>
@@ -813,6 +858,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
       <button class="mtb" onclick="map.zoomIn()" title="Przybliż"><i class="ti ti-plus"></i></button>
       <button class="mtb" onclick="map.zoomOut()" title="Oddal"><i class="ti ti-minus"></i></button>
       <button class="mtb" onclick="locateMe()" title="Moja lokalizacja"><i class="ti ti-current-location"></i></button>
+      <button class="mtb" id="mtb-track" onclick="toggleRide()" title="Jadę: moja pozycja na trasie"><i class="ti ti-navigation"></i></button>
       <button class="mtb" onclick="fitAll()" title="Pokaż całą trasę"><i class="ti ti-focus-2"></i></button>
       <button class="mtb" id="mtb-layers" onclick="toggleMtoolsPop()" title="Mapa bazowa i narzędzia"><i class="ti ti-adjustments-horizontal"></i></button>
       <div id="mtools-pop">
@@ -830,6 +876,11 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
       </div>
     </div>
     <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
+    <div id="ride-bar" hidden>
+      <i class="ti ti-navigation" id="ride-ico"></i><span id="ride-txt">Szukam sygnału GPS…</span>
+      <button id="ride-center" type="button" hidden onclick="recenterRide()">Wycentruj</button>
+      <button id="ride-stop" type="button" onclick="stopRide()">Zakończ</button>
+    </div>
     <div id="loading" class="h"><div class="spin"></div><div id="lmsg">Ładowanie…</div></div>
     <div id="elev-panel">
       <div id="elev-head">
@@ -1517,6 +1568,7 @@ async function syncStrava(){
           g('sync-bar-fill').style.width='100%';
           // Reload tiles from DB
           await loadTilesFromDB();
+          refreshSyncStatus();
           toast(`Sync: ${ev.processed} aktywności · +${ev.newSQ} nowych SQ · +${ev.newSQI} nowych SQI`);
         }else if(ev.phase==='error'){
           g('sync-msg').textContent='❌ Błąd: '+ev.message;
@@ -1771,6 +1823,37 @@ function drawElevChart(){
   wrap.onmouseleave=()=>{};
 }
 
+// Draw a route (fresh from the planner or loaded from "Moje trasy") and
+// everything that hangs off it: km markers, elevation, new tiles, surfaces,
+// Street View coverage and stops along the way. Returns its length in km.
+let _routeMeta=null; // profiles of the route as computed/loaded, kept for "Zapisz"
+async function showRoute(route,{loop}){
+  routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
+  routeSegments=buildSegmentsFromRoute(routeCoords);
+  drawSVColoredRoute(); // red at first; recoloured once Street View coverage arrives
+  const mob=window.innerWidth<=768;
+  map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,mob?70:80],paddingBottomRight:[mob?50:60,mob?110:40]});
+  addKmMarkers(routeCoords);
+  buildElevData(routeCoords, route.elevProfile||null);
+  updElevSummary();
+  if(g('elev-panel').classList.contains('open')) drawElevChart();
+  const prv=await (await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})).json();
+  const dist=route.distance/1000;
+  routeFormOpen=false;
+  setPlanDist(dist);
+  applyNewTiles(prv);
+  hideLoad();
+  if(mob){closeMobileMenu();refreshMobPeek();}
+  svCovData=null;
+  processSurfaceProfile(route.surfaceProfile, dist);
+  fetchSVCoverage();
+  fetchPOI();
+  fetchWikiPOI();
+  _routeMeta={coords:routeCoords,elevProfile:route.elevProfile||null,surfaceProfile:route.surfaceProfile||null,loop};
+  if(!loop) outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
+  return dist;
+}
+
 async function calcRoute(){
   const loopVal=document.querySelector('input[name="loop"]:checked').value;
   const loop=loopVal==='loop';
@@ -1794,42 +1877,12 @@ async function calcRoute(){
     if(!data.routes?.length) throw new Error('Brak trasy');
 
     const route=data.routes[0];
-    routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
-    routeSegments=buildSegmentsFromRoute(routeCoords);
-    // Draw route initially red; redrawn with SV colors after coverage fetch
-    drawSVColoredRoute();
-    const mob=window.innerWidth<=768;
-    map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,mob?70:80],paddingBottomRight:[mob?50:60,mob?110:40]});
-    addKmMarkers(routeCoords);
-    buildElevData(routeCoords, route.elevProfile||null);
-    updElevSummary();
-    if(g('elev-panel').classList.contains('open')) drawElevChart();
-
-    // Get new tiles for this route from server
-    const prvRes=await fetch('/api/route/preview-tiles',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({coords:routeCoords})
-    });
-    const prv=await prvRes.json();
-
-    const dist=route.distance/1000;
-    routeFormOpen=false;
-    setPlanDist(dist);
-    applyNewTiles(prv);
-    hideLoad();
-    if(window.innerWidth<=768){closeMobileMenu();refreshMobPeek();}
+    const dist=await showRoute(route,{loop});
     const engineLabel = data.engine === 'brouter'
       ? `BRouter/${data.profile}`
       : (data.engine === 'osrm' && data.profile !== 'standard' ? `⚠️ OSRM (BRouter niedostępny)` : 'OSRM');
-    svCovData=null;
-    processSurfaceProfile(route.surfaceProfile, dist);
-    fetchSVCoverage();
-    fetchPOI();
-    fetchWikiPOI();
 
     if(!loop){
-      outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
       if(hasReturnLeg){
         toast(`✅ A→B ${dist.toFixed(1)}km · ${engineLabel}`);
         await addReturnLeg();
@@ -1917,7 +1970,7 @@ async function recalcDraggedWpt(wptIdx){
   }finally{hideLoad();}
 }
 
-function clearRoute(){
+function resetRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
@@ -1931,6 +1984,11 @@ function clearRoute(){
   renderWL(); previewRoute(); setPlanDist(0);
   hasReturnLeg=false; outboundRouteData=null; routeSegments=[];
   g('return-leg-btn').style.display='none';
+  _routeMeta=null;
+}
+
+function clearRoute(){
+  resetRoute();
   toast('Trasa wyczyszczona');
   applyHomePoint();
 }
@@ -2015,11 +2073,12 @@ function exportGPX(){
   toast('GPX wyeksportowany');
 }
 
-function exportGPXGarmin(){
+// GPX with elevation, importable as a Garmin Connect course (or by Wahoo,
+// Hammerhead, Bryton apps). null when there is nothing to export.
+function buildCourseGPX(){
   const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng,elev:0}));
-  if(!pts.length){toast('Brak trasy do eksportu');return;}
-  const now=new Date();
-  const dateStr=now.toISOString().slice(0,10);
+  if(!pts.length) return null;
+  const now=new Date(), dateStr=now.toISOString().slice(0,10);
   const name=`Squadrats ${dateStr}`;
   const hasElev=pts.some(p=>p.elev&&p.elev>0);
   let gpx=`<?xml version="1.0" encoding="UTF-8"?>
@@ -2042,12 +2101,220 @@ function exportGPXGarmin(){
   gpx+=`    </trkseg>
   </trk>
 </gpx>`;
+  return {gpx, filename:`squadrats_${dateStr}.gpx`};
+}
+
+function exportGPXGarmin(){
+  const c=buildCourseGPX();
+  if(!c){toast('Brak trasy do eksportu');return;}
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
-  a.download=`squadrats_garmin_${dateStr}.gpx`;
+  a.href=URL.createObjectURL(new Blob([c.gpx],{type:'application/gpx+xml'}));
+  a.download=c.filename.replace('squadrats_','squadrats_garmin_');
   a.click();
   toast('GPX dla Garmina pobrany — zaimportuj w connect.garmin.com → Kursy');
 }
+
+// "Wyślij": the system share sheet with the GPX file, so the bike computer's
+// own app (Wahoo ELEMNT, Hammerhead, Bryton…) can open it directly.
+async function shareRoute(){
+  const c=buildCourseGPX();
+  if(!c){toast('Brak trasy do wysłania');return;}
+  const file=new File([c.gpx],c.filename,{type:'application/gpx+xml'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:c.filename});}
+    catch(e){if(e.name!=='AbortError') toast('Nie udało się udostępnić: '+e.message);}
+    return;
+  }
+  exportGPXGarmin();
+  toast('Ta przeglądarka nie udostępnia plików — GPX został pobrany');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SAVED ROUTES ("Moje trasy")
+// ═══════════════════════════════════════════════════════════════════════
+const fmtKm=(km)=>km.toFixed(1).replace('.',',');
+function openSaveRoute(){
+  if(!routeCoords.length){toast('Najpierw wyznacz trasę');return;}
+  const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
+  const start=wpts.find(w=>w.type==='start');
+  const d=new Date();
+  g('rc-save-name').value=`${loop?'Pętla':'Trasa'} ${Math.round(_planKm)} km${start?.label?' · '+start.label:''} · ${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`;
+  g('rc-save-form').hidden=false;
+  g('rc-save-name').focus(); g('rc-save-name').select();
+}
+async function saveRoute(){
+  const name=g('rc-save-name').value.trim();
+  if(!name){toast('Podaj nazwę trasy');return;}
+  const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
+  const sameGeom=_routeMeta&&_routeMeta.coords===routeCoords; // profiles only match an unedited route
+  const body={name,distanceKm:_planKm,newSQ:newSQ.size,newSQI:newSQI.size,loop,
+    mode:document.querySelector('input[name="opt"]:checked')?.value,profile:bikeProfile,
+    waypoints:wpts.map(w=>{const ll=w.marker.getLatLng();return{type:w.type,lat:ll.lat,lng:ll.lng,label:w.label||null};}),
+    coords:routeCoords.map(p=>[p.lat,p.lng,p.elev||0]),
+    elevProfile:sameGeom?_routeMeta.elevProfile:null,surfaceProfile:sameGeom?_routeMeta.surfaceProfile:null};
+  try{
+    const r=await fetch('/api/routes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+    g('rc-save-form').hidden=true;
+    toast(`Zapisano: ${name}`);
+    loadSavedRoutes();
+  }catch(e){toast('Nie udało się zapisać: '+e.message);}
+}
+async function loadSavedRoutes(){
+  const list=g('saved-list');
+  try{
+    const routes=await (await fetch('/api/routes')).json();
+    g('saved-count').textContent=routes.length?`(${routes.length})`:'';
+    if(!routes.length){list.innerHTML='<div class="hint">Brak zapisanych tras. Wyznacz trasę i kliknij „Zapisz” w jej karcie.</div>';return;}
+    list.innerHTML='';
+    routes.forEach(r=>{
+      const d=new Date(r.created_at.replace(' ','T')+'Z');
+      const row=document.createElement('div');
+      row.className='sv-item';
+      row.innerHTML=`<div class="sv-main" title="Wczytaj trasę"><b>${esc(r.name)}</b>
+        <span>${d.toLocaleDateString('pl-PL')} · ${fmtKm(r.distance_km)} km · +${r.new_sqi} SQI${r.new_sq?` · +${r.new_sq} SQ`:''}</span></div>
+        <button class="sv-del" type="button" title="Usuń trasę"><i class="ti ti-trash"></i></button>`;
+      row.querySelector('.sv-main').onclick=()=>openSavedRoute(r.id);
+      const del=row.querySelector('.sv-del');
+      del.onclick=async()=>{
+        if(!del.classList.contains('armed')){ // second tap within 3 s confirms
+          del.classList.add('armed'); del.textContent='Usuń?';
+          setTimeout(()=>{if(del.isConnected){del.classList.remove('armed');del.innerHTML='<i class="ti ti-trash"></i>';}},3000);
+          return;
+        }
+        const res=await fetch('/api/routes/'+r.id,{method:'DELETE'});
+        if(res.ok){toast('Usunięto: '+r.name);loadSavedRoutes();} else toast('Nie udało się usunąć trasy');
+      };
+      list.appendChild(row);
+    });
+  }catch(e){list.innerHTML='<div class="hint" style="color:var(--red)">Nie udało się wczytać tras</div>';}
+}
+async function openSavedRoute(id){
+  showLoad('Wczytuję trasę…');
+  try{
+    const r=await fetch('/api/routes/'+id);
+    const d=await r.json();
+    if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+    resetRoute();
+    const loop=!!d.is_loop;
+    const radio=document.querySelector(`input[name="loop"][value="${loop?'loop':'ab'}"]`);
+    if(radio&&!radio.checked){radio.checked=true;radio.onchange?.();}
+    if(d.mode){const o=document.querySelector(`input[name="opt"][value="${d.mode}"]`);if(o)o.checked=true;}
+    if(d.profile){const b=document.querySelector(`.bp-btn[onclick*="'${d.profile}'"]`);if(b)setBikeProf(d.profile,b);}
+    d.waypoints.forEach(w=>addWpt(L.latLng(w.lat,w.lng),w.type,w.label||undefined));
+    relabelWpts(); renderWL(); if(rLine){map.removeLayer(rLine);rLine=null;}
+    await showRoute({geometry:{coordinates:d.coords.map(([la,ln,el])=>[ln,la,el])},distance:d.distance_km*1000,
+      elevProfile:d.elev_profile,surfaceProfile:d.surface_profile},{loop});
+    if(!loop){const btn=g('return-leg-btn');btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';btn.onclick=addReturnLeg;btn.style.display='flex';}
+    toast(`Wczytano: ${d.name} · teraz +${newSQI.size} nowych SQI`);
+  }catch(e){hideLoad();toast('Nie udało się wczytać trasy: '+e.message);}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RIDING: live GPS position on the route
+// ═══════════════════════════════════════════════════════════════════════
+let _ride=null;
+function toggleRide(){ if(_ride) stopRide(); else startRide(); }
+async function startRide(){
+  if(!window.isSecureContext){toast('Pozycja GPS działa tylko przez połączenie HTTPS — otwórz aplikację adresem https://');return;}
+  if(!navigator.geolocation){toast('Ta przeglądarka nie udostępnia pozycji GPS');return;}
+  _ride={follow:true,marker:null,circle:null,watchId:null,wake:null,lastKm:0};
+  g('mtb-track').classList.add('on');
+  g('ride-bar').hidden=false; g('ride-bar').classList.remove('off'); g('ride-center').hidden=true;
+  g('ride-txt').textContent='Szukam sygnału GPS…';
+  g('mind').style.display='none';
+  document.body.classList.add('riding');
+  _ride.watchId=navigator.geolocation.watchPosition(onRidePos,onRideErr,{enableHighAccuracy:true,maximumAge:2000,timeout:30000});
+  map.on('dragstart',pauseRideFollow);
+  try{_ride.wake=await navigator.wakeLock?.request('screen');}catch(_){} // keep the screen on while riding
+}
+function stopRide(){
+  if(!_ride) return;
+  navigator.geolocation.clearWatch(_ride.watchId);
+  if(_ride.marker) map.removeLayer(_ride.marker);
+  if(_ride.circle) map.removeLayer(_ride.circle);
+  try{_ride.wake?.release();}catch(_){}
+  map.off('dragstart',pauseRideFollow);
+  _ride=null;
+  g('mtb-track').classList.remove('on');
+  g('ride-bar').hidden=true;
+  g('mind').style.display='';
+  document.body.classList.remove('riding');
+}
+function pauseRideFollow(){ if(_ride){_ride.follow=false;g('ride-center').hidden=false;} }
+function recenterRide(){
+  if(!_ride) return;
+  _ride.follow=true; g('ride-center').hidden=true;
+  if(_ride.marker) map.setView(_ride.marker.getLatLng(),Math.max(map.getZoom(),15));
+}
+function onRidePos(pos){
+  if(!_ride) return;
+  const ll=L.latLng(pos.coords.latitude,pos.coords.longitude), acc=pos.coords.accuracy||0;
+  if(!_ride.marker){
+    _ride.circle=L.circle(ll,{radius:acc,color:'#4da8ff',weight:1,fillOpacity:.12,interactive:false}).addTo(map);
+    _ride.marker=L.marker(ll,{interactive:false,zIndexOffset:1000,icon:L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],
+      html:'<div style="width:20px;height:20px;border-radius:50%;background:#4da8ff;border:3px solid #fff;box-shadow:0 0 0 2px rgba(77,168,255,.35),0 2px 8px rgba(0,0,0,.5)"></div>'})}).addTo(map);
+    map.setView(ll,Math.max(map.getZoom(),15));
+  }else{
+    _ride.marker.setLatLng(ll); _ride.circle.setLatLng(ll).setRadius(acc);
+    if(_ride.follow) map.panTo(ll);
+  }
+  const bar=g('ride-bar'), txt=g('ride-txt');
+  if(!routeCoords.length){bar.classList.remove('off');txt.textContent=`Dokładność ${Math.round(acc)} m · zaplanuj trasę, by widzieć postęp`;return;}
+  const passes=routePasses(ll.lat,ll.lng,100);
+  if(!passes.length){bar.classList.add('off');txt.textContent='Daleko od trasy';return;}
+  // Where a loop passes the same place twice, prefer the pass that continues
+  // from where the rider was last seen.
+  const minOff=Math.min(...passes.map(p=>p.off));
+  const near=passes.filter(p=>p.off<=minOff+0.03);
+  const p=near.reduce((a,b)=>Math.abs(b.km-_ride.lastKm)<Math.abs(a.km-_ride.lastKm)?b:a);
+  _ride.lastKm=p.km;
+  const off=Math.round(p.off*1000), left=Math.max(0,_planKm-p.km);
+  bar.classList.toggle('off',off>100);
+  txt.textContent=off>100
+    ? `Poza trasą: ${off} m · najbliżej km ${fmtKm(p.km)}`
+    : `km ${fmtKm(p.km)} z ${fmtKm(_planKm)} · zostało ${fmtKm(left)} km${off>=30?` · ${off} m od trasy`:''}`;
+}
+function onRideErr(e){
+  const msg=e.code===1?'Brak zgody na pozycję GPS — zezwól w ustawieniach przeglądarki':e.code===3?'Szukam sygnału GPS…':'Pozycja GPS niedostępna';
+  g('ride-txt').textContent=msg;
+  if(e.code===1){toast(msg);stopRide();}
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STRAVA AUTO-SYNC status: the server syncs in the background; the open
+//  app picks up new squares when a background run brought some.
+// ═══════════════════════════════════════════════════════════════════════
+let _syncSeenAt=null, _syncPollT=null;
+async function refreshSyncStatus(){
+  try{
+    const st=await (await fetch('/api/sync/status')).json();
+    const el=g('autosync-status');
+    if(!st.connected){el.textContent='Połącz Stravę w profilu, a nowe jazdy będą synchronizowane automatycznie.';return;}
+    const l=st.last;
+    let line=`<i class="ti ti-refresh-dot"></i> Automatycznie co ${st.everyMin} min`;
+    if(l){
+      const t=new Date(l.at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
+      const day=new Date(l.at).toDateString()===new Date().toDateString()?'':` ${new Date(l.at).toLocaleDateString('pl-PL')}`;
+      line+=` · ostatnio ${t}${day}${l.source==='manual'?' (ręcznie)':''}`;
+      line+=l.error?` · błąd: ${esc(l.error)}`:` · +${l.result?.newSQ??0} SQ, +${l.result?.newSQI??0} SQI`;
+    }
+    el.innerHTML=line;
+    if(l&&_syncSeenAt&&l.at!==_syncSeenAt&&l.source==='auto'&&!l.error&&(l.result?.newSQ||l.result?.newSQI)){
+      await loadTilesFromDB();
+      toast(`Nowe kwadraty z ostatniej jazdy: +${l.result.newSQ} SQ, +${l.result.newSQI} SQI`);
+    }
+    if(l) _syncSeenAt=l.at;
+  }catch(_){}
+}
+function startSyncWatch(){
+  _syncSeenAt=null;
+  refreshSyncStatus();
+  clearInterval(_syncPollT);
+  _syncPollT=setInterval(()=>{if(!document.hidden) refreshSyncStatus();},5*60*1000);
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&_syncPollT) refreshSyncStatus();});
 
 // ═══════════════════════════════════════════════════════════════════════
 //  WAYPOINTS
@@ -2412,6 +2679,8 @@ function onAuthSuccess(){
   // Sync button: visible only when connected
   g('sync-btn').disabled=!currentUser.strava_connected;
   loadTilesFromDB();
+  loadSavedRoutes();
+  startSyncWatch();
   if(!stravaOk){
     setTimeout(()=>toast('Skonfiguruj API Strava w Profilu aby zsynchronizować aktywności'),800);
   }

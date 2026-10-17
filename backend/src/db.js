@@ -67,6 +67,33 @@ const SCHEMA_SQL = `
     PRIMARY KEY (user_id, tx, ty)
   );
 
+  CREATE TABLE IF NOT EXISTS saved_routes (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    distance_km    REAL NOT NULL,
+    new_sq         INTEGER NOT NULL DEFAULT 0,
+    new_sqi        INTEGER NOT NULL DEFAULT 0,
+    mode           TEXT,
+    profile        TEXT,
+    is_loop        INTEGER NOT NULL DEFAULT 1,
+    waypoints      TEXT NOT NULL,   -- JSON [{type,lat,lng,label}]
+    coords         TEXT NOT NULL,   -- JSON [[lat,lng,elev], ...]
+    elev_profile   TEXT,            -- JSON as returned by BRouter, or NULL
+    surface_profile TEXT            -- JSON as returned by BRouter, or NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_saved_routes_user ON saved_routes(user_id, created_at);
+
+  -- result of the last background / manual Strava sync per user
+  CREATE TABLE IF NOT EXISTS sync_status (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    source     TEXT NOT NULL,     -- 'auto' | 'manual'
+    at         TEXT NOT NULL,     -- ISO time the sync finished
+    result     TEXT,              -- JSON {fetched, processed, newSQ, newSQI, ...}
+    error      TEXT
+  );
+
   -- squadratinhos the rider marked as impossible to collect (private land,
   -- no access); routing ignores them until they are actually collected
   CREATE TABLE IF NOT EXISTS blocked_sqi (
@@ -282,6 +309,17 @@ const q = {
   addBlockedSQI:    db.prepare("INSERT OR IGNORE INTO blocked_sqi (user_id,tx,ty) VALUES (?,?,?)"),
   delBlockedSQI:    db.prepare("DELETE FROM blocked_sqi WHERE user_id = ? AND tx = ? AND ty = ?"),
   // once collected after all, a blocked tile stops being blocked
+  listRoutes:       db.prepare("SELECT id,name,created_at,distance_km,new_sq,new_sqi,mode,profile,is_loop FROM saved_routes WHERE user_id = ? ORDER BY created_at DESC, id DESC"),
+  getRoute:         db.prepare("SELECT * FROM saved_routes WHERE user_id = ? AND id = ?"),
+  insertRoute:      db.prepare(`INSERT INTO saved_routes (user_id,name,distance_km,new_sq,new_sqi,mode,profile,is_loop,waypoints,coords,elev_profile,surface_profile)
+                                VALUES (@user_id,@name,@distance_km,@new_sq,@new_sqi,@mode,@profile,@is_loop,@waypoints,@coords,@elev_profile,@surface_profile)`),
+  deleteRoute:      db.prepare("DELETE FROM saved_routes WHERE user_id = ? AND id = ?"),
+
+  usersWithStrava:  db.prepare("SELECT t.user_id, s.at AS last_at FROM strava_tokens t LEFT JOIN sync_status s ON s.user_id = t.user_id"),
+  getSyncStatus:    db.prepare("SELECT * FROM sync_status WHERE user_id = ?"),
+  setSyncStatus:    db.prepare(`INSERT INTO sync_status (user_id,source,at,result,error) VALUES (?,?,?,?,?)
+                                ON CONFLICT(user_id) DO UPDATE SET source=excluded.source,at=excluded.at,result=excluded.result,error=excluded.error`),
+
   clearOwnedBlocked: db.prepare("DELETE FROM blocked_sqi WHERE user_id = ? AND EXISTS (SELECT 1 FROM tiles_sqi t WHERE t.user_id = blocked_sqi.user_id AND t.tx = blocked_sqi.tx AND t.ty = blocked_sqi.ty)"),
 };
 
@@ -344,6 +382,19 @@ module.exports = {
   getTilesSQIBbox(userId, x0, x1, y0, y1) { return q.getTilesSQIBbox.all(userId, x0, x1, y0, y1); },
   insertTilesSQIBatch(userId, tiles)       { return batchSQI(userId, tiles); },
   hasTileSQI(userId, tx, ty)               { return !!q.hasTileSQI.get(userId, tx, ty); },
+
+  // Saved routes
+  listRoutes(userId)         { return q.listRoutes.all(userId); },
+  getRoute(userId, id)       { return q.getRoute.get(userId, id); },
+  insertRoute(userId, r)     { return q.insertRoute.run({ user_id: userId, ...r }).lastInsertRowid; },
+  deleteRoute(userId, id)    { return q.deleteRoute.run(userId, id).changes > 0; },
+
+  // Strava sync status
+  usersWithStrava()          { return q.usersWithStrava.all(); },
+  getSyncStatus(userId)      { return q.getSyncStatus.get(userId); },
+  setSyncStatus(userId, source, result, error) {
+    q.setSyncStatus.run(userId, source, new Date().toISOString(), result ? JSON.stringify(result) : null, error || null);
+  },
 
   // Blocked (uncollectable) SQI
   getBlockedSQI(userId)                    { q.clearOwnedBlocked.run(userId); return q.getBlockedSQI.all(userId); },

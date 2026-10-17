@@ -336,6 +336,25 @@ function invalidateUserCache(userId) {
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
+// One sync per user at a time, whether started by the button or by the
+// background schedule; every run records its result for /api/sync/status.
+
+const syncRunning = new Set();
+async function runStravaSync(userId, source, onProgress = () => {}) {
+  if (syncRunning.has(userId)) throw new Error('Synchronizacja już trwa');
+  syncRunning.add(userId);
+  try {
+    const result = await strava.syncActivities(userId, onProgress);
+    invalidateUserCache(userId);
+    db.setSyncStatus(userId, source, result, null);
+    return result;
+  } catch (e) {
+    db.setSyncStatus(userId, source, null, e.message);
+    throw e;
+  } finally {
+    syncRunning.delete(userId);
+  }
+}
 
 app.post('/api/sync', requireAuth, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -344,14 +363,81 @@ app.post('/api/sync', requireAuth, async (req, res) => {
   res.flushHeaders();
   const send = d => res.write(`data: ${JSON.stringify(d)}\n\n`);
   try {
-    const result = await strava.syncActivities(req.userId, p => send(p));
-    invalidateUserCache(req.userId);
+    const result = await runStravaSync(req.userId, 'manual', p => send(p));
     send({ phase: 'done', ...result });
   } catch (e) {
     send({ phase: 'error', message: e.message });
   } finally {
     res.end();
   }
+});
+
+app.get('/api/sync/status', requireAuth, (req, res) => {
+  const st = db.getSyncStatus(req.userId);
+  res.json({
+    connected: !!db.getToken(req.userId),
+    everyMin: AUTO_SYNC_EVERY_MS / 60000,
+    running: syncRunning.has(req.userId),
+    last: st ? { source: st.source, at: st.at, result: st.result ? JSON.parse(st.result) : null, error: st.error } : null,
+  });
+});
+
+// Background sync: picks up new rides without anyone pressing "Synchronizuj".
+// Polling (not Strava webhooks) because webhooks need a publicly reachable
+// URL; at 30 min per connected user it stays far inside Strava's rate limits
+// for a handful of riders.
+const AUTO_SYNC_EVERY_MS = 30 * 60 * 1000;
+async function autoSyncTick() {
+  for (const u of db.usersWithStrava()) {
+    if (u.last_at && Date.now() - Date.parse(u.last_at) < AUTO_SYNC_EVERY_MS) continue;
+    try {
+      const r = await runStravaSync(u.user_id, 'auto');
+      if (r.newSQ || r.newSQI) console.log(`[auto-sync] user ${u.user_id}: +${r.newSQ} SQ, +${r.newSQI} SQI`);
+    } catch (e) {
+      console.warn(`[auto-sync] user ${u.user_id}: ${e.message}`);
+    }
+  }
+}
+setTimeout(autoSyncTick, 60 * 1000);
+setInterval(autoSyncTick, 5 * 60 * 1000);
+
+// ── Saved routes ──────────────────────────────────────────────────────────────
+
+app.get('/api/routes', requireAuth, (req, res) => res.json(db.listRoutes(req.userId)));
+
+app.get('/api/routes/:id', requireAuth, (req, res) => {
+  const r = db.getRoute(req.userId, +req.params.id);
+  if (!r) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  res.json({
+    ...r,
+    waypoints: JSON.parse(r.waypoints), coords: JSON.parse(r.coords),
+    elev_profile: r.elev_profile ? JSON.parse(r.elev_profile) : null,
+    surface_profile: r.surface_profile ? JSON.parse(r.surface_profile) : null,
+  });
+});
+
+app.post('/api/routes', requireAuth, (req, res) => {
+  const b = req.body || {};
+  const name = String(b.name || '').trim().slice(0, 80);
+  if (!name) return res.status(400).json({ error: 'Podaj nazwę trasy' });
+  if (!Array.isArray(b.coords) || b.coords.length < 2 || b.coords.length > 50000) return res.status(400).json({ error: 'Brak trasy do zapisania' });
+  if (!Array.isArray(b.waypoints)) return res.status(400).json({ error: 'Brak punktów trasy' });
+  const id = db.insertRoute(req.userId, {
+    name,
+    distance_km: +b.distanceKm || 0,
+    new_sq: b.newSQ | 0, new_sqi: b.newSQI | 0,
+    mode: b.mode || null, profile: b.profile || null, is_loop: b.loop ? 1 : 0,
+    waypoints: JSON.stringify(b.waypoints.slice(0, 50)),
+    coords: JSON.stringify(b.coords.map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6), Math.round(+c[2] || 0)])),
+    elev_profile: b.elevProfile ? JSON.stringify(b.elevProfile) : null,
+    surface_profile: b.surfaceProfile ? JSON.stringify(b.surfaceProfile) : null,
+  });
+  res.json({ id: Number(id) });
+});
+
+app.delete('/api/routes/:id', requireAuth, (req, res) => {
+  if (!db.deleteRoute(req.userId, +req.params.id)) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  res.json({ ok: true });
 });
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
