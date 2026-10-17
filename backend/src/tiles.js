@@ -66,20 +66,6 @@ function destinationPoint(lat, lng, bearingDeg, distanceKm) {
   return { lat: toDeg(φ2), lng: ((toDeg(λ2) + 540) % 360) - 180 };
 }
 
-function createLoopWaypoints(center, targetKm = 15) {
-  // radius calibrated so loop haversine ≈ 0.62 * targetKm (≈6.24r),
-  // which at typical road factor ~1.3 gives OSRM ≈ 0.81 * targetKm.
-  // Undershooting on purpose so the iteration can always extend.
-  const radius = Math.max(1, Math.min(25, targetKm / 10));
-  const bearings = [30, 120, 210, 300];
-  const points = [center];
-  for (const bearing of bearings) {
-    points.push(destinationPoint(center.lat, center.lng, bearing, radius));
-  }
-  points.push(center);
-  return points;
-}
-
 // ── Segment → touched tiles (Bresenham-style, zoom-aware step size) ─────────
 
 /**
@@ -343,107 +329,13 @@ function buildDetourWaypoints(waypoints, ownedSQ, ownedSQI, mode, targetKm = 0) 
   return route;
 }
 
-// ── Shared candidate grid: unowned tile centers within searchKm of center ────
-function buildUnownedTileCandidates(center, searchKm, z, ownedSet) {
-  const { x: sTx, y: sTy } = latLngToTile(center.lat, center.lng, z);
-  const degPerTile   = 360 / (1 << z);
-  const kmPerTileLat = degPerTile * 111;
-  const kmPerTileLng = degPerTile * 111 * Math.cos(toRad(center.lat));
-  const radX = Math.ceil(searchKm / kmPerTileLng);
-  const radY = Math.ceil(searchKm / kmPerTileLat);
-
-  const nw0  = tileNW(sTx, sTy, z);
-  const nw1  = tileNW(sTx + 1, sTy + 1, z);
-  const dLat = nw0.lat - nw1.lat;
-
-  const candidates = [];
-  for (let dy = -radY; dy <= radY; dy++) {
-    const lat = nw0.lat - (dy + 0.5) * dLat;
-    for (let dx = -radX; dx <= radX; dx++) {
-      const tx = sTx + dx, ty = sTy + dy;
-      const key = `${tx},${ty}`;
-      if (!ownedSet.has(key)) {
-        const lng = nw0.lng + (dx + 0.5) * degPerTile;
-        candidates.push({ lat, lng, key, tx, ty });
-      }
-    }
-  }
-  return candidates;
-}
-
-function bearingFrom(from, to) {
-  const φ1 = toRad(from.lat), φ2 = toRad(to.lat), Δλ = toRad(to.lng - from.lng);
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return (toDeg(Math.atan2(y, x)) + 360) % 360;
-}
-
-// ── Tile loop: angular sweep, no backtracking ────────────────────────────────
-//
-// A per-step "generally toward home" filter is too weak a guarantee — it only
-// checks the immediate direction, so a greedy walk can still swing wide (e.g.
-// jump 15 km north then 15 km back south) as long as each individual hop has
-// some component toward home. Visiting candidate clusters in strictly
-// increasing compass-bearing order around `start` is a stronger, geometric
-// guarantee: a monotonic sweep around a center point can never double back on
-// itself. We pick a handful of rich unowned-tile clusters, sort them by
-// bearing, then try every rotation of that order to find the contiguous arc
-// (within the distance budget) that collects the most new tiles.
-// z = Z_SQ for squares or Z_SQI for squadratinhos; ownedRows = c.sqRows/sqiRows.
-function buildTileLoopWaypoints(start, targetKm, ownedRows, z) {
-  const ownedSet = new Set(ownedRows.map(r => `${r.tx},${r.ty}`));
-  const searchKm = Math.max(3, targetKm * 0.45);
-  const candidates = buildUnownedTileCandidates(start, searchKm, z, ownedSet);
-  if (!candidates.length) return [start, start];
-
-  for (const c of candidates) c.richness = countNewTilesNear(c.tx, c.ty, ownedSet);
-
-  // Greedy cluster-seed selection: take the richest remaining candidate as a
-  // stop, then suppress nearby candidates so stops don't crowd each other.
-  const CLUSTER_RADIUS_KM = Math.max(1.2, targetKm * 0.035);
-  const pool  = candidates.slice().sort((a, b) => b.richness - a.richness);
-  const stops = [];
-  for (const c of pool) {
-    if (stops.some(s => haversineDistance(s, c) < CLUSTER_RADIUS_KM)) continue;
-    stops.push(c);
-    if (stops.length >= 16) break;
-  }
-  stops.sort((a, b) => bearingFrom(start, a) - bearingFrom(start, b));
-
-  // Real road distance runs past this haversine sum (roads aren't straight
-  // lines), sometimes substantially on the "safety" profile. Use the raw
-  // target as the haversine ceiling here — generous enough to still reach a
-  // worthwhile but distant cluster when nothing closer is unowned — and let
-  // the caller correct against the real routed distance afterwards.
-  const budgetKm = targetKm;
-  let bestArc = [], bestRichness = -1;
-  for (let rot = 0; rot < stops.length; rot++) {
-    const ordered = [...stops.slice(rot), ...stops.slice(0, rot)];
-    const arc = [];
-    let cur = start, cumKm = 0, richness = 0;
-    for (const s of ordered) {
-      const legKm  = haversineDistance(cur, s);
-      const homeKm = haversineDistance(s, start);
-      if (cumKm + legKm + homeKm > budgetKm) break;
-      arc.push(s);
-      cumKm += legKm;
-      richness += s.richness;
-      cur = s;
-    }
-    if (richness > bestRichness) { bestRichness = richness; bestArc = arc; }
-  }
-
-  return [start, ...bestArc.map(s => ({ lat: s.lat, lng: s.lng })), start];
-}
-
 module.exports = {
   Z_SQ, Z_SQI,
   latLngToTile, tileNW, tileBounds,
-  tileCenter, destinationPoint, haversineDistance, createLoopWaypoints,
+  tileCenter, destinationPoint, haversineDistance,
   tilesOnSegment, trackToTiles,
   decodePolyline,
   computeYard, computeUber,
   buildDetourWaypoints,
-  buildTileLoopWaypoints,
   countNewTilesNear,
 };

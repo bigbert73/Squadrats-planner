@@ -37,6 +37,8 @@ app.use(express.static(FRONTEND));
 const db     = require('./db');
 const strava = require('./strava');
 const tiles  = require('./tiles');
+const routing = require('./routing');
+const planner = require('./planner');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 
@@ -420,182 +422,59 @@ app.get('/api/tiles/all', requireAuth, (req, res) => {
   });
 });
 
-// ── Route (OSRM proxy) ────────────────────────────────────────────────────────
+// ── Route planning ────────────────────────────────────────────────────────────
 
-const BROUTER_URL = process.env.BROUTER_URL || 'http://brouter:17777';
-
-async function fetchOsrmRoute(points) {
-  const coords = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
-  const url = `https://router.project-osrm.org/route/v1/bike/${coords}?overview=full&geometries=geojson&steps=false`;
-  const r = await axios.get(url, { timeout: 20000 });
-  return r.data;
-}
-
-async function fetchBRouterRoute(points, profile, altIdx = 0) {
-  const lonlats = points.map(p => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join('|');
-  const url = `${BROUTER_URL}/brouter?lonlats=${lonlats}&profile=${profile}&alternativeidx=${altIdx}&format=geojson&timeout=60`;
-  const r = await axios.get(url, { timeout: 90000 });
-  const feat = r.data?.features?.[0];
-  if (!feat) throw new Error('BRouter: pusta odpowiedź');
-
-  let elevProfile = null;
-  let surfaceProfile = null;
-  const msgs = feat.properties?.messages;
-  if (Array.isArray(msgs) && msgs.length > 1) {
-    // Find WayTags column index dynamically from header (default 9)
-    const hdr = msgs[0];
-    const wtIdx = Array.isArray(hdr) ? hdr.indexOf('WayTags') : 9;
-    const tagIdx = wtIdx >= 0 ? wtIdx : 9;
-    let cumDist = 0;
-    const rows = msgs.slice(1).map(row => {
-      const segDist = parseFloat(row[3]) / 1000;
-      cumDist += segDist;
-      const wayTags = row[tagIdx] || '';
-      const surfM = wayTags.match(/surface=(\S+)/);
-      const hwM   = wayTags.match(/highway=(\S+)/);
-      const cycM  = wayTags.match(/cycleway=(\S+)/);
-      const surface = surfM ? surfM[1] : null;
-      const highway = hwM  ? hwM[1]  : null;
-      const cycleway = cycM ? cycM[1] : null;
-      return { dist: Math.round(cumDist * 100) / 100, elev: parseFloat(row[2]), segDist: Math.round(segDist * 1000) / 1000, surface, highway, cycleway };
-    });
-    elevProfile = rows.map(r => ({ dist: r.dist, elev: r.elev }));
-    surfaceProfile = rows.map(r => ({ dist: r.dist, segDist: r.segDist, surface: r.surface, highway: r.highway, cycleway: r.cycleway }));
-  }
-
-  return {
-    code: 'Ok', engine: 'brouter', profile,
-    routes: [{ distance: parseFloat(feat.properties?.['track-length'] || 0), geometry: feat.geometry, elevProfile, surfaceProfile }]
-  };
-}
-
-async function fetchRoute(points, bikeProfile, altIdx = 0) {
-  if (bikeProfile && bikeProfile !== 'standard') {
-    try { return await fetchBRouterRoute(points, bikeProfile, altIdx); }
-    catch (e) { console.warn(`BRouter (${bikeProfile}) failed, falling back to OSRM:`, e.message); }
-  }
-  const data = await fetchOsrmRoute(points);
-  return { ...data, engine: 'osrm', profile: bikeProfile || 'standard' };
-}
-
-function routeDistanceKm(d) { return d?.routes?.[0]?.distance / 1000 || 0; }
+const { fetchRoute, routeDistanceKm } = routing;
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, mode = 'sq', loop = false, targetKm = 0, bikeProfile = 'standard', avoidReturn = false, returnLeg = false } = req.body;
-  const altIdx = returnLeg ? 1 : 0;
+  const { waypoints, loop = false, targetKm = 0, bikeProfile = 'standard', returnLeg = false, avoidCoords = null } = req.body;
+  // 'heatmap' (old "Pop." option) never had data behind it; treat as SQI.
+  const mode = ['sq', 'sqi', 'yard', 'shortest'].includes(req.body.mode) ? req.body.mode : 'sqi';
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
-  const ownedSQSet  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
-  const ownedSQISet = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
-
-  let pts = [...waypoints];
   const start = waypoints[0], end = waypoints[waypoints.length - 1];
   const samePoint = tiles.haversineDistance(start, end) < 0.4;
+  const isLoop = loop || samePoint;
 
-  // SQ-maximizing loop: directional greedy (no backtracking) instead of the
-  // generic zigzag detour pass below, which jabs sideways off the route and
-  // reads as "zawracanie" on a loop.
-  const TILE_LOOP_CFG = {
-    sq:  { z: tiles.Z_SQ,  rows: c.sqRows,  owned: ownedSQSet,  errMsg: 'Brak wolnych SQ w zasięgu trasy' },
-    sqi: { z: tiles.Z_SQI, rows: c.sqiRows, owned: ownedSQISet, errMsg: 'Brak wolnych SQI w zasięgu trasy' },
-  };
-  if ((loop || samePoint) && TILE_LOOP_CFG[mode] && (waypoints.length === 1 || (samePoint && waypoints.length === 2))) {
-    const cfg = TILE_LOOP_CFG[mode];
-    const tileTarget = targetKm || 15;
-    let lpts = tiles.buildTileLoopWaypoints(start, tileTarget, cfg.rows, cfg.z);
-    if (lpts.length < 3) return res.status(500).json({ error: cfg.errMsg });
-
-    let data;
-    try { data = await fetchRoute(lpts, bikeProfile); }
-    catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
-
-    // Real road distance (especially on the "safety" profile, which favours
-    // quiet roads over the direct line) can run well past the haversine
-    // estimate used to build the loop. Drop the stop with the worst
-    // detour-cost-per-new-tile ratio — not just the farthest one — so a rich
-    // distant cluster survives trimming while a marginal lone tile goes
-    // first, and re-route until back within tolerance.
-    const richnessOf = (p) => {
-      const t = tiles.latLngToTile(p.lat, p.lng, cfg.z);
-      return tiles.countNewTilesNear(t.x, t.y, cfg.owned);
-    };
-    let km = routeDistanceKm(data), attempts = 0;
-    while (km > tileTarget * 1.15 && lpts.length > 3 && attempts < 5) {
-      let worstIdx = 1, worstRatio = Infinity;
-      for (let i = 1; i < lpts.length - 1; i++) {
-        const prev = lpts[i - 1], cur = lpts[i], next = lpts[i + 1];
-        const detourKm = tiles.haversineDistance(prev, cur) + tiles.haversineDistance(cur, next)
-                        - tiles.haversineDistance(prev, next);
-        const ratio = richnessOf(cur) / Math.max(0.2, detourKm);
-        if (ratio < worstRatio) { worstRatio = ratio; worstIdx = i; }
-      }
-      lpts = [...lpts.slice(0, worstIdx), ...lpts.slice(worstIdx + 1)];
-      try { data = await fetchRoute(lpts, bikeProfile); } catch (e) { break; }
-      km = routeDistanceKm(data);
-      attempts++;
-    }
-    return res.json(data);
-  }
-
-  if (loop || samePoint) {
-    if (waypoints.length === 1 || (samePoint && waypoints.length === 2)) {
-      pts = tiles.createLoopWaypoints(start, targetKm || 15);
-    } else {
-      pts.push(pts[0]);
-    }
-  }
-
-  // "Avoid returning same road": split loop in half, route each leg independently.
-  // BRouter finds different roads for each leg because start/end directions differ.
-  // Last ~2 km near home may still overlap — that's expected and acceptable.
-  if (avoidReturn && (loop || samePoint) && pts.length >= 4) {
-    const mid = Math.ceil((pts.length - 1) / 2);
-    const outbound = pts.slice(0, mid + 1);
-    const inbound  = pts.slice(mid);
+  // Loop from just a start point: the planner builds and scores real loops
+  // (way back on different roads) for every mode.
+  if (isLoop && (waypoints.length === 1 || (samePoint && waypoints.length === 2))) {
     try {
-      const [outData, inData] = await Promise.all([
-        fetchRoute(outbound, bikeProfile),
-        fetchRoute(inbound,  bikeProfile),
-      ]);
-      const outCoords  = outData.routes[0].geometry.coordinates;
-      const inCoords   = inData.routes[0].geometry.coordinates;
-      const outElev    = outData.routes[0].elevProfile || [];
-      const inElev     = inData.routes[0].elevProfile  || [];
-      const elevOffset = outElev.length ? outElev[outElev.length - 1].dist : 0;
-      const mergedElev = outElev.length && inElev.length
-        ? [...outElev, ...inElev.map(p => ({ ...p, dist: p.dist + elevOffset }))]
-        : null;
-      return res.json({
-        code: 'Ok', engine: outData.engine, profile: outData.profile,
-        routes: [{
-          distance:    (outData.routes[0].distance || 0) + (inData.routes[0].distance || 0),
-          geometry:    { type: 'LineString', coordinates: [...outCoords, ...inCoords.slice(1)] },
-          elevProfile: mergedElev,
-        }],
-      });
+      return res.json(await planner.planLoop({
+        start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard,
+      }));
     } catch (e) {
-      console.warn('[avoidReturn] split routing failed, falling back:', e.message);
+      if (e instanceof planner.PlannerError) return res.status(422).json({ error: e.message });
+      return res.status(500).json({ error: 'Routing error: ' + e.message });
     }
   }
+
+  // Loop through the user's own waypoints: closed, second half avoids the
+  // first. A→B: plain routing; a return leg avoids the outbound track.
+  const pts = isLoop && !samePoint ? [...waypoints, start] : [...waypoints];
+  const avoid = returnLeg && Array.isArray(avoidCoords) && avoidCoords.length > 1 ? avoidCoords : null;
+  const route = (p) => isLoop
+    ? planner.routeLoopHalves(p, routing.brouterProfile(bikeProfile))
+    : fetchRoute(p, avoid ? routing.brouterProfile(bikeProfile) : bikeProfile, 0, avoid);
 
   if (mode === 'shortest') {
-    try { return res.json(await fetchRoute(pts, bikeProfile, altIdx)); }
+    try { return res.json(await route(pts)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
   // Long A→B route: straight-line >80km — skip iterative detour, one direct call.
-  // Detour algorithm is designed for loops/short routes; for 100km+ A→B it just
-  // adds unnecessary BRouter requests and unhelpful waypoints.
-  const directKm = tiles.haversineDistance(start, waypoints[waypoints.length - 1]);
-  if (!loop && !samePoint && directKm > 80) {
-    try { return res.json(await fetchRoute(pts, bikeProfile, altIdx)); }
+  const directKm = tiles.haversineDistance(start, end);
+  if (!isLoop && directKm > 80) {
+    try { return res.json(await route(pts)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
+  const ownedSQSet  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
+  const ownedSQISet = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
   const tolerance = 0.15, target = Math.max(0, targetKm);
   let routeData;
-  try { routeData = await fetchRoute(pts, bikeProfile, altIdx); }
+  try { routeData = await route(pts); }
   catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
 
   const baseKm = routeDistanceKm(routeData);
@@ -610,14 +489,12 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
 
   let best = { data: routeData, diff: Math.abs(baseKm - target) };
   let lo = baseKm, hi = target * 2, currentTarget = target, prevKm = baseKm;
-
-  // Fewer iterations for medium-long routes (>50km) — convergence is harder anyway
   const maxAttempts = baseKm > 50 ? 3 : 8;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const detourPts = tiles.buildDetourWaypoints(pts, ownedSQSet, ownedSQISet, mode, currentTarget / roadFactor);
     if (detourPts.length < 2) break;
     let dd;
-    try { dd = await fetchRoute(detourPts, bikeProfile, altIdx); } catch { break; }
+    try { dd = await route(detourPts); } catch { break; }
     const km = routeDistanceKm(dd);
     const diff = Math.abs(km - target);
     if (diff < best.diff) best = { data: dd, diff };

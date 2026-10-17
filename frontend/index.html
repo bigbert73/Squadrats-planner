@@ -258,6 +258,8 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .rc-stat b{display:block;font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--tx)}
 .rc-stat span{font-size:10px;color:var(--tx3)}
 .rc-stat .no{color:var(--orange)}.rc-stat .ny{color:var(--yellow)}
+.rc-reuse{font-size:11px;color:var(--tx3);margin:-4px 0 10px;display:flex;align-items:center;gap:5px}
+.rc-reuse.warn{color:var(--orange)}
 .rc-act{display:grid;grid-template-columns:1fr 1fr;gap:5px}
 .rc-btn{height:36px;border-radius:8px;border:1px solid var(--border2);background:var(--panel);color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
 .rc-btn:hover{color:var(--tx);border-color:var(--bhi)}
@@ -288,7 +290,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 @keyframes spin{to{transform:rotate(360deg)}}
 #lmsg{font-size:11px;color:var(--tx2)}
 
-#toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card2);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 16px;font-size:12px;color:var(--tx);z-index:9999;opacity:0;transition:all .2s;pointer-events:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
+#toast{position:fixed;bottom:44px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--card2);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:var(--r-sm);padding:7px 16px;font-size:12px;color:var(--tx);z-index:9999;opacity:0;transition:all .2s;pointer-events:none;max-width:min(560px,90vw);text-align:center}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* ── TILE LEGEND ── */
@@ -585,6 +587,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <div class="rc-stat"><b id="rc-up">—</b><span>↑ m</span></div>
         <div class="rc-stat"><b id="rc-down">—</b><span>↓ m</span></div>
       </div>
+      <div class="rc-reuse" id="rc-reuse"></div>
       <div class="rc-act">
         <button class="rc-btn pri" onclick="exportGPXGarmin()" title="GPX z wysokościami — import jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
         <button class="rc-btn" onclick="exportGPX()"><i class="ti ti-download"></i>GPX</button>
@@ -618,13 +621,9 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
     <!-- 3. TYP TRASY + DŁUGOŚĆ -->
     <div class="route-meta">
       <div class="loop-grp">
-        <label class="loop-opt"><input type="radio" name="loop" value="ab" onchange="g('end-addr-line').style.display='flex';g('avoid-return-grp').style.display='none';refreshMobPeek()"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
-        <label class="loop-opt"><input type="radio" name="loop" value="loop" checked onchange="g('end-addr-line').style.display='none';g('avoid-return-grp').style.display='flex';g('return-leg-btn').style.display='none';hasReturnLeg=false;outboundRouteData=null;refreshMobPeek()"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="ab" onchange="g('end-addr-line').style.display='flex';refreshMobPeek()"><i class="ti ti-arrow-right" style="font-size:12px"></i>A → B</label>
+        <label class="loop-opt"><input type="radio" name="loop" value="loop" checked onchange="g('end-addr-line').style.display='none';g('return-leg-btn').style.display='none';hasReturnLeg=false;outboundRouteData=null;refreshMobPeek()"><i class="ti ti-refresh" style="font-size:12px"></i>Pętla</label>
       </div>
-      <label id="avoid-return-grp" class="opt-pill" style="display:flex;align-self:flex-start" title="Wyznacza trasę tam i z powrotem różnymi drogami (ostatnie ~2 km do domu mogą się pokrywać)">
-        <input type="checkbox" id="avoid-return-cb">
-        <i class="ti ti-arrows-split-2"></i> Różne drogi tam i z powrotem
-      </label>
       <div class="dist-grp">
         <input type="range" id="dist-r" min="5" max="200" step="5" value="50" oninput="g('dist-lbl').textContent=this.value+' km';refreshMobPeek()">
         <span class="dist-val" id="dist-lbl">50 km</span>
@@ -656,7 +655,6 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
         <label class="opt-pill" title="Maks. nowe Squadrats"><input type="radio" name="opt" value="sq"><i class="ti ti-maximize" style="color:var(--green)"></i>Nowe SQ</label>
         <label class="opt-pill" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi" checked><i class="ti ti-border-all" style="color:var(--blue)"></i>SQI</label>
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
-        <label class="opt-pill" title="Popularne miejsca"><input type="radio" name="opt" value="heatmap"><i class="ti ti-flame" style="color:var(--orange)"></i>Pop.</label>
         <label class="opt-pill" title="Najkrótsza trasa"><input type="radio" name="opt" value="shortest"><i class="ti ti-arrow-narrow-right" style="color:var(--yellow)"></i>Naj.</label>
       </div>
     </div>
@@ -1746,17 +1744,17 @@ async function calcRoute(){
   if(!loop && wpts.length<2){toast('Dodaj start i metę!');return;}
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
-  showLoad('Obliczam trasę…');
+  showLoad(loop&&wpts.length===1?'Szukam najlepszej pętli (kilka sekund)…':'Obliczam trasę…');
 
   try{
     const waypoints=wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng}));
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:!!(g('avoid-return-cb')?.checked)})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile})
     });
     if(res.status===401){toast('Sesja wygasła — zaloguj się ponownie');hideLoad();return;}
-    if(!res.ok) throw new Error('routing error '+res.status);
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||('routing error '+res.status));}
     const data=await res.json();
     if(!data.routes?.length) throw new Error('Brak trasy');
 
@@ -1765,6 +1763,8 @@ async function calcRoute(){
     routeSegments=buildSegmentsFromRoute(routeCoords);
     // Draw route initially red; redrawn with SV colors after coverage fetch
     drawSVColoredRoute();
+    const mob=window.innerWidth<=768;
+    map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,mob?70:80],paddingBottomRight:[mob?50:60,mob?110:40]});
     addKmMarkers(routeCoords);
     buildElevData(routeCoords, route.elevProfile||null);
     updElevSummary();
@@ -1779,7 +1779,6 @@ async function calcRoute(){
     const prv=await prvRes.json();
 
     const dist=route.distance/1000;
-    const mins=Math.round(route.duration/60);
     routeFormOpen=false;
     setPlanDist(dist);
     applyNewTiles(prv);
@@ -1800,14 +1799,14 @@ async function calcRoute(){
         toast(`✅ A→B ${dist.toFixed(1)}km · ${engineLabel}`);
         await addReturnLeg();
       }else{
-        toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
+        toast(`✅ ${dist.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
         const btn=g('return-leg-btn');
         btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';
         btn.onclick=addReturnLeg;
         btn.style.display='flex';
       }
     }else{
-      toast(`✅ ${dist.toFixed(1)}km · ${mins}min · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
+      toast(`✅ ${dist.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
       g('return-leg-btn').style.display='none';
     }
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
@@ -1849,7 +1848,7 @@ async function recalcDraggedWpt(wptIdx){
       return fetch('/api/route/detour',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({waypoints:[{lat:from.lat,lng:from.lng},{lat:to.lat,lng:to.lng}],
-          mode,loop:false,targetKm:0,bikeProfile,avoidReturn:false})
+          mode,loop:false,targetKm:0,bikeProfile})
       }).then(r=>{if(r.status===401)throw new Error('SESSION_EXPIRED');if(!r.ok)throw new Error('routing error');return r.json();})
         .then(d=>({coords:d.routes[0].geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}))}));
     }));
@@ -1911,9 +1910,10 @@ async function addReturnLeg(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints:[{lat:B.lat,lng:B.lng},{lat:A.lat,lng:A.lng}],mode:opt,loop:false,targetKm:parseFloat(g('dist-r').value),bikeProfile,avoidReturn:false,returnLeg:true})
+      body:JSON.stringify({waypoints:[{lat:B.lat,lng:B.lng},{lat:A.lat,lng:A.lng}],mode:opt,loop:false,targetKm:parseFloat(g('dist-r').value),bikeProfile,returnLeg:true,
+        avoidCoords:outboundRouteData.coords.filter((_,i,a)=>i%Math.ceil(a.length/1500)===0||i===a.length-1).map(p=>({lat:p.lat,lng:p.lng}))})
     });
-    if(!res.ok) throw new Error('routing error '+res.status);
+    if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||('routing error '+res.status));}
     const data=await res.json();
     if(!data.routes?.length) throw new Error('Brak trasy powrotnej');
     const retRoute=data.routes[0];
@@ -2707,10 +2707,37 @@ function refreshRouteUI(){
     g('rc-down').textContent=_elevDown!=null?Math.round(_elevDown):'—';
     const speed=parseFloat(g('avg-speed').value)||20, total=Math.round(_planKm/speed*60);
     g('rc-eta').textContent=_planKm>0?(total>=60?`${Math.floor(total/60)}h ${total%60}min`:`${total}min`):'—';
+    const reuse=routeReuse(routeCoords), el=g('rc-reuse');
+    el.classList.toggle('warn',reuse>0.1);
+    el.innerHTML=`<i class="ti ti-arrows-exchange"></i>Ta sama droga dwa razy: ${Math.round(reuse*100)}% trasy`;
   }
   refreshMobPeek();
 }
 function toggleRouteForm(){routeFormOpen=!routeFormOpen;refreshRouteUI();}
+
+// Share of the route ridden on a road already used >1 km earlier/later along
+// it (out-and-back, dead-end spurs) — same metric as the server's planner.
+let _reuseMemo={coords:null,len:0,v:0};
+function routeReuse(coords){
+  if(_reuseMemo.coords===coords&&_reuseMemo.len===coords.length) return _reuseMemo.v;
+  const pts=[];
+  for(let i=1;i<coords.length;i++){
+    const a=coords[i-1],b=coords[i],n=Math.max(1,Math.ceil(haversine(a,b)/0.02));
+    for(let k=0;k<n;k++) pts.push({lat:a.lat+(b.lat-a.lat)*k/n,lng:a.lng+(b.lng-a.lng)*k/n});
+  }
+  const cell=0.0004,grid=new Map(),key=(y,x)=>y+','+x;
+  pts.forEach((p,i)=>{const k=key(Math.floor(p.lat/cell),Math.floor(p.lng/cell));(grid.get(k)||grid.set(k,[]).get(k)).push(i);});
+  let reused=0;
+  pts.forEach((p,i)=>{
+    const cy=Math.floor(p.lat/cell),cx=Math.floor(p.lng/cell);
+    let hit=false;
+    for(let dy=-1;dy<=1&&!hit;dy++)for(let dx=-1;dx<=1&&!hit;dx++)
+      for(const j of grid.get(key(cy+dy,cx+dx))||[]) if(Math.abs(i-j)>50&&haversine(p,pts[j])<0.025){hit=true;break;}
+    if(hit) reused++;
+  });
+  _reuseMemo={coords,len:coords.length,v:pts.length?reused/pts.length:0};
+  return _reuseMemo.v;
+}
 
 function applyNewTiles(prv){
   newSQ.clear(); prv.newSQ.forEach(t=>newSQ.add(tileKey(t.tx,t.ty)));
