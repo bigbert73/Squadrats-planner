@@ -731,10 +731,11 @@ app.post('/api/squadrats/import-kml', requireAuth, express.text({ limit: '30mb',
   try {
     const { parseSquadratsKml } = require('./kml');
     const { sq, sqi, sqSize, sqiSize } = parseSquadratsKml(xml);
-    db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
-    db.insertTilesSQIBatch(req.userId, [...sqi].map(k => k.split(',').map(Number)));
+    const addedSQ  = db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
+    const addedSQI = db.insertTilesSQIBatch(req.userId, [...sqi].map(k => k.split(',').map(Number)));
     invalidateUserCache(req.userId);
     res.json({
+      addedSQ, addedSQI,
       parsedSQ: sq.size,
       parsedSQI: sqi.size,
       reportedSQ: sqSize,

@@ -268,8 +268,10 @@ const q = {
   getTilesSQIBbox:  db.prepare("SELECT tx,ty FROM tiles_sqi WHERE user_id = ? AND tx BETWEEN ? AND ? AND ty BETWEEN ? AND ?"),
 };
 
-const batchSQ  = db.transaction((userId, tiles) => { for (const [tx,ty] of tiles) q.insertTileSQ.run(userId,tx,ty); });
-const batchSQI = db.transaction((userId, tiles) => { for (const [tx,ty] of tiles) q.insertTileSQI.run(userId,tx,ty); });
+// return the count of rows actually inserted (vs. ignored as already-owned),
+// so callers can report a real "+N new" delta instead of the input size.
+const batchSQ  = db.transaction((userId, tiles) => { let n=0; for (const [tx,ty] of tiles) n += q.insertTileSQ.run(userId,tx,ty).changes; return n; });
+const batchSQI = db.transaction((userId, tiles) => { let n=0; for (const [tx,ty] of tiles) n += q.insertTileSQI.run(userId,tx,ty).changes; return n; });
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 
@@ -317,11 +319,11 @@ module.exports = {
   getSQCount(userId)                      { return q.countTilesSQ.get(userId).n; },
   getAllTilesSQ(userId)                    { return q.getTilesSQ.all(userId); },
   getTilesSQBbox(userId, x0, x1, y0, y1) { return q.getTilesSQBbox.all(userId, x0, x1, y0, y1); },
-  insertTilesSQBatch(userId, tiles)       { batchSQ(userId, tiles); },
+  insertTilesSQBatch(userId, tiles)       { return batchSQ(userId, tiles); },
 
   // Tiles SQI
   getSQICount(userId)                      { return q.countTilesSQI.get(userId).n; },
   getAllTilesSQI(userId)                    { return q.getTilesSQI.all(userId); },
   getTilesSQIBbox(userId, x0, x1, y0, y1) { return q.getTilesSQIBbox.all(userId, x0, x1, y0, y1); },
-  insertTilesSQIBatch(userId, tiles)       { batchSQI(userId, tiles); },
+  insertTilesSQIBatch(userId, tiles)       { return batchSQI(userId, tiles); },
 };

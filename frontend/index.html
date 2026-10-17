@@ -1512,7 +1512,10 @@ async function importSquadratsKMLFile(file){
     const d=await res.json();
     if(!res.ok) throw new Error(d.error);
     await loadTilesFromDB();
-    toast(`Squadrats KML: +${d.parsedSQ} SQ, +${d.parsedSQI} SQI (ich raport: ${d.reportedSQ ?? '—'} SQ / ${d.reportedSQI ?? '—'} SQI) · łącznie ${d.totalSQ} SQ`);
+    const noNew=d.addedSQ===0 && d.addedSQI===0;
+    toast(noNew
+      ? `Squadrats KML: brak nowych kwadratów — już zsynchronizowane (masz ${d.totalSQ} SQ / ${d.totalSQI} SQI)`
+      : `Squadrats KML: +${d.addedSQ} nowych SQ, +${d.addedSQI} nowych SQI · łącznie ${d.totalSQ} SQ / ${d.totalSQI} SQI`);
   }catch(e){toast('Błąd importu KML: '+e.message);}
   finally{hideLoad();}
 }
