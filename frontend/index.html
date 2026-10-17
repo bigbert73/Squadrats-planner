@@ -1156,15 +1156,14 @@ async function initMap(){
     const pop=g('mtools-pop');
     if(pop.classList.contains('open')){pop.classList.remove('open');return;}
     if(g('sb').classList.contains('mob-open')){closeMobileMenu();return;}
-    const n=countTap(e);
-    if(mode==='view'&&!svMode){
-      if(n===2) _zoomTapT=setTimeout(()=>map.setZoomAround(e.latlng,map.getZoom()+1),320);
-      if(n===3){clearTimeout(_zoomTapT);_taps=null;toggleBlockedAt(e.latlng);}
-      return;
-    }
-    if(n===2) map.setZoomAround(e.latlng,map.getZoom()+1);
+    // Touch taps are counted from touchend (initTapCounting) — iOS Safari
+    // swallows or merges the click events of quick repeated taps.
+    const fromTouch=Date.now()-_lastTouchTap<700;
+    if(fromTouch){ if(mode==='view'&&!svMode) return; }
+    else if(registerTap(e.containerPoint,e.latlng)) return;
     onMapClick(e);
   });
+  initTapCounting();
   map.on('contextmenu',onMapContext);
   map.on('zoomend moveend',()=>{g('zlvl').textContent='z'+map.getZoom();});
   map.on('zoomend',renderKmMarkers);
@@ -2056,13 +2055,37 @@ function exportGPXGarmin(){
 function onMapContext(e){if(mode==='view'){setMode('waypoint');onMapClick(e);setMode('view');}else onMapClick(e);}
 
 // Three quick taps/clicks on a squadratinho (in "Widok" mode) mark it as
-// impossible to collect — or unmark it.
-let _taps=null, _zoomTapT=null;
-function countTap(e){
-  const now=Date.now(), p=e.containerPoint;
-  if(_taps&&now-_taps.t<450&&p.distanceTo(_taps.p)<30){_taps.n++;_taps.t=now;}
-  else _taps={n:1,t:now,p};
-  return _taps.n;
+// impossible to collect — or unmark it. A double tap still zooms in, but
+// only after a short wait so a third tap can cancel it.
+let _taps=null, _zoomTapT=null, _lastTouchTap=0;
+function registerTap(p,latlng){ // true = handled, don't treat as a plain click
+  const now=Date.now();
+  if(_taps&&now-_taps.t<500&&p.distanceTo(_taps.p)<30){_taps.n++;_taps.t=now;}
+  else _taps={n:1,t:now,p,ll:latlng};
+  const n=_taps.n, ll=_taps.ll;
+  if(mode==='view'&&!svMode){
+    if(n===2){clearTimeout(_zoomTapT);_zoomTapT=setTimeout(()=>map.setZoomAround(ll,map.getZoom()+1),320);}
+    if(n===3){clearTimeout(_zoomTapT);_taps=null;toggleBlockedAt(ll);}
+    return true;
+  }
+  if(n===2) map.setZoomAround(latlng,map.getZoom()+1);
+  return false;
+}
+function initTapCounting(){
+  const el=map.getContainer();
+  let ts=null;
+  el.addEventListener('touchstart',e=>{
+    ts=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()}:null;
+  },{passive:true});
+  el.addEventListener('touchend',e=>{
+    const t=e.changedTouches[0], st=ts; ts=null;
+    if(!st||e.touches.length||!t) return;
+    if(Date.now()-st.t>350||Math.hypot(t.clientX-st.x,t.clientY-st.y)>12) return; // a drag or a hold, not a tap
+    _lastTouchTap=Date.now();
+    if(g('sb').classList.contains('mob-open')||g('mtools-pop').classList.contains('open')) return;
+    const r=el.getBoundingClientRect(), p=L.point(t.clientX-r.left,t.clientY-r.top);
+    registerTap(p,map.containerPointToLatLng(p));
+  },{passive:true});
 }
 async function toggleBlockedAt(ll){
   if(map.getZoom()<14){toast('Przybliż mapę (z14+), żeby oznaczać pojedyncze SQI');return;}
