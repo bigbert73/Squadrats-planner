@@ -1265,77 +1265,96 @@ function clearLyr(name){
   if(LAYERS[name]){map.removeLayer(LAYERS[name]);delete LAYERS[name];}
 }
 
-const CanvasTileLayer = L.Layer.extend({
-  // ovLevels: [[tilesSet,tileZ,minMapZ], ...] finest→coarsest, used below this._minZ
-  initialize(tiles,Z,color,minZ,ovLevels){
-    this._tiles=tiles; this._Z=Z; this._color=color; this._minZ=minZ||0;
-    this._ovLevels=ovLevels||[];
-    this._draw=this._draw.bind(this);
-    this._animateZoom=this._animateZoom.bind(this);
-  },
+// Base for our tile-square/grid overlays: one <canvas> in overlayPane,
+// redrawn at moveend/zoomend, and moved/scaled live in between:
+//  - pan: free, Leaflet translates mapPane (our parent)
+//  - wheel/button zoom: 'zoomanim' fires once, CSS transition does the rest
+//  - pinch zoom: no zoomanim — 'zoom' fires every frame instead
+// The canvas extends OV_PAD × viewport beyond each edge so dragging or
+// zooming out reveals already-drawn squares instead of an empty strip.
+const OV_PAD=0.5, OV_MAX_DPR=2;
+const CanvasOverlay = L.Layer.extend({
   onAdd(map){
     this._map=map;
     const c=this._canvas=document.createElement('canvas');
-    c.style.cssText='position:absolute;pointer-events:none;z-index:420';
+    c.style.cssText=`position:absolute;pointer-events:none;z-index:${this._zIndex}`;
     L.DomUtil.addClass(c,'leaflet-zoom-animated');
     map.getPanes().overlayPane.appendChild(c);
-    map.on('moveend zoomend resize',this._draw);
-    map.on('zoomanim',this._animateZoom);
+    map.on('moveend zoomend resize',this._draw,this);
+    map.on('zoomanim',this._animateZoom,this);
+    map.on('zoom',this._onZoom,this);
     this._draw();
   },
   onRemove(map){
     if(this._canvas){this._canvas.remove();this._canvas=null;}
-    map.off('moveend zoomend resize',this._draw);
-    map.off('zoomanim',this._animateZoom);
+    map.off('moveend zoomend resize',this._draw,this);
+    map.off('zoomanim',this._animateZoom,this);
+    map.off('zoom',this._onZoom,this);
   },
-  // Panning moves for free (Leaflet transforms mapPane as a whole, which
-  // our canvas lives inside via overlayPane), but an animated zoom scales
-  // each zoom-animated layer individually via its own 'zoomanim' handler —
-  // without this, the canvas sits frozen through the whole zoom transition
-  // and only snaps into place at zoomend.
   _animateZoom(e){
-    if(!this._canvas||!this._topLeftLatLng) return;
+    if(!this._canvas||!this._originLatLng) return;
     const map=this._map;
-    const scale=map.getZoomScale(e.zoom,map.getZoom());
-    const offset=map._latLngToNewLayerPoint(this._topLeftLatLng,e.zoom,e.center);
-    L.DomUtil.setTransform(this._canvas,offset,scale);
+    L.DomUtil.setTransform(this._canvas,
+      map._latLngToNewLayerPoint(this._originLatLng,e.zoom,e.center),
+      map.getZoomScale(e.zoom,this._drawZoom));
+  },
+  _onZoom(){
+    if(!this._canvas||!this._originLatLng||this._map._animatingZoom) return;
+    const map=this._map;
+    L.DomUtil.setTransform(this._canvas,
+      map.latLngToLayerPoint(this._originLatLng),
+      map.getZoomScale(map.getZoom(),this._drawZoom));
   },
   _draw(){
-    if(!this._map||!this._canvas) return;
-    const map=this._map,c=this._canvas,mapZ=Math.floor(map.getZoom());
-    let Z,tiles;
-    if(mapZ>=this._minZ&&this._tiles.size){
-      Z=this._Z; tiles=this._tiles;
-    } else {
-      // pick finest overview whose minMapZ is satisfied
-      let found=false;
-      for(const[ovSet,ovZ,minMZ] of this._ovLevels){
-        if(mapZ>=minMZ&&ovSet.size){Z=ovZ;tiles=ovSet;found=true;break;}
-      }
-      if(!found){c.style.display='none';return;}
-    }
+    const map=this._map,c=this._canvas;
+    if(!map||!c) return;
+    if(!this._visible()){c.style.display='none';return;}
     c.style.display='';
-    const size=map.getSize(),dpr=window.devicePixelRatio||1;
-    // anchor the canvas at the viewport's top-left in Leaflet's layer-point
-    // space (same pane the map itself pans/zooms via CSS transform), so it
-    // tracks the map live instead of only snapping into place at moveend.
-    const topLeft=map.containerPointToLayerPoint([0,0]);
-    this._topLeftLatLng=map.containerPointToLatLng([0,0]);
-    L.DomUtil.setPosition(c,topLeft);
-    c.width=size.x*dpr; c.height=size.y*dpr;
-    c.style.width=size.x+'px'; c.style.height=size.y+'px';
+    const size=map.getSize(), pad=size.multiplyBy(OV_PAD).round();
+    const w=size.x+2*pad.x, h=size.y+2*pad.y;
+    const dpr=Math.min(window.devicePixelRatio||1,OV_MAX_DPR);
+    const origin=map.containerPointToLayerPoint([-pad.x,-pad.y]);
+    this._originLatLng=map.layerPointToLatLng(origin);
+    this._drawZoom=map.getZoom();
+    L.DomUtil.setPosition(c,origin);
+    c.width=Math.round(w*dpr); c.height=Math.round(h*dpr);
+    c.style.width=w+'px'; c.style.height=h+'px';
     const ctx=c.getContext('2d');
     ctx.scale(dpr,dpr);
-    ctx.clearRect(0,0,size.x,size.y);
+    const nw=map.layerPointToLatLng(origin), se=map.layerPointToLatLng(origin.add([w,h]));
+    this._paint(ctx,origin,w,h,nw,se);
+  },
+  _visible(){return true;},
+  // Tile index range covering [nw,se] at zoom Z, clamped to the world.
+  _tileRange(nw,se,Z){
+    const clampLat=v=>Math.max(-85.05,Math.min(85.05,v)), n=1<<Z;
+    const a=latLngToTile(clampLat(nw.lat),nw.lng,Z), b=latLngToTile(clampLat(se.lat),se.lng,Z);
+    return{x0:Math.max(0,a.x),x1:Math.min(n-1,b.x),y0:Math.max(0,a.y),y1:Math.min(n-1,b.y)};
+  },
+  _px(lat,lng,origin){return this._map.latLngToLayerPoint([lat,lng]).subtract(origin);}
+});
+
+const CanvasTileLayer = CanvasOverlay.extend({
+  // ovLevels: [[tilesSet,tileZ,minMapZ], ...] finest→coarsest, used below this._minZ
+  initialize(tiles,Z,color,minZ,ovLevels){
+    this._tiles=tiles; this._Z=Z; this._color=color; this._minZ=minZ||0;
+    this._ovLevels=ovLevels||[]; this._zIndex=420;
+  },
+  _pick(){
+    const mapZ=Math.floor(this._map.getZoom());
+    if(mapZ>=this._minZ&&this._tiles.size) return[this._Z,this._tiles];
+    for(const[ovSet,ovZ,minMZ] of this._ovLevels) if(mapZ>=minMZ&&ovSet.size) return[ovZ,ovSet];
+    return null;
+  },
+  _visible(){return !!this._pick();},
+  _paint(ctx,origin,w,h,nw,se){
+    const[Z,tiles]=this._pick();
     ctx.fillStyle=this._color;
-    const bnd=map.getBounds();
-    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
-    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
-    for(let x=t0.x;x<=t1.x;x++) for(let y=t0.y;y<=t1.y;y++){
+    const r=this._tileRange(nw,se,Z);
+    for(let x=r.x0;x<=r.x1;x++) for(let y=r.y0;y<=r.y1;y++){
       if(!tiles.has(tileKey(x,y))) continue;
-      const nw=tileNW(x,y,Z), se=tileNW(x+1,y+1,Z);
-      const p0=map.latLngToLayerPoint(L.latLng(nw)).subtract(topLeft);
-      const p1=map.latLngToLayerPoint(L.latLng(se)).subtract(topLeft);
+      const a=tileNW(x,y,Z), b=tileNW(x+1,y+1,Z);
+      const p0=this._px(a.lat,a.lng,origin), p1=this._px(b.lat,b.lng,origin);
       ctx.fillRect(Math.floor(p0.x),Math.floor(p0.y),Math.ceil(p1.x-p0.x),Math.ceil(p1.y-p0.y));
     }
   }
@@ -1370,60 +1389,20 @@ function redrawAll(){
   redrawGrid();
 }
 
-const CanvasGridLayer = L.Layer.extend({
-  initialize(Z,color,minZ){
-    this._Z=Z;this._color=color;this._minZ=minZ||0;
-    this._draw=this._draw.bind(this);
-    this._animateZoom=this._animateZoom.bind(this);
-  },
-  onAdd(map){
-    this._map=map;
-    const c=this._canvas=document.createElement('canvas');
-    c.style.cssText='position:absolute;pointer-events:none;z-index:450';
-    L.DomUtil.addClass(c,'leaflet-zoom-animated');
-    map.getPanes().overlayPane.appendChild(c);
-    map.on('moveend zoomend resize',this._draw);
-    map.on('zoomanim',this._animateZoom);
-    this._draw();
-  },
-  onRemove(map){
-    if(this._canvas){this._canvas.remove();this._canvas=null;}
-    map.off('moveend zoomend resize',this._draw);
-    map.off('zoomanim',this._animateZoom);
-  },
-  _animateZoom(e){
-    if(!this._canvas||!this._topLeftLatLng) return;
-    const map=this._map;
-    const scale=map.getZoomScale(e.zoom,map.getZoom());
-    const offset=map._latLngToNewLayerPoint(this._topLeftLatLng,e.zoom,e.center);
-    L.DomUtil.setTransform(this._canvas,offset,scale);
-  },
-  _draw(){
-    if(!this._map||!this._canvas) return;
-    const map=this._map,c=this._canvas,Z=this._Z;
-    if(map.getZoom()<this._minZ){c.style.display='none';return;}
-    c.style.display='';
-    const size=map.getSize(),dpr=window.devicePixelRatio||1;
-    const topLeft=map.containerPointToLayerPoint([0,0]);
-    this._topLeftLatLng=map.containerPointToLatLng([0,0]);
-    L.DomUtil.setPosition(c,topLeft);
-    c.width=size.x*dpr; c.height=size.y*dpr;
-    c.style.width=size.x+'px'; c.style.height=size.y+'px';
-    const bnd=map.getBounds();
-    const t0=latLngToTile(bnd.getNorth(),bnd.getWest(),Z);
-    const t1=latLngToTile(bnd.getSouth(),bnd.getEast(),Z);
-    const ctx=c.getContext('2d');
-    ctx.scale(dpr,dpr);
-    ctx.clearRect(0,0,size.x,size.y);
+const CanvasGridLayer = CanvasOverlay.extend({
+  initialize(Z,color,minZ){this._Z=Z;this._color=color;this._minZ=minZ||0;this._zIndex=450;},
+  _visible(){return this._map.getZoom()>=this._minZ;},
+  _paint(ctx,origin,w,h,nw,se){
+    const Z=this._Z, r=this._tileRange(nw,se,Z);
     ctx.strokeStyle=this._color; ctx.lineWidth=1;
     ctx.beginPath();
-    for(let x=t0.x;x<=t1.x+1;x++){
-      const p=map.latLngToLayerPoint(L.latLng(tileNW(x,t0.y,Z))).subtract(topLeft);
-      const px=Math.round(p.x)+.5; ctx.moveTo(px,0); ctx.lineTo(px,size.y);
+    for(let x=r.x0;x<=r.x1+1;x++){
+      const a=tileNW(x,r.y0,Z), px=Math.round(this._px(a.lat,a.lng,origin).x)+.5;
+      ctx.moveTo(px,0); ctx.lineTo(px,h);
     }
-    for(let y=t0.y;y<=t1.y+1;y++){
-      const p=map.latLngToLayerPoint(L.latLng(tileNW(t0.x,y,Z))).subtract(topLeft);
-      const py=Math.round(p.y)+.5; ctx.moveTo(0,py); ctx.lineTo(size.x,py);
+    for(let y=r.y0;y<=r.y1+1;y++){
+      const a=tileNW(r.x0,y,Z), py=Math.round(this._px(a.lat,a.lng,origin).y)+.5;
+      ctx.moveTo(0,py); ctx.lineTo(w,py);
     }
     ctx.stroke();
   }
