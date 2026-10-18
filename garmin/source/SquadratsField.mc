@@ -98,9 +98,8 @@ class SquadratsField extends WatchUi.DataField {
             // No area yet, or riding off the edge of it: refresh now rather
             // than at the next 5-minute tick (Garmin still enforces 5 min
             // between runs; an earlier request waits for that)
-            if ((sqi == null || (fx - ix - n / 2).abs() > n / 3 || (fy - iy - n / 2).abs() > n / 3)
-                    && Background has :registerForTemporalEvent) {
-                Background.registerForTemporalEvent(Time.now());
+            if (sqi == null || (fx - ix - n / 2).abs() > n / 3 || (fy - iy - n / 2).abs() > n / 3) {
+                refreshSoon();
             }
         }
 
@@ -123,6 +122,27 @@ class SquadratsField extends WatchUi.DataField {
         }
         if (gained && Attention has :playTone) {
             Attention.playTone(Attention.TONE_KEY);
+        }
+    }
+
+    // One-off background run as soon as Garmin allows: a Moment earlier than
+    // 5 minutes after the previous run throws InvalidBackgroundTimeException
+    hidden function refreshSoon() {
+        if (!(Background has :registerForTemporalEvent)) {
+            return;
+        }
+        var at = Time.now();
+        var last = Background.getLastTemporalEventTime();
+        if (last != null) {
+            var next = last.add(new Time.Duration(5 * 60 + 2));
+            if (next.greaterThan(at)) {
+                at = next;
+            }
+        }
+        try {
+            Background.registerForTemporalEvent(at);
+        } catch (e) {
+            // the regular 5-minute event registered at start stays in place
         }
     }
 
