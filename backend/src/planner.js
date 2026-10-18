@@ -18,6 +18,7 @@
 
 const tiles = require('./tiles');
 const routing = require('./routing');
+const popular = require('./popular');
 
 const ROAD_FACTOR = 1.35;    // routed km / ellipse perimeter, measured on loops around Warsaw
 const RING_POINTS = 6;
@@ -118,13 +119,16 @@ function buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI }) {
     ctx.z = tiles.Z_SQI;
     nearYard(yardi?.tiles, takenSQI);
   } else {
-    ctx.z = null; // 'shortest': no tile objective, just a clean loop
+    // 'shortest': no tile objective, just a clean loop; 'popular': no tile
+    // objective either, the track is scored on how popular its roads are
+    ctx.z = null;
   }
   return ctx;
 }
 
-function evaluate(data, ctx, targetKm) {
+async function evaluate(data, ctx, targetKm) {
   const coords = coordsOf(data);
+  const pop = ctx.mode === 'popular' ? await popular.popularity(coords) : null;
   const km = routing.routeDistanceKm(data);
   const { sq14, sq17 } = tiles.trackToTiles(coords);
   let newSQ = 0, newSQI = 0;
@@ -145,6 +149,7 @@ function evaluate(data, ctx, targetKm) {
     ctx.mode === 'sq'   ? 100 * newSQ + 0.5 * newSQI :
     ctx.mode === 'yard' ? 100 * yardGain + 20 * newSQ + 0.2 * newSQI :
     ctx.mode === 'yardi' ? 10 * yardGain + newSQI + 20 * newSQ :
+    ctx.mode === 'popular' ? 100 * pop.share :
     10;
   const reuse = reuseAnalysis(coords);
   const dev = Math.abs(km - targetKm) / targetKm;
@@ -152,7 +157,7 @@ function evaluate(data, ctx, targetKm) {
   // Riding the same road twice is something the rider actively dislikes:
   // 8% repeated road costs about half the score.
   const reuseFactor = Math.max(0.05, 1 - 6 * reuse.fraction);
-  return { km, newSQ, newSQI, yardGain, value, reuse, score: (value + 1) * lenFactor * reuseFactor };
+  return { km, newSQ, newSQI, yardGain, pop, value, reuse, score: (value + 1) * lenFactor * reuseFactor };
 }
 
 // ── candidate geometry ──────────────────────────────────────────────────────
@@ -371,7 +376,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
   const tryLoop = async (sh, km) => {
     const pts = km === target ? sh.pts : loopPts(start, sh, km, ctx);
     const data = await routeCandidate(pts, profile);
-    return { sh, km, pts, data, ev: evaluate(data, ctx, target) };
+    return { sh, km, pts, data, ev: await evaluate(data, ctx, target) };
   };
 
   let results = (await mapLimit(picked, CONCURRENCY, (sh) => tryLoop(sh, target))).filter(Boolean);
@@ -425,7 +430,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
     const trials = (await mapLimit(idx, CONCURRENCY, async (i) => {
       const pts = best.pts.filter((_, j) => j !== i);
       const data = await routeCandidate(pts, profile);
-      return { ...best, pts, data, ev: evaluate(data, ctx, target) };
+      return { ...best, pts, data, ev: await evaluate(data, ctx, target) };
     })).filter(Boolean).filter(t =>
       (!off(t) || off(best)) && (
         t.ev.score > best.ev.score ||
@@ -442,6 +447,7 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
     candidates: results.length,
     newSQ: best.ev.newSQ, newSQI: best.ev.newSQI, yardGain: best.ev.yardGain,
     reuse: best.ev.reuse.fraction,
+    popular: best.ev.pop,
     waypoints: best.pts.map(p => ({ lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) })),
   };
   return out;
@@ -454,4 +460,4 @@ function bearing(from, to) {
   return (Math.atan2(y, x) / r + 360) % 360;
 }
 
-module.exports = { planLoop, routeLoopHalves, reuseAnalysis, PlannerError };
+module.exports = { planLoop, routeLoopHalves, reuseAnalysis, evaluate, buildContext, PlannerError };

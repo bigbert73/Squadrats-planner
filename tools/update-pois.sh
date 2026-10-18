@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Rebuild the local POI database (data/pois.db) from the Geofabrik extract of
-# Poland. Safe to run while the app is up: the import builds a new file and
-# swaps it in; the backend notices and reopens it.
+# Rebuild the local POI database (data/pois.db) and the cycling-network index
+# (data/popular.db) from the Geofabrik extract of Poland. Safe to run while
+# the app is up: each import builds a new file and swaps it in; the backend
+# notices and reopens it.
 #
 #   tools/update-pois.sh            # download if newer, filter, import
 #
@@ -35,3 +36,15 @@ TS=$(osmium fileinfo -g header.option.osmosis_replication_timestamp poland-lates
 
 docker compose exec -T backend node src/poi-import.js /app/data/osm/pois.geojsonseq /app/data/pois.db "$TS"
 rm -f "$OSM/pois.osm.pbf" "$OSM/pois.geojsonseq"
+
+# Cycling infrastructure for the "Popularne" planning mode (data/popular.db):
+# ways of signed cycle routes, and cycleways / bicycle=designated ways.
+osmium tags-filter -O -o cycroutes.osm.pbf poland-latest.osm.pbf r/route=bicycle
+osmium export -O -f geojsonseq --geometry-types=linestring --format-option print_record_separator=false \
+  -o cycroutes.geojsonseq cycroutes.osm.pbf
+osmium tags-filter -O -o cycways.osm.pbf poland-latest.osm.pbf w/highway=cycleway w/bicycle=designated
+osmium export -O -f geojsonseq --geometry-types=linestring --format-option print_record_separator=false \
+  -o cycways.geojsonseq cycways.osm.pbf
+docker compose exec -T backend node src/popular-import.js /app/data/osm/cycroutes.geojsonseq \
+  /app/data/osm/cycways.geojsonseq /app/data/popular.db "$TS"
+rm -f "$OSM"/cycroutes.* "$OSM"/cycways.*

@@ -618,6 +618,7 @@ body.riding #zlvl{display:none}
         <div class="rc-stat"><b id="rc-down">—</b><span>↓ m</span></div>
       </div>
       <div class="rc-reuse" id="rc-reuse"></div>
+      <div class="rc-reuse" id="rc-pop" style="display:none"></div>
       <div class="rc-act">
         <button class="rc-btn pri" onclick="exportGPXGarmin()" title="GPX z wysokościami — import jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
         <button class="rc-btn" onclick="exportGPX()"><i class="ti ti-download"></i>GPX</button>
@@ -697,6 +698,7 @@ body.riding #zlvl{display:none}
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
         <label class="opt-pill" title="Rozszerz Yardinho (Yard z squadratinhos)"><input type="radio" name="opt" value="yardi"><i class="ti ti-border-outer" style="color:var(--blue)"></i>Yardinho</label>
         <label class="opt-pill" title="Zwykła trasa — kwadraty nie mają wagi"><input type="radio" name="opt" value="shortest"><i class="ti ti-route" style="color:var(--yellow)"></i>Bez kwadratów</label>
+        <label class="opt-pill" title="Drogi, którymi jeździ najwięcej ludzi: gęste ślady GPS z OpenStreetMap i oznakowane szlaki rowerowe"><input type="radio" name="opt" value="popular"><i class="ti ti-flame" style="color:var(--orange)"></i>Popularne</label>
       </div>
     </div>
     </div><!-- /route-form -->
@@ -809,6 +811,12 @@ body.riding #zlvl{display:none}
     </div>
     <button class="btn btn-b" onclick="showHM()"><i class="ti ti-route"></i>Pokaż trasy rowerowe</button>
     <button class="btn btn-x" onclick="removeHM()"><i class="ti ti-eye-off"></i>Ukryj</button>
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:10px">
+      <div class="sl" style="font-size:12px;margin-bottom:6px">Ślady GPS (OpenStreetMap)</div>
+      <div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:8px">Publiczne nagrania GPS użytkowników OSM — im grubszy i gęstszy pas, tym więcej przejazdów. Z tego (i ze szlaków) korzysta tryb „Popularne”.</div>
+      <button class="btn btn-b" onclick="toggleGpsTraces(true)"><i class="ti ti-flame"></i>Pokaż ślady GPS</button>
+      <button class="btn btn-x" onclick="toggleGpsTraces(false)"><i class="ti ti-eye-off"></i>Ukryj</button>
+    </div>
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:10px">
       <div class="sl" style="font-size:12px;margin-bottom:6px">Strava Global Heatmap</div>
       <div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:8px">Strava blokuje dostęp z zewnętrznych stron (SameSite cookies). Otwórz bezpośrednio:</div>
@@ -1250,7 +1258,7 @@ async function initMap(){
 
   layoutForWidth();
   await checkAuth();
-  restoreHM();
+  restoreHM(); restoreGpsTraces();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1871,7 +1879,9 @@ function drawElevChart(){
 // everything that hangs off it: km markers, elevation, new tiles, surfaces,
 // Street View coverage and stops along the way. Returns its length in km.
 let _routeMeta=null; // profiles of the route as computed/loaded, kept for "Zapisz"
-async function showRoute(route,{loop}){
+let _routePop=null;  // {share,gps,network} when planned in "Popularne" mode
+async function showRoute(route,{loop,pop=null}){
+  _routePop=pop;
   routeCoords=route.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0}));
   routeSegments=buildSegmentsFromRoute(routeCoords);
   drawSVColoredRoute(); // red at first; recoloured once Street View coverage arrives
@@ -1921,7 +1931,7 @@ async function calcRoute(){
     if(!data.routes?.length) throw new Error('Brak trasy');
 
     const route=data.routes[0];
-    const dist=await showRoute(route,{loop});
+    const dist=await showRoute(route,{loop,pop:opt==='popular'?data.planner?.popular||null:null});
     const engineLabel = data.engine === 'brouter'
       ? `BRouter/${data.profile}`
       : (data.engine === 'osrm' && data.profile !== 'standard' ? `⚠️ OSRM (BRouter niedostępny)` : 'OSRM');
@@ -1938,7 +1948,8 @@ async function calcRoute(){
         btn.style.display='flex';
       }
     }else{
-      toast(`✅ ${dist.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
+      toast(_routePop?`✅ ${dist.toFixed(1)}km · popularne drogi ${Math.round(_routePop.share*100)}% · ${engineLabel}`
+                     :`✅ ${dist.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
       g('return-leg-btn').style.display='none';
     }
   }catch(e){hideLoad();toast('Błąd: '+e.message);}
@@ -2028,7 +2039,7 @@ function resetRoute(){
   renderWL(); previewRoute(); setPlanDist(0);
   hasReturnLeg=false; outboundRouteData=null; routeSegments=[];
   g('return-leg-btn').style.display='none';
-  _routeMeta=null;
+  _routeMeta=null; _routePop=null;
 }
 
 function clearRoute(){
@@ -2665,10 +2676,21 @@ function showHM(){
   toast('✅ Trasy rowerowe załadowane');
 }
 function updHM(){ if(hmLayer) showHM(); }
+let gpsLayer=null;
+function toggleGpsTraces(on,quiet){
+  if(gpsLayer){map.removeLayer(gpsLayer);gpsLayer=null;}
+  if(on){
+    gpsLayer=L.tileLayer('https://gps.tile.openstreetmap.org/lines/{z}/{x}/{y}.png',
+      {maxZoom:20,maxNativeZoom:20,opacity:.85,attribution:'Ślady GPS © <a href="https://www.openstreetmap.org/traces">OpenStreetMap</a>'}).addTo(map);
+    if(!quiet) toast('✅ Ślady GPS z OpenStreetMap');
+  }
+  try{on?localStorage.setItem('gps_on','1'):localStorage.removeItem('gps_on');}catch(_){}
+}
 function removeHM(){
   if(hmLayer){map.removeLayer(hmLayer);hmLayer=null;}
   localStorage.removeItem('hm_on');
 }
+function restoreGpsTraces(){ try{ if(localStorage.getItem('gps_on')) toggleGpsTraces(true,true); }catch(_){} }
 function restoreHM(){
   if(localStorage.getItem('hm_on')==='1') showHM();
 }
@@ -3144,6 +3166,9 @@ function refreshRouteUI(){
     const reuse=routeReuse(routeCoords), el=g('rc-reuse');
     el.classList.toggle('warn',reuse>0.1);
     el.innerHTML=`<i class="ti ti-arrows-exchange"></i>Ta sama droga dwa razy: ${Math.round(reuse*100)}% trasy`;
+    const pe=g('rc-pop');
+    pe.style.display=_routePop?'':'none';
+    if(_routePop) pe.innerHTML=`<i class="ti ti-flame" style="color:var(--orange)"></i>Popularne drogi: ${Math.round(_routePop.share*100)}% trasy · szlaki/DDR ${Math.round(_routePop.network*100)}%`;
   }
   refreshMobPeek();
 }

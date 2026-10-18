@@ -40,6 +40,7 @@ const strava = require('./strava');
 const tiles  = require('./tiles');
 const routing = require('./routing');
 const planner = require('./planner');
+const popular = require('./popular');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 
@@ -528,7 +529,7 @@ const { fetchRoute, routeDistanceKm } = routing;
 app.post('/api/route/detour', requireAuth, async (req, res) => {
   const { waypoints, loop = false, targetKm = 0, bikeProfile = 'standard', returnLeg = false, avoidCoords = null } = req.body;
   // 'heatmap' (old "Pop." option) never had data behind it; treat as SQI.
-  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest'].includes(req.body.mode) ? req.body.mode : 'sqi';
+  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest', 'popular'].includes(req.body.mode) ? req.body.mode : 'sqi';
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -561,6 +562,25 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   if (mode === 'shortest') {
     try { return res.json(await route(pts)); }
     catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+  }
+
+  // Popular roads: loops through the rider's own waypoints are routed as
+  // they are; A→B picks the most popular of BRouter's alternatives that is
+  // at most 20% longer than the shortest one.
+  if (mode === 'popular') {
+    try {
+      const coordsOf = (d) => d.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+      const withPop = async (d) => { d.planner = { popular: await popular.popularity(coordsOf(d)) }; return d; };
+      if (isLoop || avoid) return res.json(await withPop(await route(pts)));
+      const prof = routing.brouterProfile(bikeProfile);
+      const alts = (await Promise.all([0, 1, 2, 3].map(i =>
+        routing.fetchBRouterRoute(pts, prof, i, null, 30000).then(withPop).catch(() => null)))).filter(Boolean);
+      if (!alts.length) return res.status(500).json({ error: 'Routing error: brak trasy' });
+      const minKm = Math.min(...alts.map(routeDistanceKm));
+      const ok = alts.filter(d => routeDistanceKm(d) <= minKm * 1.2);
+      ok.sort((a, b) => b.planner.popular.share - a.planner.popular.share);
+      return res.json(ok[0]);
+    } catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
   }
 
   // Long A→B route: straight-line >80km — skip iterative detour, one direct call.
