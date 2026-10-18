@@ -409,6 +409,11 @@ module.exports = {
 
   // Blocked (uncollectable) SQI
   getBlockedSQI(userId)                    { q.clearOwnedBlocked.run(userId); return q.getBlockedSQI.all(userId); },
+  addBlockedSQIMany(userId, list) {
+    let n = 0;
+    db.transaction(() => { for (const [tx, ty] of list) n += q.addBlockedSQI.run(userId, tx, ty).changes; })();
+    return n;
+  },
   toggleBlockedSQI(userId, tx, ty) {
     if (q.hasBlockedSQI.get(userId, tx, ty)) { q.delBlockedSQI.run(userId, tx, ty); return false; }
     q.addBlockedSQI.run(userId, tx, ty); return true;

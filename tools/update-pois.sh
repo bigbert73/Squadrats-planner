@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Rebuild the local POI database (data/pois.db) and the cycling-network index
-# (data/popular.db) from the Geofabrik extract of Poland. Safe to run while
+# (data/popular.db) and the no-road index (data/reach.db) from the Geofabrik
+# extract of Poland. Safe to run while
 # the app is up: each import builds a new file and swaps it in; the backend
 # notices and reopens it.
 #
@@ -48,3 +49,12 @@ osmium export -O -f geojsonseq --geometry-types=linestring --format-option print
 docker compose exec -T backend node src/popular-import.js /app/data/osm/cycroutes.geojsonseq \
   /app/data/osm/cycways.geojsonseq /app/data/popular.db "$TS"
 rm -f "$OSM"/cycroutes.* "$OSM"/cycways.*
+
+# Squadratinhos without any road or path (data/reach.db): suggested as
+# impossible to collect. The extract's boundary tells where data is complete.
+curl -fsSL --retry 3 -o "$OSM/poland.poly" https://download.geofabrik.de/europe/poland.poly
+osmium tags-filter -O -o highways.osm.pbf poland-latest.osm.pbf w/highway
+osmium export -f geojsonseq --geometry-types=linestring --format-option print_record_separator=false \
+  -o - highways.osm.pbf \
+  | docker compose exec -T backend node src/reach-import.js - /app/data/osm/poland.poly /app/data/reach.db "$TS"
+rm -f "$OSM/highways.osm.pbf"

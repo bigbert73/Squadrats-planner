@@ -41,6 +41,7 @@ const tiles  = require('./tiles');
 const routing = require('./routing');
 const planner = require('./planner');
 const popular = require('./popular');
+const reach   = require('./reach');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 const crypto = require('crypto');
@@ -210,6 +211,7 @@ function bitmapHex(n, test) {
 }
 app.get('/api/garmin/area', (req, res) => {
   const userId = db.userIdByGarminKey(String(req.query.key || ''));
+  console.log(`[garmin] area user=${userId || '-'} ${(+req.query.lat).toFixed(2)},${(+req.query.lng).toFixed(2)}`);
   if (!userId) return res.status(401).json({ error: 'bad key' });
   const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
   if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 85) return res.status(400).json({ error: 'lat/lng' });
@@ -561,6 +563,64 @@ app.post('/api/tiles/blocked/toggle', requireAuth, (req, res) => {
   const blocked = db.toggleBlockedSQI(req.userId, tx, ty);
   invalidateUserCache(req.userId);
   res.json({ blocked, tx, ty });
+});
+
+// Squadratinhos with no road or path in OSM: suggested as impossible to
+// collect (owned and already blocked ones left out). z17 tile range.
+app.get('/api/tiles/noroad', requireAuth, (req, res) => {
+  const [x0, y0, x1, y1] = ['x0', 'y0', 'x1', 'y1'].map(k => parseInt(req.query[k], 10));
+  if (![x0, y0, x1, y1].every(Number.isFinite) || x1 < x0 || y1 < y0) return res.status(400).json({ error: 'x0,y0,x1,y1 required' });
+  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 250000) return res.status(400).json({ error: 'range too large' });
+  if (!reach.available()) return res.json({ available: false, tiles: [] });
+  const c = getUserCache(req.userId);
+  const skip = new Set();
+  for (const r of c.sqiRows) if (r.tx >= x0 && r.tx <= x1 && r.ty >= y0 && r.ty <= y1) skip.add(`${r.tx},${r.ty}`);
+  for (const r of c.blockedSQI) skip.add(`${r.tx},${r.ty}`);
+  res.json({ available: true, tiles: reach.noRoadIn(x0, y0, x1, y1, skip) });
+});
+
+// Accept suggestions: mark many squadratinhos as impossible at once
+app.post('/api/tiles/blocked/bulk', requireAuth, (req, res) => {
+  const list = Array.isArray(req.body.tiles) ? req.body.tiles : [];
+  if (!list.length || list.length > 20000) return res.status(400).json({ error: 'tiles: 1..20000 [tx,ty]' });
+  const c = getUserCache(req.userId);
+  const owned = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
+  const ok = list.map(t => [parseInt(t[0], 10), parseInt(t[1], 10)])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && !owned.has(`${x},${y}`));
+  const added = db.addBlockedSQIMany(req.userId, ok);
+  invalidateUserCache(req.userId);
+  res.json({ added });
+});
+
+// How much of what can be collected around a point is collected:
+// squadratinhos within r km, minus those with no road and those marked blocked
+app.get('/api/tiles/reach-stats', requireAuth, (req, res) => {
+  const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
+  const rKm = Math.min(100, Math.max(1, parseFloat(req.query.r) || 50));
+  if (!isFinite(lat) || !isFinite(lng)) return res.status(400).json({ error: 'lat/lng' });
+  if (!reach.available()) return res.json({ available: false });
+  const c = getUserCache(req.userId);
+  const Z = tiles.Z_SQI, n = 2 ** Z;
+  const ctr = tiles.latLngToTile(lat, lng, Z);
+  const kmPerTile = 40075 * Math.cos(lat * Math.PI / 180) / n;
+  const rT = Math.ceil(rKm / kmPerTile) + 1, r2 = (rKm / kmPerTile) ** 2;
+  const owned = new Set(), blocked = new Set();
+  for (const r of c.sqiRows) if (Math.abs(r.tx - ctr.x) <= rT && Math.abs(r.ty - ctr.y) <= rT) owned.add(`${r.tx},${r.ty}`);
+  for (const r of c.blockedSQI) blocked.add(`${r.tx},${r.ty}`);
+  let nOwned = 0, nOpen = 0, nNoRoad = 0, nBlocked = 0, nUnknown = 0;
+  for (let dy = -rT; dy <= rT; dy++) for (let dx = -rT; dx <= rT; dx++) {
+    if (dx * dx + dy * dy > r2) continue;              // tiles are square in Mercator
+    const x = ctr.x + dx, y = ctr.y + dy, k = `${x},${y}`;
+    if (owned.has(k)) { nOwned++; continue; }
+    if (blocked.has(k)) { nBlocked++; continue; }
+    const s = reach.status(x, y);
+    if (s < 0) nUnknown++; else if (s === 0) nNoRoad++; else nOpen++;
+  }
+  const collectable = nOwned + nOpen;
+  res.json({
+    available: true, r: rKm, owned: nOwned, open: nOpen, noRoad: nNoRoad, blocked: nBlocked, unknown: nUnknown,
+    collectable, pct: collectable ? Math.round(1000 * nOwned / collectable) / 10 : 0,
+  });
 });
 
 // ── Route planning ────────────────────────────────────────────────────────────

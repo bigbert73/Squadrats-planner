@@ -124,6 +124,7 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .lb.on-o{border-color:var(--orange)}.lb.on-o .lb-dot{background:var(--orange)}.lb.on-o .lb-sw{background:var(--orange);border-color:var(--orange)}.lb.on-o .lb-sw::after{left:13px}
 .lb.on-b{border-color:var(--blue)}.lb.on-b .lb-dot{background:var(--blue)}.lb.on-b .lb-sw{background:var(--blue);border-color:var(--blue)}.lb.on-b .lb-sw::after{left:13px}
 .lb.on-y{border-color:var(--yellow)}.lb.on-y .lb-dot{background:var(--yellow)}.lb.on-y .lb-sw{background:var(--yellow);border-color:var(--yellow)}.lb.on-y .lb-sw::after{left:13px}
+.lb.on-r{border-color:var(--red)}.lb.on-r .lb-dot{background:var(--red)}.lb.on-r .lb-sw{background:var(--red);border-color:var(--red)}.lb.on-r .lb-sw::after{left:13px}
 .lb.on-p{border-color:var(--purple)}.lb.on-p .lb-dot{background:var(--purple)}.lb.on-p .lb-sw{background:var(--purple);border-color:var(--purple)}.lb.on-p .lb-sw::after{left:13px}
 
 /* ── SYNC PROGRESS ── */
@@ -782,8 +783,13 @@ body.riding #zlvl{display:none}
       <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')" title="Największy pełny kwadrat ze zdobytych squadratinhos"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-style-2"></i>Über SQI</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-dots"></i>Siatka zoom 14</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-3x3"></i>Siatka zoom 17</span><span class="lb-sw"></span></button>
+      <button class="lb on-r" id="lb-sqi-noroad" onclick="togLyr('sqi-noroad',this,'r')" title="Squadratinhos, przez które w OpenStreetMap nie biegnie żadna droga ani ścieżka — prawdopodobnie niezdobywalne (woda, tereny zamknięte, pola bez dróg)"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-slash"></i>Bez dróg (sugestie)</span><span class="lb-sw"></span></button>
     </div>
     <div class="hint" style="margin:-4px 0 12px;display:flex;gap:6px;align-items:flex-start;text-align:left"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><span>Trzy szybkie kliknięcia w kwadrat SQI na mapie (tryb Widok, zoom 14+) oznaczają go jako niezdobywalny — trasy go pominą. Trzy kolejne kliknięcia odznaczają.</span></div>
+    <div class="hint" style="margin:-6px 0 8px;display:flex;gap:6px;align-items:flex-start;text-align:left"><i class="ti ti-slash" style="color:var(--red);margin-top:2px"></i><span>Jedno przekreślenie = sugestia: w OpenStreetMap nie ma tam żadnej drogi ani ścieżki (widać od zoomu 13). Trzy kliknięcia zatwierdzają pojedynczy kwadrat, albo zatwierdź wszystkie widoczne:</span></div>
+    <button class="btn btn-x" id="noroad-accept" onclick="acceptNoRoadInView()"><i class="ti ti-ban"></i>Oznacz sugerowane w widoku jako niezdobywalne</button>
+    <div class="sl mt8">Zasięg zdobywalnych SQI</div>
+    <div id="reach-stats" class="hint" style="text-align:left;margin:-2px 0 8px">…</div>
 
     <div class="sl mt12">Synchronizacja</div>
     <div id="autosync-status" class="hint" style="text-align:left;margin:-2px 0 8px"></div>
@@ -1191,7 +1197,7 @@ const LAYERS={};
 const VIS={
   'sq-own':false,'sq-new':true,'sq-yard':false,'sq-uber':false,
   'sqi-own':false,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
-  'grid14':true,'grid17':true
+  'grid14':true,'grid17':true,'sqi-noroad':true
 };
 
 let statsData={}, toastTm=null;
@@ -1285,6 +1291,7 @@ async function loadTilesFromDB(){
 
     applyStats(d.stats);
     redrawAll();
+    loadReachStats();
     hideLoad();
     toast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
   }catch(e){
@@ -1466,6 +1473,7 @@ function redrawAll(){
   renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,'sqi-uber',12);
   redrawGrid();
   renderBlocked();
+  renderNoRoad();
 }
 
 const CanvasGridLayer = CanvasOverlay.extend({
@@ -1506,7 +1514,85 @@ const CanvasBlockedLayer = CanvasOverlay.extend({
     }
   }
 });
-function renderBlocked(){clearLyr('sqi-blocked'); LAYERS['sqi-blocked']=new CanvasBlockedLayer().addTo(map);}
+function renderBlocked(){clearLyr('sqi-blocked'); LAYERS['sqi-blocked']=new CanvasBlockedLayer().addTo(map); LAYERS['sqi-noroad']?._draw();}
+
+// Squadratinhos with no road or path in OSM: suggested as impossible to
+// collect. One stroke (the user's own blocked ones get a red X). Loaded from
+// the server per visible area, with a margin so small pans need no request.
+let noRoadSQI=new Set(), _noRoadHave=null, _noRoadWant=null;
+function _covers(a,b){return a&&a.x0<=b.x0&&a.y0<=b.y0&&a.x1>=b.x1&&a.y1>=b.y1;}
+async function ensureNoRoad(r){
+  if(_covers(_noRoadHave,r)||_covers(_noRoadWant,r)) return;
+  const m=Math.round(Math.max(r.x1-r.x0,r.y1-r.y0)/2);
+  const q={x0:r.x0-m,y0:r.y0-m,x1:r.x1+m,y1:r.y1+m};
+  if((q.x1-q.x0+1)*(q.y1-q.y0+1)>250000) Object.assign(q,r);
+  _noRoadWant=q;
+  try{
+    const d=await (await fetch(`/api/tiles/noroad?x0=${q.x0}&y0=${q.y0}&x1=${q.x1}&y1=${q.y1}`)).json();
+    if(_noRoadWant!==q) return;
+    noRoadSQI=new Set((d.tiles||[]).map(([x,y])=>tileKey(x,y)));
+    _noRoadHave=q;
+    LAYERS['sqi-noroad']?._draw();
+  }catch(e){console.error('noroad',e);}
+  finally{if(_noRoadWant===q)_noRoadWant=null;}
+}
+const CanvasNoRoadLayer = CanvasOverlay.extend({
+  initialize(){this._zIndex=455;},
+  _visible(){return VIS['sqi-noroad']&&this._map.getZoom()>=13;},
+  _paint(ctx,origin,w,h,nw,se){
+    const r=this._tileRange(nw,se,Z_SQI);
+    ensureNoRoad(r);
+    ctx.fillStyle='rgba(248,113,113,.08)'; ctx.strokeStyle='rgba(248,113,113,.8)';
+    ctx.beginPath();
+    for(const k of noRoadSQI){
+      if(blockedSQI.has(k)||ownedSQI.has(k)) continue;
+      const{x,y}=parseKey(k);
+      if(x<r.x0||x>r.x1||y<r.y0||y>r.y1) continue;
+      const a=tileNW(x,y,Z_SQI), b=tileNW(x+1,y+1,Z_SQI);
+      const p0=this._px(a.lat,a.lng,origin), p1=this._px(b.lat,b.lng,origin);
+      ctx.fillRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+      ctx.moveTo(p0.x,p1.y); ctx.lineTo(p1.x,p0.y);
+      ctx.lineWidth=Math.max(1,Math.min(2.5,(p1.x-p0.x)/24));
+    }
+    ctx.stroke();
+  }
+});
+function renderNoRoad(){clearLyr('sqi-noroad'); if(VIS['sqi-noroad']) LAYERS['sqi-noroad']=new CanvasNoRoadLayer().addTo(map);}
+async function acceptNoRoadInView(){
+  if(map.getZoom()<13){toast('Przybliż mapę (zoom 13+), żeby zobaczyć sugestie');return;}
+  const b=map.getBounds(), a=latLngToTile(b.getNorth(),b.getWest(),Z_SQI), c=latLngToTile(b.getSouth(),b.getEast(),Z_SQI);
+  const list=[];
+  for(const k of noRoadSQI){
+    if(blockedSQI.has(k)||ownedSQI.has(k)) continue;
+    const{x,y}=parseKey(k);
+    if(x>=a.x&&x<=c.x&&y>=a.y&&y<=c.y) list.push([x,y]);
+  }
+  if(!list.length){toast('Brak sugestii w widoku');return;}
+  if(!confirm(`Oznaczyć ${list.length} SQI bez dróg jako niezdobywalne? Trasy będą je pomijać. Każdy możesz odznaczyć trzema kliknięciami.`)) return;
+  try{
+    const r=await fetch('/api/tiles/blocked/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tiles:list})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
+    list.forEach(([x,y])=>blockedSQI.add(tileKey(x,y)));
+    renderBlocked();
+    loadReachStats();
+    toast(`Oznaczono ${d.added} SQI jako niezdobywalne`);
+  }catch(e){toast(e.message);}
+}
+
+// Share of collectable squadratinhos (with a road, not blocked) collected
+// within 50 km of home (or of the map centre without a home point)
+async function loadReachStats(){
+  const el=g('reach-stats'); if(!el) return;
+  const home=currentUser?.home_lat!=null, c=home?{lat:currentUser.home_lat,lng:currentUser.home_lng}:map.getCenter();
+  try{
+    const d=await (await fetch(`/api/tiles/reach-stats?lat=${c.lat}&lng=${c.lng}&r=50`)).json();
+    if(!d.available){el.textContent='Brak indeksu dróg (tools/update-pois.sh).';return;}
+    const f=n=>n.toLocaleString('pl-PL');
+    el.innerHTML=`W promieniu <b>50 km</b> od ${home?'domu':'środka mapy'} masz <b style="color:var(--green);font-size:14px">${String(d.pct).replace('.',',')}%</b> zdobywalnych SQI<br>`+
+      `<span style="color:var(--tx3)">${f(d.owned)} z ${f(d.collectable)} · bez dróg: ${f(d.noRoad)} · oznaczone: ${f(d.blocked)}</span>`;
+  }catch(e){el.textContent='Nie udało się policzyć zasięgu';}
+}
 
 function redrawGrid(){
   clearLyr('grid14'); clearLyr('grid17');
@@ -1528,7 +1614,8 @@ function togLyr(name,btn,c){
       'sqi-new': ()=>renderSet(newSQI,    Z_SQI,'rgba(255,216,91,.65)', 0,0,name,12,sqiNewOvLevels),
       'sqi-yard':()=>renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)', 0,0,name,12),
       'sqi-uber':()=>renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,name,12),
-      'grid14':redrawGrid,'grid17':redrawGrid
+      'grid14':redrawGrid,'grid17':redrawGrid,
+      'sqi-noroad':renderNoRoad
     };
     fn[name]?.();
   }else{
@@ -2418,7 +2505,9 @@ async function toggleBlockedAt(ll){
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.error||`HTTP ${r.status}`);
     if(d.blocked) blockedSQI.add(key); else blockedSQI.delete(key);
+    _noRoadHave=null; // an unblocked tile may be a suggestion again
     navigator.vibrate?.(40);
+    loadReachStats();
     renderBlocked();
     toast(d.blocked?'SQI oznaczony jako niezdobywalny — trasy będą go pomijać':'Odznaczono — ten SQI znów jest do zdobycia');
     if(routeCoords.length){ // the current route's "new SQI" count changes
@@ -2859,7 +2948,10 @@ async function loadHomeAddr(){
   updateHomeCoords(); renderWL();
 }
 
+let _reachHomeKey=null;
 function updateHomeCoords(){
+  const hk=currentUser?.home_lat+','+currentUser?.home_lng;
+  if(hk!==_reachHomeKey){_reachHomeKey=hk; if(currentUser) loadReachStats();}
   const el=g('prof-home-coords');
   if(!el)return;
   if(currentUser?.home_lat!=null){
