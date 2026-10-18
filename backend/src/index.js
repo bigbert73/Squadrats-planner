@@ -1037,6 +1037,8 @@ function getPoiDb() {
   return poiDb;
 }
 
+const isOrlen = (t) => /orlen/i.test(`${t.brand || ''} ${t.name || ''}`);
+
 app.post('/api/route/pois', requireAuth, (req, res) => {
   const { coords, radiusM = 400, tags: wanted = [] } = req.body;
   const pdb = getPoiDb();
@@ -1089,6 +1091,7 @@ app.post('/api/route/pois', requireAuth, (req, res) => {
     const tags = JSON.parse(r.tags);
     const kind = ['amenity', 'shop', 'tourism', 'historic'].find(k => tags[k] && (!want.size || want.has(`${k}=${tags[k]}`)));
     if (!kind) continue;
+    if (kind === 'amenity' && tags.amenity === 'fuel' && !isOrlen(tags)) continue; // only Orlen stations count as shops
     if (!near(r.lat, r.lng)) continue;
     {
       // Same name+type within 80 m, or same unnamed type within 40 m.

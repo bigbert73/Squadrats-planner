@@ -14,7 +14,7 @@ const fs = require('fs');
 const readline = require('readline');
 const Database = require('better-sqlite3');
 
-const KEEP = ['name', 'amenity', 'shop', 'tourism', 'historic', 'cuisine', 'opening_hours'];
+const KEEP = ['name', 'brand', 'amenity', 'shop', 'tourism', 'historic', 'cuisine', 'opening_hours', 'stars'];
 
 function centroid(geom) {
   let pts;

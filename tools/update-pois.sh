@@ -27,9 +27,9 @@ docker build -q -t squadrats-osmium tools/osmium >/dev/null
 osmium() { docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/$OSM:/data" squadrats-osmium "$@"; }
 
 osmium tags-filter -O -o pois.osm.pbf poland-latest.osm.pbf \
-  nwr/amenity=restaurant,cafe,fast_food,bar,bakery,drinking_water,bicycle_repair_station,bicycle_rental \
+  nwr/amenity=restaurant,cafe,fast_food,bar,bakery,drinking_water,bicycle_repair_station,bicycle_rental,fuel \
   nwr/shop=supermarket,convenience,bakery,sports,bicycle \
-  nwr/tourism=viewpoint,attraction,museum,artwork \
+  nwr/tourism=viewpoint,attraction,museum,artwork,hotel,motel,guest_house,hostel,apartment,chalet,camp_site,alpine_hut,wilderness_hut \
   nwr/historic=castle,monument,church
 osmium export -O -f geojsonseq -a type,id --format-option print_record_separator=false \
   -o pois.geojsonseq pois.osm.pbf

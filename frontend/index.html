@@ -3731,7 +3731,9 @@ const POI_CATS=[
   {key:'water',  label:'Woda',       color:'#38bdf8', bg:'rgba(56,189,248,.15)', icon:'ti-droplet',
    tags:['amenity=drinking_water']},
   {key:'shop',   label:'Sklepy',     color:'#4ade80', bg:'rgba(74,222,128,.15)', icon:'ti-shopping-cart',
-   tags:['shop=supermarket','shop=convenience','shop=bakery','shop=sports']},
+   tags:['shop=supermarket','shop=convenience','shop=bakery','shop=sports','amenity=fuel']},  // fuel: Orlen only (filtered by the server / poiCatFor)
+  {key:'sleep',  label:'Noclegi',    color:'#f472b6', bg:'rgba(244,114,182,.15)', icon:'ti-bed',
+   tags:['tourism=hotel','tourism=motel','tourism=guest_house','tourism=hostel','tourism=apartment','tourism=chalet','tourism=camp_site','tourism=alpine_hut','tourism=wilderness_hut']},
   {key:'bike',   label:'Rower',      color:'#facc15', bg:'rgba(250,204,21,.15)', icon:'ti-bike',
    tags:['amenity=bicycle_repair_station','amenity=bicycle_rental','shop=bicycle']},
   {key:'view',   label:'Atrakcje',   color:'#c084fc', bg:'rgba(192,132,252,.15)', icon:'ti-eye',
@@ -3958,6 +3960,7 @@ async function fetchPOIOverpass(){
 
 function poiCatFor(el){
   const t=el.tags||{};
+  if(t.amenity==='fuel'&&!/orlen/i.test(`${t.brand||''} ${t.name||''}`)) return null;
   for(const cat of POI_CATS){
     for(const tag of cat.tags){
       const[k,v]=tag.split('=');
@@ -4004,7 +4007,8 @@ function fmtPasses(passes){
 const POI_TYPE_PL={restaurant:'Restauracja',cafe:'Kawiarnia',fast_food:'Fast food',bar:'Bar',bakery:'Piekarnia',drinking_water:'Woda pitna',
   supermarket:'Supermarket',convenience:'Sklep spożywczy',sports:'Sklep sportowy',bicycle:'Sklep rowerowy',bicycle_repair_station:'Stacja naprawy rowerów',
   bicycle_rental:'Wypożyczalnia rowerów',viewpoint:'Punkt widokowy',attraction:'Atrakcja',museum:'Muzeum',artwork:'Dzieło sztuki',
-  castle:'Zamek',monument:'Pomnik',church:'Kościół'};
+  castle:'Zamek',monument:'Pomnik',church:'Kościół',fuel:'Stacja Orlen',hotel:'Hotel',motel:'Motel',guest_house:'Pensjonat',
+  hostel:'Hostel',apartment:'Apartament',chalet:'Domek',camp_site:'Kemping',alpine_hut:'Schronisko',wilderness_hut:'Wiata/chatka'};
 const CUISINE_PL={pizza:'pizza',burger:'burgery',kebab:'kebab',asian:'azjatycka',italian:'włoska',polish:'polska',regional:'regionalna',
   sushi:'sushi',chinese:'chińska',vietnamese:'wietnamska',hungarian:'węgierska',indian:'indyjska',thai:'tajska',georgian:'gruzińska',
   ukrainian:'ukraińska',turkish:'turecka',greek:'grecka',mexican:'meksykańska',japanese:'japońska',french:'francuska',american:'amerykańska',
