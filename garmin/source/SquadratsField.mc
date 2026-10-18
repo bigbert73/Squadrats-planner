@@ -5,6 +5,7 @@ import Toybox.Background;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.Position;
 import Toybox.StringUtil;
 import Toybox.Time;
 import Toybox.WatchUi;
@@ -69,10 +70,19 @@ class SquadratsField extends WatchUi.DataField {
     }
 
     function compute(info as Activity.Info) as Void {
-        if (info.currentLocation == null) {
+        // Before the timer starts the activity may not report a location yet;
+        // fall back to the device's own fix
+        var loc = info.currentLocation;
+        if (loc == null) {
+            var p = Position.getInfo();
+            if (p != null && p.accuracy != Position.QUALITY_NOT_AVAILABLE) {
+                loc = p.position;
+            }
+        }
+        if (loc == null) {
             return;
         }
-        var d = info.currentLocation.toDegrees();
+        var d = loc.toDegrees();
         var lat = d[0].toDouble(), lng = d[1].toDouble();
         fx = (lng + 180.0d) / 360.0d * Z17;
         var r = Math.toRadians(lat);
