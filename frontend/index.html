@@ -1079,8 +1079,8 @@ body.riding #zlvl{display:none}
         </div>
         <label>Adres</label>
         <div style="display:flex;gap:6px">
-          <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Przykładowa 1" style="flex:1">
-          <button class="btn btn-b" style="width:auto;padding:7px 10px;flex-shrink:0" onclick="searchHomeAddr()"><i class="ti ti-search"></i></button>
+          <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Przykładowa 1" style="flex:1" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();searchHomeAddr()}">
+          <button class="btn btn-g" style="width:auto;padding:7px 12px;flex-shrink:0" onclick="searchHomeAddr()"><i class="ti ti-device-floppy"></i>Zapisz</button>
         </div>
         <div id="prof-home-coords" style="font-size:11px;color:var(--tx3);margin-top:4px;min-height:16px"></div>
         <div style="display:flex;gap:6px;margin-top:6px">
@@ -1208,6 +1208,7 @@ async function initMap(){
   baseLayers.osm.addTo(map);
 
   map.on('click',e=>{
+    if(_homePicking){finishHomePick(e.latlng);return;}
     const pop=g('mtools-pop');
     if(pop.classList.contains('open')){pop.classList.remove('open');return;}
     if(g('sb').classList.contains('mob-open')){closeMobileMenu();return;}
@@ -2480,7 +2481,7 @@ function addWpt(ll,type,label){
 
 async function searchAddress(type){
   const input = g(type==='start' ? 'start-addr' : 'end-addr');
-  const query = input?.value.trim();
+  const query = input?.value.trim().replace(/^Dom\s*·\s*/,'');
   if(!query){toast('Wpisz adres');return;}
   showLoad('Wyszukuję adres…');
   try{
@@ -2502,8 +2503,19 @@ async function searchAddress(type){
 function removeWptI(i){map.removeLayer(wpts[i].marker);wpts.splice(i,1);renderWL();previewRoute();}
 window.removeWptI=removeWptI;
 
+// Show the chosen start/end in the "Skąd?/Dokąd?" fields (not while typing)
+function syncAddrFields(){
+  for(const type of ['start','end']){
+    const inp=g(type+'-addr'); if(!inp||document.activeElement===inp) continue;
+    const w=wpts.find(x=>x.type===type);
+    if(!w){inp.value='';continue;}
+    const ll=w.marker.getLatLng();
+    inp.value=w.label==='Dom'?'Dom'+(_homeAddr?' · '+_homeAddr:''):(w.label||`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`);
+  }
+}
 function renderWL(){
   refreshMobPeek();
+  syncAddrFields();
   const el=g('wl');
   if(!wpts.length){el.innerHTML='<div class="hint">Wybierz Start i kliknij mapę</div>';return;}
   let mc2=0;
@@ -2809,11 +2821,27 @@ async function doLogout(){
 
 let _homePicking=false;
 
+// Street address of the home point, reverse-geocoded once per location
+let _homeAddr=null, _homeAddrKey=null;
+async function loadHomeAddr(){
+  if(currentUser?.home_lat==null){_homeAddr=_homeAddrKey=null;return;}
+  const key=currentUser.home_lat+','+currentUser.home_lng;
+  if(key===_homeAddrKey) return;
+  _homeAddrKey=key; _homeAddr=null;
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&accept-language=pl&lat=${currentUser.home_lat}&lon=${currentUser.home_lng}`);
+    const d=await r.json();
+    if(key!==_homeAddrKey) return;
+    _homeAddr=shortPlace(d.address||{})||(d.display_name||'').split(',').slice(0,2).join(',')||null;
+  }catch(_){_homeAddrKey=null;}
+  updateHomeCoords(); renderWL();
+}
+
 function updateHomeCoords(){
   const el=g('prof-home-coords');
   if(!el)return;
   if(currentUser?.home_lat!=null){
-    el.innerHTML=`<i class="ti ti-map-pin" style="color:var(--green)"></i> ${currentUser.home_lat.toFixed(5)}, ${currentUser.home_lng.toFixed(5)}`;
+    el.innerHTML=`<i class="ti ti-home" style="color:var(--green)"></i> Zapisany: <b style="color:var(--tx)">${esc(_homeAddr||'…')}</b> <span style="color:var(--tx3)">(${currentUser.home_lat.toFixed(5)}, ${currentUser.home_lng.toFixed(5)})</span>`;
   }else{
     el.textContent='Nie ustawiono';
   }
@@ -2826,7 +2854,10 @@ async function saveHomePoint(lat,lng){
   if(!r.ok){if(g('prof-home-err'))g('prof-home-err').textContent=d.error||'Błąd';return;}
   currentUser={...currentUser,...d.user};
   updateHomeCoords();
-  toast('✅ Home point zapisany');
+  toast('✅ Dom zapisany — będzie startem tras');
+  await loadHomeAddr();
+  // Use it right away as the start unless a route is already planned
+  if(!routeCoords.length) applyHomePoint();
 }
 
 async function searchHomeAddr(){
@@ -2840,32 +2871,34 @@ async function searchHomeAddr(){
     if(!data.length){g('prof-home-err').textContent='Nie znaleziono adresu';return;}
     const lat=parseFloat(data[0].lat),lng=parseFloat(data[0].lon);
     await saveHomePoint(lat,lng);
-    g('prof-home-addr').value=data[0].display_name.split(',').slice(0,3).join(',');
+    g('prof-home-addr').value='';
   }catch(e){g('prof-home-err').textContent='Błąd sieci';}
 }
 
 function pickHomeFromMap(){
   closeProfile();
   _homePicking=true;
-  toast('Kliknij na mapie aby ustawić Home point');
-  map.once('click',async e=>{
-    _homePicking=false;
-    await saveHomePoint(e.latlng.lat,e.latlng.lng);
-    openProfile();
-  });
+  closeMobileMenu?.();
+  toast('Stuknij mapę w miejscu domu');
+}
+async function finishHomePick(ll){
+  _homePicking=false;
+  await saveHomePoint(ll.lat,ll.lng);
+  openProfile();
 }
 
 async function clearHomePoint(){
   const r=await fetch('/api/profile/home',{method:'PUT',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({lat:null,lng:null})});
   const d=await r.json();
-  if(r.ok){currentUser={...currentUser,...d.user};updateHomeCoords();toast('Home point usunięty');}
+  if(r.ok){currentUser={...currentUser,...d.user};_homeAddr=_homeAddrKey=null;updateHomeCoords();toast('Dom usunięty');}
 }
 
 function applyHomePoint(){
   if(!currentUser?.home_lat)return;
   const ll={lat:currentUser.home_lat,lng:currentUser.home_lng};
   addWpt(ll,'start');
+  loadHomeAddr();
   renderWL();previewRoute();
   map.panTo([ll.lat,ll.lng]);
 }
