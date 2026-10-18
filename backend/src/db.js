@@ -255,6 +255,13 @@ db.exec(SCHEMA_SQL);
   try { db.exec("ALTER TABLE users ADD COLUMN home_lng REAL"); } catch(_) {}
 })();
 
+// ── Garmin device key: lets the Connect IQ data field fetch tiles without a
+// browser session (sent as ?key=, no cookies on the watch side) ──────────────
+(function migrateGarminKey() {
+  try { db.exec("ALTER TABLE users ADD COLUMN garmin_key TEXT"); } catch(_) {}
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_garmin_key ON users(garmin_key)"); } catch(_) {}
+})();
+
 // ── Heatmap credentials migration ─────────────────────────────────────────────
 (function migrateHeatmap() {
   try { db.exec("ALTER TABLE users ADD COLUMN hm_kp  TEXT"); } catch(_) {}
@@ -276,6 +283,8 @@ const q = {
   updateLastLogin:  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?"),
   updatePassHash:   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
   updateHome:       db.prepare("UPDATE users SET home_lat = ?, home_lng = ? WHERE id = ?"),
+  setGarminKey:     db.prepare("UPDATE users SET garmin_key = ? WHERE id = ?"),
+  userByGarminKey:  db.prepare("SELECT id FROM users WHERE garmin_key = ?"),
   updateHeatmap:    db.prepare("UPDATE users SET hm_kp = ?, hm_pol = ?, hm_sig = ? WHERE id = ?"),
   getHeatmap:       db.prepare("SELECT hm_kp, hm_pol, hm_sig FROM users WHERE id = ?"),
   deleteUser:       db.prepare("DELETE FROM users WHERE id = ?"),
@@ -349,6 +358,8 @@ module.exports = {
   updateLastLogin(id)      { q.updateLastLogin.run(id); },
   updatePasswordHash(id, h){ q.updatePassHash.run(h, id); },
   setHomePoint(id, lat, lng){ q.updateHome.run(lat, lng, id); },
+  setGarminKey(id, key)     { q.setGarminKey.run(key, id); },
+  userIdByGarminKey(key)    { return key ? q.userByGarminKey.get(key)?.id ?? null : null; },
   setHeatmapCreds(id, kp, pol, sig) { q.updateHeatmap.run(kp, pol, sig, id); },
   getHeatmapCreds(id) { return q.getHeatmap.get(id); },
   deleteUser(id)           { q.deleteUser.run(id); },

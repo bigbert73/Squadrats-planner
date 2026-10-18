@@ -43,6 +43,7 @@ const planner = require('./planner');
 const popular = require('./popular');
 const oauth  = require('./oauth');
 const axios  = require('axios');
+const crypto = require('crypto');
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 
@@ -186,6 +187,46 @@ app.put('/api/profile/home', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
   db.setHomePoint(req.userId, lat ?? null, lng ?? null);
   res.json({ user: safeUser(db.getUserById(req.userId)) });
+});
+
+// ── Garmin Connect IQ data field ──────────────────────────────────────────────
+// The field's background service asks for the squares around the rider every
+// few minutes (through the phone; Garmin requires HTTPS). Answer is a compact
+// bitmap: n×n squadratinhos (z17) and m×m squadrats (z14) centred on the
+// rider, row-major, 1 = collected, as hex; blocked SQI in a second bitmap.
+app.post('/api/profile/garmin-key', requireAuth, (req, res) => {
+  const key = crypto.randomBytes(12).toString('hex');
+  db.setGarminKey(req.userId, key);
+  res.json({ key });
+});
+app.get('/api/profile/garmin-key', requireAuth, (req, res) => {
+  res.json({ key: db.getUserById(req.userId)?.garmin_key || null });
+});
+
+function bitmapHex(n, test) {
+  const bytes = Buffer.alloc(Math.ceil(n * n / 8));
+  for (let i = 0; i < n * n; i++) if (test(i % n, Math.floor(i / n))) bytes[i >> 3] |= 0x80 >> (i & 7);
+  return bytes.toString('hex');
+}
+app.get('/api/garmin/area', (req, res) => {
+  const userId = db.userIdByGarminKey(String(req.query.key || ''));
+  if (!userId) return res.status(401).json({ error: 'bad key' });
+  const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 85) return res.status(400).json({ error: 'lat/lng' });
+  const c = getUserCache(userId);
+  const N = 48, M = 12;
+  const qi = tiles.latLngToTile(lat, lng, tiles.Z_SQI), qs = tiles.latLngToTile(lat, lng, tiles.Z_SQ);
+  const ix = qi.x - N / 2, iy = qi.y - N / 2, sx = qs.x - M / 2, sy = qs.y - M / 2;
+  const inBox = (r, x0, y0, n) => r.tx >= x0 && r.tx < x0 + n && r.ty >= y0 && r.ty < y0 + n;
+  const sqi = new Set(c.sqiRows.filter(r => inBox(r, ix, iy, N)).map(r => `${r.tx},${r.ty}`));
+  const blk = new Set(c.blockedSQI.filter(r => inBox(r, ix, iy, N)).map(r => `${r.tx},${r.ty}`));
+  const sq = new Set(c.sqRows.filter(r => inBox(r, sx, sy, M)).map(r => `${r.tx},${r.ty}`));
+  res.json({
+    ix, iy, n: N, sqi: bitmapHex(N, (x, y) => sqi.has(`${ix + x},${iy + y}`)),
+    blk: bitmapHex(N, (x, y) => blk.has(`${ix + x},${iy + y}`)),
+    sx, sy, m: M, sq: bitmapHex(M, (x, y) => sq.has(`${sx + x},${sy + y}`)),
+    tot: { sq: c.sqRows.length, sqi: c.sqiRows.length },
+  });
 });
 
 app.put('/api/profile/set-password', requireAuth, async (req, res) => {

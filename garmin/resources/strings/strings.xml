@@ -1,0 +1,5 @@
+<strings>
+    <string id="AppName">Squadrats</string>
+    <string id="serverUrl">Adres serwera (HTTPS)</string>
+    <string id="apiKey">Klucz Garmin z profilu</string>
+</strings>

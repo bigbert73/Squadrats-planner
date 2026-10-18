@@ -1,0 +1,8 @@
+<settings>
+    <setting propertyKey="@Properties.serverUrl" title="@Strings.serverUrl">
+        <settingConfig type="alphaNumeric"/>
+    </setting>
+    <setting propertyKey="@Properties.apiKey" title="@Strings.apiKey">
+        <settingConfig type="alphaNumeric"/>
+    </setting>
+</settings>
