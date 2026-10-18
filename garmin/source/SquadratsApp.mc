@@ -1,6 +1,7 @@
 import Toybox.Application;
 import Toybox.Background;
 import Toybox.Lang;
+import Toybox.System;
 import Toybox.Time;
 import Toybox.WatchUi;
 
@@ -36,11 +37,20 @@ class SquadratsApp extends Application.AppBase {
             Background.registerForTemporalEvent(new Time.Duration(5 * 60));
         }
         if (data instanceof Dictionary && data.hasKey("sqi")) {
-            Application.Storage.setValue("area", data);
-            if (field != null) {
-                field.loadArea(data);
+            System.println("bg: area n=" + data["n"] + " m=" + data["m"]);
+            try {
+                Application.Storage.setValue("area", data);
+                if (field != null) {
+                    field.loadArea(data);
+                }
+            } catch (e) {
+                System.println("bg: " + e.getErrorMessage());
+                if (field != null) {
+                    field.setStatus("blad: " + e.getErrorMessage());
+                }
             }
         } else if (field != null) {
+            System.println("bg: " + data);
             field.setStatus(data);
         }
     }

@@ -209,29 +209,42 @@ class SquadratsField extends WatchUi.DataField {
         var x0 = lx.toNumber() - hx, x1 = lx.toNumber() + hx;
         var y0 = ly.toNumber() - hy, y1 = ly.toNumber() + hy;
         var grid = dark ? 0x333333 : 0xCCCCCC;
+        var outside = dark ? 0x111111 : 0xEEEEEE;
+        var ox = cx - (lx * ts).toNumber(), oy = cy - (ly * ts).toNumber();   // pixel of bitmap (0,0)
+        var anyNew = nSqi > 0;
 
+        // Kept cheap: a full-screen field is ~500 cells every second and the
+        // watchdog stops apps that run too long per update
         for (var y = y0; y <= y1; y++) {
-            var py = cy + ((y - ly) * ts).toNumber();
+            var py = oy + y * ts;
+            var inY = y >= 0 && y < n;
             for (var x = x0; x <= x1; x++) {
-                var px = cx + ((x - lx) * ts).toNumber();
-                var b = bit(sqi, n, x, y);
                 var col = null;
-                if (b < 0) {
-                    col = dark ? 0x111111 : 0xEEEEEE;
-                } else if (rideSqi.hasKey(key(ix + x, iy + y))) {
-                    col = C_NEW;
-                } else if (b == 1) {
-                    col = C_OWNED;
-                } else if (bit(blk, n, x, y) == 1) {
-                    col = C_BLOCKED;
+                if (!inY || x < 0 || x >= n) {
+                    col = outside;
+                } else {
+                    var i = y * n + x;
+                    var sh = 7 - (i & 7);
+                    if (anyNew && rideSqi.hasKey(key(ix + x, iy + y))) {
+                        col = C_NEW;
+                    } else if ((sqi[i >> 3] >> sh) & 1) {
+                        col = C_OWNED;
+                    } else if (blk != null && ((blk[i >> 3] >> sh) & 1)) {
+                        col = C_BLOCKED;
+                    }
                 }
                 if (col != null) {
                     dc.setColor(col, col);
-                    dc.fillRectangle(px, py, ts, ts);
+                    dc.fillRectangle(ox + x * ts, py, ts, ts);
                 }
-                dc.setColor(grid, Graphics.COLOR_TRANSPARENT);
-                dc.drawRectangle(px, py, ts + 1, ts + 1);
             }
+        }
+        dc.setColor(grid, Graphics.COLOR_TRANSPARENT);
+        for (var x = x0; x <= x1 + 1; x++) {
+            dc.drawLine(ox + x * ts, 0, ox + x * ts, h);
+        }
+        for (var y = y0; y <= y1 + 1; y++) {
+            dc.drawLine(0, oy + y * ts, w, oy + y * ts);
         }
 
         // Squadrats not collected yet: thick orange outline
@@ -240,8 +253,8 @@ class SquadratsField extends WatchUi.DataField {
         for (var qy = (iy + y0) >> 3; qy <= (iy + y1) >> 3; qy++) {
             for (var qx = (ix + x0) >> 3; qx <= (ix + x1) >> 3; qx++) {
                 if (bit(sq, m, qx - sx, qy - sy) == 0 && !rideSq.hasKey(key(qx, qy))) {
-                    var px = cx + ((qx * 8 - ix - lx) * ts).toNumber();
-                    var py = cy + ((qy * 8 - iy - ly) * ts).toNumber();
+                    var px = ox + (qx * 8 - ix) * ts;
+                    var py = oy + (qy * 8 - iy) * ts;
                     dc.drawRectangle(px, py, ts * 8 + 1, ts * 8 + 1);
                 }
             }
@@ -249,7 +262,7 @@ class SquadratsField extends WatchUi.DataField {
         dc.setPenWidth(1);
 
         drawRider(dc, cx, cy, fg);
-        drawCounters(dc, w, 2, fg, true);
+        drawCounters(dc, w, 8, fg, true);
     }
 
     hidden function drawRider(dc, cx, cy, fg) {
