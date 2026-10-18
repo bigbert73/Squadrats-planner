@@ -103,6 +103,16 @@ class SquadratsField extends WatchUi.DataField {
             }
         }
 
+        // A background run that never got an answer (killed by the system)
+        // doesn't reach onBackgroundData, which is what re-registers the
+        // 5-minute refresh; put it back here
+        if ((Background has :getTemporalEventRegisteredTime) && Background.getTemporalEventRegisteredTime() == null) {
+            try {
+                Background.registerForTemporalEvent(new Time.Duration(5 * 60));
+            } catch (e) {
+            }
+        }
+
         // Collect only while the activity is recording
         if (info.timerState != Activity.TIMER_STATE_ON || sqi == null) {
             return;
@@ -146,6 +156,26 @@ class SquadratsField extends WatchUi.DataField {
         }
     }
 
+    // While waiting: when the background service last ran and what is
+    // scheduled next, to tell "never runs" from "runs but gets nothing"
+    hidden function bgInfo() {
+        if (!(Background has :getLastTemporalEventTime)) {
+            return "tlo: brak";
+        }
+        var now = Time.now().value();
+        var last = Background.getLastTemporalEventTime();
+        var reg = Background.getTemporalEventRegisteredTime();
+        var s = "tlo: " + (last == null ? "nigdy" : (now - last.value()) + "s temu");
+        if (reg == null) {
+            s += ", brak planu";
+        } else if (reg instanceof Time.Duration) {
+            s += ", co " + reg.value() + "s";
+        } else {
+            s += ", za " + (reg.value() - now) + "s";
+        }
+        return s;
+    }
+
     function onUpdate(dc as Graphics.Dc) as Void {
         var w = dc.getWidth(), h = dc.getHeight();
         var bg = getBackgroundColor();
@@ -159,6 +189,7 @@ class SquadratsField extends WatchUi.DataField {
             if (status != null) {
                 msg += "\n(" + status + ")";
             }
+            msg += "\n" + bgInfo();
             dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
             dc.drawText(w / 2, h / 2, Graphics.FONT_XTINY, msg,
                 Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
