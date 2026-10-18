@@ -215,9 +215,10 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 #map{width:100%;height:100%;background:#07090f;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #elev-panel{display:none;position:absolute;bottom:0;left:0;right:0;height:32%;z-index:450;background:rgba(13,17,23,.93);backdrop-filter:blur(6px);border-top:1px solid var(--border);flex-direction:column;pointer-events:auto}
 #elev-panel.open{display:flex}
+body.elev-open #toast{bottom:calc(32% + 16px)}
 #elev-head{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--border);flex-shrink:0;font-size:11px;color:var(--tx2)}
 #elev-stats{flex:1;display:flex;gap:14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx3)}
-#elev-wrap{flex:1;position:relative;overflow:hidden;cursor:crosshair}
+#elev-wrap{flex:1;position:relative;overflow:hidden;cursor:crosshair;touch-action:none;user-select:none;-webkit-user-select:none}
 #elev-svg{width:100%;height:100%;display:block}
 #elev-tip{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:rgba(13,17,23,.85);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--tx);pointer-events:none;white-space:nowrap;display:none}
 #sv-panel{display:none;flex-direction:column;background:var(--bg);border-left:2px solid var(--green);flex-shrink:0;width:50%}
@@ -430,6 +431,9 @@ body.riding #zlvl{display:none}
   #zlvl{top:auto;bottom:calc(84px + env(safe-area-inset-bottom));right:6px}
   #toast{bottom:calc(84px + env(safe-area-inset-bottom))}
   #ride-bar{bottom:calc(84px + env(safe-area-inset-bottom))}
+  #elev-panel{bottom:calc(68px + env(safe-area-inset-bottom));height:30%}
+  body.elev-open #zlvl{display:none}
+  body.elev-open #toast{bottom:calc(30% + 80px + env(safe-area-inset-bottom))}
   body.riding #toast{bottom:calc(140px + env(safe-area-inset-bottom))}
 
   /* iOS Safari zooms the page on focus when a field's font-size is below 16px */
@@ -1701,7 +1705,11 @@ function buildElevData(coords, profile){
   for(let i=1;i<coords.length;i++){
     cumDist.push(cumDist[i-1]+L.latLng(coords[i-1].lat,coords[i-1].lng).distanceTo(L.latLng(coords[i].lat,coords[i].lng))/1000);
   }
-  if(profile && profile.length){
+  // BRouter's geometry carries an interpolated height for every vertex (dense,
+  // 0.25 m steps); its per-way "messages" profile is sparse and whole-metre,
+  // so only fall back to it when the geometry has no heights.
+  const geomElev=coords.some(c=>c.elev);
+  if(!geomElev && profile && profile.length){
     // Map each BRouter elevation point to the nearest coord by cumulative distance
     elevData=profile.map(p=>{
       // Binary search for closest coord index
@@ -1711,12 +1719,37 @@ function buildElevData(coords, profile){
       const ci=(lo>0&&Math.abs(cumDist[lo-1]-p.dist)<Math.abs(cumDist[lo]-p.dist))?lo-1:lo;
       return {dist:p.dist,elev:p.elev,lat:coords[ci].lat,lng:coords[ci].lng};
     });
-    return;
+  }else{
+    // Fallback: elevation from geometry coordinates
+    for(let i=0;i<coords.length;i++){
+      elevData.push({dist:cumDist[i],elev:coords[i].elev??0,lat:coords[i].lat,lng:coords[i].lng});
+    }
   }
-  // Fallback: elevation from geometry coordinates
-  for(let i=0;i<coords.length;i++){
-    elevData.push({dist:cumDist[i],elev:coords[i].elev??0,lat:coords[i].lat,lng:coords[i].lng});
+  smoothElev(elevData);
+}
+
+// SRTM heights come in whole metres with ~3-5 m of noise per sample (and
+// bridges/trees show up as spikes), which on a flat route turns the chart into
+// a saw. Average over a distance window (wider for long routes) - same idea as
+// Strava/Komoot use before drawing the profile and counting the climbing.
+function smoothElev(data){
+  if(data.length<3||!data.some(p=>p.elev>0)) return;
+  const total=data[data.length-1].dist;
+  const half=Math.max(0.12,total/500)/2; // km
+  const raw=data.map(p=>p.elev);
+  let lo=0,hi=0,sum=0;
+  for(let i=0;i<data.length;i++){
+    while(hi<data.length&&data[hi].dist<=data[i].dist+half){sum+=raw[hi];hi++;}
+    while(data[lo].dist<data[i].dist-half){sum-=raw[lo];lo++;}
+    data[i].elev=sum/(hi-lo);
   }
+}
+
+// Index of the elevData point closest to a distance (km) - binary search
+function elevIdxAt(dist){
+  let lo=0,hi=elevData.length-1;
+  while(lo<hi){const mid=(lo+hi)>>1;if(elevData[mid].dist<dist)lo=mid+1;else hi=mid;}
+  return (lo>0&&Math.abs(elevData[lo-1].dist-dist)<Math.abs(elevData[lo].dist-dist))?lo-1:lo;
 }
 
 function clearElevCursor(){
@@ -1727,6 +1760,7 @@ function toggleElev(){
   const p=g('elev-panel');
   const on=!p.classList.contains('open');
   p.classList.toggle('open',on);
+  document.body.classList.toggle('elev-open',on);
   g('mtb-elev').classList.toggle('on',on);
   if(on&&elevData.length) drawElevChart();
   map.invalidateSize();
@@ -1748,11 +1782,15 @@ function drawElevChart(){
   const totalDist=elevData[elevData.length-1].dist;
   const elevs=elevData.map(p=>p.elev);
   const minE=Math.min(...elevs), maxE=Math.max(...elevs);
-  const rangeE=Math.max(maxE-minE,10);
-  const ascent=elevData.reduce((a,p,i)=>i>0&&p.elev>elevData[i-1].elev?a+(p.elev-elevData[i-1].elev):a,0);
+  // Keep at least 40 m of vertical scale so a flat ride doesn't look alpine
+  const padE=Math.max(0,40-(maxE-minE))/2;
+  const tickStep=[5,10,20,25,50,100,200,250,500].find(t=>t*4>=maxE-minE+2*padE)||1000;
+  const loE=Math.max(0,Math.floor((minE-padE)/tickStep)*tickStep);
+  const tickCount=Math.max(1,Math.ceil((maxE+padE-loE)/tickStep));
+  const rangeE=tickCount*tickStep;
 
   const xs=d=>PAD.l+d/totalDist*cw;
-  const ys=e=>PAD.t+ch-(e-minE)/rangeE*ch;
+  const ys=e=>PAD.t+ch-(e-loE)/rangeE*ch;
 
   // Sample for performance
   const step=Math.max(1,Math.floor(elevData.length/600));
@@ -1762,10 +1800,9 @@ function drawElevChart(){
   const area=line+' L'+xs(totalDist).toFixed(1)+','+(PAD.t+ch)+' L'+PAD.l+','+(PAD.t+ch)+' Z';
 
   // Y axis ticks
-  const tickCount=4;
   let yticks='';
   for(let i=0;i<=tickCount;i++){
-    const e=minE+rangeE*i/tickCount;
+    const e=loE+rangeE*i/tickCount;
     const y=ys(e);
     yticks+=`<line x1="${PAD.l-4}" y1="${y.toFixed(1)}" x2="${W-PAD.r}" y2="${y.toFixed(1)}" stroke="#333" stroke-width="1"/>
     <text x="${PAD.l-6}" y="${(y+3.5).toFixed(1)}" text-anchor="end" fill="#666" font-size="9">${Math.round(e)}</text>`;
@@ -1794,33 +1831,39 @@ function drawElevChart(){
 
   updElevSummary();
 
-  // Hover interaction
-  wrap.onmousemove=e=>{
+  // Scrub: mouse hover on desktop, finger drag on the phone. The map follows
+  // the cursor along the route.
+  const scrub=clientX=>{
     const r=wrap.getBoundingClientRect();
-    const mx=e.clientX-r.left;
-    const dist=(mx-PAD.l)/cw*totalDist;
-    if(dist<0||dist>totalDist) return;
-    const idx=elevData.reduce((best,p,i)=>Math.abs(p.dist-dist)<Math.abs(elevData[best].dist-dist)?i:best,0);
-    const pt=elevData[idx];
+    const dist=Math.min(totalDist,Math.max(0,(clientX-r.left-PAD.l)/cw*totalDist));
+    const pt=elevData[elevIdxAt(dist)];
     const x=xs(pt.dist), y=ys(pt.elev);
-    // cursor line
     const old=svg.querySelector('.ev-cursor');
     if(old) old.remove();
     svg.insertAdjacentHTML('beforeend',
-      `<g class="ev-cursor"><line x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${PAD.t+ch}" stroke="#fff" stroke-width="1" stroke-dasharray="3 2" opacity=".6"/>
-       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" fill="#fff" stroke="#4fa3ff" stroke-width="2"/></g>`);
-    // tooltip
+      `<g class="ev-cursor"><line x1="${x.toFixed(1)}" y1="${PAD.t}" x2="${x.toFixed(1)}" y2="${PAD.t+ch}" stroke="#fff" stroke-width="1.5" opacity=".85"/>
+       <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="#fff" stroke="#4fa3ff" stroke-width="2"/></g>`);
     const tip=g('elev-tip');
     tip.style.display='block';
-    tip.style.left=(x/W*100).toFixed(1)+'%';
-    tip.textContent=`${pt.dist.toFixed(1)} km · ${Math.round(pt.elev)} m`;
-    // map cursor + pan to keep dot visible
-    clearElevCursor();
-    const ci=L.divIcon({className:'',html:'<div style="width:10px;height:10px;background:#fff;border:2px solid #4fa3ff;border-radius:50%;margin:-5px 0 0 -5px"></div>',iconSize:[0,0]});
-    elevCursor=L.marker([pt.lat,pt.lng],{icon:ci,interactive:false,zIndexOffset:600}).addTo(map);
-    map.panTo([pt.lat,pt.lng],{animate:false,noMoveStart:true});
+    tip.style.left=Math.min(85,Math.max(15,x/W*100)).toFixed(1)+'%';
+    const i0=elevIdxAt(Math.max(0,pt.dist-0.1)), i1=elevIdxAt(Math.min(totalDist,pt.dist+0.1));
+    const dd=(elevData[i1].dist-elevData[i0].dist)*1000;
+    const grade=dd>20?(elevData[i1].elev-elevData[i0].elev)/dd*100:0;
+    tip.textContent=`${pt.dist.toFixed(1).replace('.',',')} km · ${Math.round(pt.elev)} m · ${grade>=0?'+':''}${grade.toFixed(1).replace('.',',')}%`;
+    if(!elevCursor){
+      const ci=L.divIcon({className:'',html:'<div style="width:14px;height:14px;background:#fff;border:3px solid #4fa3ff;border-radius:50%;margin:-7px 0 0 -7px;box-shadow:0 0 0 3px rgba(79,163,255,.35)"></div>',iconSize:[0,0]});
+      elevCursor=L.marker([pt.lat,pt.lng],{icon:ci,interactive:false,zIndexOffset:600}).addTo(map);
+    }else elevCursor.setLatLng([pt.lat,pt.lng]);
+    // Centre the dot in the part of the map left visible above the panel
+    const mr=map.getContainer().getBoundingClientRect();
+    const visBottom=Math.min(mr.bottom,g('elev-panel').getBoundingClientRect().top);
+    const dy=mr.height/2-(visBottom-mr.top)/2;
+    map.panTo(map.unproject(map.project([pt.lat,pt.lng]).add([0,dy])),{animate:false,noMoveStart:true});
   };
-  wrap.onmouseleave=()=>{};
+  let dragging=false;
+  wrap.onpointerdown=e=>{dragging=true;try{wrap.setPointerCapture(e.pointerId);}catch(_){}scrub(e.clientX);};
+  wrap.onpointermove=e=>{if(dragging||e.pointerType==='mouse')scrub(e.clientX);};
+  wrap.onpointerup=wrap.onpointercancel=()=>{dragging=false;};
 }
 
 // Draw a route (fresh from the planner or loaded from "Moje trasy") and
@@ -3108,8 +3151,10 @@ function applyNewTiles(prv){
 
 function updElevSummary(){
   if(!elevData.length||!elevData.some(p=>p.elev>0)){_elevUp=_elevDown=null;refreshRouteUI();return;}
-  let asc=0,dsc=0;
-  for(let i=1;i<elevData.length;i++){const d=elevData[i].elev-elevData[i-1].elev;if(d>0)asc+=d;else dsc-=d;}
+  // Count climbing only once a change exceeds a small threshold (hysteresis),
+  // so leftover wobble of the smoothed profile doesn't add up over 50 km
+  let asc=0,dsc=0,ref=elevData[0].elev;
+  for(const p of elevData){const d=p.elev-ref;if(d>=2){asc+=d;ref=p.elev;}else if(d<=-2){dsc-=d;ref=p.elev;}}
   _elevUp=asc; _elevDown=dsc; refreshRouteUI();
   const se=g('elev-stats');
   if(se) se.innerHTML=
