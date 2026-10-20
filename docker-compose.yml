@@ -1,5 +1,12 @@
 version: '3.9'
 
+# Logs hold IP addresses and positions: keep them small (privacy policy, pt 5)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   backend:
     build:
@@ -7,6 +14,7 @@ services:
       dockerfile: Dockerfile
     container_name: squadrats-backend
     restart: unless-stopped
+    logging: *logging
     ports:
       - "3000:3000"
     volumes:
@@ -44,6 +52,7 @@ services:
     image: nginx:alpine
     container_name: squadrats-frontend
     restart: unless-stopped
+    logging: *logging
     ports:
       - "8081:80"
     volumes:

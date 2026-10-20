@@ -240,6 +240,41 @@ app.put('/api/profile/set-password', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Account deletion (by the user) ────────────────────────────────────────────
+// Confirmed with the password, or with the username for Google/Strava-only
+// accounts. Revokes the Strava authorisation, then removes every row of the
+// user: activities, squares, routes, blocked squares, tokens.
+app.delete('/api/profile', requireAuth, async (req, res) => {
+  const user = db.getUserById(req.userId);
+  if (!user) return res.status(404).json({ error: 'Użytkownik nie istnieje' });
+  const { password, confirm } = req.body || {};
+  if (user.password_hash) {
+    if (!password || !await bcrypt.compare(password, user.password_hash))
+      return res.status(403).json({ error: 'Nieprawidłowe hasło' });
+  } else if (String(confirm || '').trim().toLowerCase() !== String(user.username).toLowerCase()) {
+    return res.status(403).json({ error: 'Wpisz swoją nazwę użytkownika, aby potwierdzić' });
+  }
+  if (user.role === 'admin') {
+    const others = db.getAllUsers().filter(u => u.id !== user.id);
+    if (others.length && !others.some(u => u.role === 'admin'))
+      return res.status(400).json({ error: 'Jesteś jedynym administratorem. Najpierw nadaj komuś rolę admina.' });
+  }
+  const token = db.getStravaAccessToken(user.id);
+  if (token) {
+    try {
+      await axios.post('https://www.strava.com/oauth/deauthorize', null, { params: { access_token: token }, timeout: 8000 });
+    } catch (e) {
+      console.warn(`[account] strava deauthorize user=${user.id}: ${e.response?.status || e.message}`);
+    }
+  }
+  db.deleteUser(user.id);
+  invalidateUserCache(user.id);
+  for (let i = clientLogs.length - 1; i >= 0; i--) if (clientLogs[i].uid === user.id) clientLogs.splice(i, 1);
+  console.log(`[account] user ${user.id} deleted their account`);
+  res.clearCookie('token');
+  res.json({ ok: true });
+});
+
 // ── Admin routes ──────────────────────────────────────────────────────────────
 
 app.get('/api/admin/users', requireAdmin, (req, res) => {
@@ -730,68 +765,6 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   return res.json(best.data);
 });
 
-// ── Komoot import ─────────────────────────────────────────────────────────────
-
-app.get('/api/komoot/tour', requireAuth, async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).json({ error: 'Brak URL' });
-
-  // Support: /tour/ID, /t/ID, /pl-pl/tour/ID, /pl-pl/smarttour/ID, /smarttour/ID
-  const m = url.match(/komoot\.(?:com|de)\/(?:[a-z]{2}-[a-z]{2}\/)?(?:smart)?(?:tour|t)\/([a-z0-9]+)/i);
-  if (!m) return res.status(400).json({ error: 'Nieprawidłowy link Komoot. Wklej URL trasy, np. https://www.komoot.com/tour/1234567890 lub https://www.komoot.com/pl-pl/smarttour/40291321' });
-
-  const id = m[1];
-  const isSmartTour = url.toLowerCase().includes('smarttour');
-  const HDR = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'application/hal+json, */*;q=0.8',
-    'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.7',
-    'Referer': 'https://www.komoot.com/',
-  };
-
-  const fetchTour = async (endpoint) => {
-    const r = await fetch(`https://api.komoot.de/v007/${endpoint}?_embedded=coordinates`, { headers: HDR });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const items = d._embedded?.coordinates?.items;
-    if (!items?.length) return null;
-    return { name: d.name || `Trasa Komoot #${id}`, distanceM: Math.round(d.distance || 0), sport: d.sport || '', items };
-  };
-
-  try {
-    let result = null;
-
-    if (isSmartTour) {
-      // Smarttour page embeds the internal discover_tours ID in its HTML
-      const htmlR = await fetch(`https://www.komoot.com/smarttour/${id}`, {
-        headers: { ...HDR, 'Accept': 'text/html,*/*;q=0.8' }
-      });
-      if (!htmlR.ok) {
-        if (htmlR.status === 401 || htmlR.status === 403)
-          return res.status(403).json({ error: 'Trasa jest prywatna — wyeksportuj GPX z Komoot' });
-        return res.status(htmlR.status).json({ error: `Komoot błąd ${htmlR.status}` });
-      }
-      const html = await htmlR.text();
-      const dtm = html.match(/discover_tours\/([a-z0-9]+)/i);
-      if (dtm) result = await fetchTour(`discover_tours/${dtm[1]}`);
-      if (!result) result = await fetchTour(`smart_tours/${id}`);
-    } else {
-      result = await fetchTour(`tours/${id}`);
-    }
-
-    if (!result) return res.status(404).json({ error: 'Nie udało się pobrać danych trasy. Sprawdź czy trasa jest publiczna lub wyeksportuj GPX z Komoot.' });
-
-    res.json({
-      name: result.name,
-      distanceM: result.distanceM,
-      sport: result.sport,
-      coords: result.items.map(c => ({ lat: c.lat, lng: c.lng, elev: c.alt ?? 0 })),
-    });
-  } catch (e) {
-    res.status(500).json({ error: 'Błąd połączenia z Komoot: ' + e.message });
-  }
-});
-
 // ── GPX import ────────────────────────────────────────────────────────────────
 
 app.post('/api/gpx/import', requireAuth, (req, res) => {
@@ -936,36 +909,6 @@ app.post('/api/streetview/coverage', async (req, res) => {
     }));
     res.json({ coverage });
   } catch { res.json({ coverage: null }); }
-});
-
-// ── Strava Heatmap proxy ──────────────────────────────────────────────────────
-app.post('/api/heatmap/credentials', requireAuth, (req, res) => {
-  const cookie = (req.body.cookie || '').trim();
-  if (!cookie) return res.status(400).json({ error: 'Missing cookie' });
-  db.setHeatmapCreds(req.userId, cookie, '', '');
-  res.json({ ok: true });
-});
-
-app.get('/api/heatmap/tile/:z/:x/:y', requireAuth, async (req, res) => {
-  const { z, x, y } = req.params;
-  const act = req.query.act || 'ride';
-  const col = req.query.col || 'hot';
-  const sub = ['a','b','c'][parseInt(x) % 3];
-  const url = `https://heatmap-external-${sub}.strava.com/tiles/${act}/${col}/${z}/${x}/${y}.png`;
-  try {
-    const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 10000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://www.strava.com/'
-      }
-    });
-    res.set('Content-Type', r.headers['content-type'] || 'image/png');
-    res.set('Cache-Control', 'public, max-age=86400');
-    res.send(r.data);
-  } catch (e) {
-    console.error(`[HM] strava error: ${e.response?.status || e.message}`);
-    res.status(404).send();
-  }
 });
 
 // ── Overpass API proxy ────────────────────────────────────────────────────────

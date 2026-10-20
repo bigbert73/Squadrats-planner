@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Polityka prywatności</title>
+<link rel="stylesheet" href="/legal.css">
+</head>
+<body>
+<main>
+<p><a href="/">← Wróć do planera</a></p>
+<h1>Polityka prywatności</h1>
+<p class="muted">Squadrats Route Planner · obowiązuje od 20 października 2026 r.</p>
+
+<p>Ten dokument opisuje, jakie dane zbiera planer tras (dalej „Aplikacja”), po co, komu są przekazywane i jakie masz prawa. Aplikacja nie wyświetla reklam, nie sprzedaje danych i nie używa narzędzi śledzących ani analitycznych.</p>
+
+<h2>1. Administrator danych</h2>
+<p>Administratorem danych jest <span class="fill">[uzupełnij: imię i nazwisko lub nazwa firmy, adres]</span>. W sprawach danych osobowych pisz na <span class="fill">[uzupełnij: adres e-mail]</span>.</p>
+
+<h2>2. Jakie dane przetwarzamy</h2>
+<table>
+<tr><th>Dane</th><th>Skąd</th><th>Po co</th></tr>
+<tr><td>Nazwa użytkownika, e-mail, hasło (zapisane wyłącznie jako skrót bcrypt)</td><td>od Ciebie przy rejestracji</td><td>konto i logowanie</td></tr>
+<tr><td>Identyfikator i e-mail konta Google</td><td>Google, gdy logujesz się przez Google</td><td>logowanie</td></tr>
+<tr><td>Tokeny dostępu Strava, identyfikator i sekret Twojej aplikacji Strava API</td><td>od Ciebie i ze Stravy</td><td>pobieranie Twoich aktywności</td></tr>
+<tr><td>Aktywności ze Stravy: daty, typy, dystanse i ślady GPS</td><td>Strava, po Twojej zgodzie</td><td>wyliczenie zdobytych kwadratów</td></tr>
+<tr><td>Zdobyte kwadraty, zaimportowane pliki GPX i KML</td><td>wyliczone lub wgrane przez Ciebie</td><td>mapa postępów i planowanie tras</td></tr>
+<tr><td>Punkt „dom” (współrzędne)</td><td>od Ciebie</td><td>planowanie pętli i statystyki zasięgu</td></tr>
+<tr><td>Zapisane trasy, kwadraty oznaczone jako niezdobywalne</td><td>od Ciebie</td><td>funkcje planera</td></tr>
+<tr><td>Klucz Garmin i bieżąca pozycja z licznika</td><td>pole Squadrats na urządzeniu Garmin</td><td>wysłanie na licznik kwadratów wokół Ciebie</td></tr>
+<tr><td>Techniczne logi błędów (adres IP, czas, komunikat błędu)</td><td>serwer i przeglądarka</td><td>bezpieczeństwo i naprawa błędów</td></tr>
+</table>
+<p>Podstawą przetwarzania jest umowa o świadczenie usługi (art. 6 ust. 1 lit. b RODO), a w przypadku logów i zabezpieczeń prawnie uzasadniony interes administratora (art. 6 ust. 1 lit. f RODO). Połączenie ze Stravą i logowanie przez Google wymagają Twojej zgody wyrażonej na ich stronach (art. 6 ust. 1 lit. a RODO); możesz ją w każdej chwili cofnąć.</p>
+
+<h2>3. Pliki cookie i pamięć przeglądarki</h2>
+<p>Używamy jednego niezbędnego ciasteczka <code>token</code> (sesja logowania, ważne 30 dni, niedostępne dla skryptów). W pamięci przeglądarki (localStorage) zapisujemy ustawienia interfejsu, np. włączone warstwy mapy. Nie używamy ciasteczek reklamowych ani analitycznych.</p>
+
+<h2>4. Komu przekazujemy dane</h2>
+<p>Dane są przechowywane na serwerze administratora. Aby działały mapy i funkcje planera, część danych trafia do zewnętrznych usług:</p>
+<ul>
+<li><b>Strava</b>: pobieranie Twoich aktywności przez oficjalne API, po Twojej autoryzacji.</li>
+<li><b>Google</b>: logowanie (Google Sign-In) oraz Street View; do Google Maps Platform trafiają współrzędne punktów trasy, dla których sprawdzamy dostępność zdjęć.</li>
+<li><b>Dostawcy map</b>: OpenStreetMap, OpenTopoMap, CyclOSM, Waymarked Trails, Esri (zdjęcia satelitarne). Twoja przeglądarka pobiera z ich serwerów fragmenty mapy, więc widzą Twój adres IP i oglądany obszar.</li>
+<li><b>Overpass API i Wikipedia</b>: obszar wokół planowanej trasy, w celu wyszukania punktów POI i ciekawych miejsc (zapytania wysyła nasz serwer, bez Twoich danych osobowych).</li>
+<li><b>Nominatim (OpenStreetMap)</b>: wpisany adres, gdy wyszukujesz punkt „dom”.</li>
+<li><b>OSRM</b>: punkty trasy, gdy używasz tego silnika wyznaczania tras.</li>
+<li><b>jsDelivr, unpkg, Google Fonts</b>: biblioteki i czcionki strony; widzą Twój adres IP.</li>
+</ul>
+<p>Część z tych usług działa poza Europejskim Obszarem Gospodarczym (np. w USA). Przekazanie odbywa się na podstawie decyzji Komisji Europejskiej (EU-U.S. Data Privacy Framework) lub standardowych klauzul umownych stosowanych przez tych dostawców.</p>
+
+<h2>5. Jak długo przechowujemy dane</h2>
+<p>Dane konta, aktywności, kwadraty i trasy przechowujemy do czasu usunięcia konta. Logi techniczne serwera mają ograniczony rozmiar i najstarsze wpisy są automatycznie nadpisywane. Logi błędów przeglądarki trzymamy wyłącznie w pamięci serwera, więc znikają przy jego restarcie.</p>
+
+<h2>6. Usunięcie konta</h2>
+<p>Konto usuniesz samodzielnie w <b>Profil → Prywatność i konto → Usuń konto</b>. Usuwamy wtedy natychmiast i trwale wszystkie Twoje dane: aktywności, kwadraty, trasy, oznaczenia, tokeny Strava i klucz Garmin. Odłączamy też Aplikację od Twojego konta Strava. Jeśli nie możesz się zalogować, napisz na adres z punktu 1, a usuniemy konto za Ciebie.</p>
+<p>Gdy odłączysz Aplikację w ustawieniach Stravy, przestaniemy pobierać nowe aktywności. Wcześniej pobrane dane możesz usunąć, usuwając konto.</p>
+
+<h2>7. Twoje prawa</h2>
+<p>Masz prawo do dostępu do swoich danych, ich sprostowania, usunięcia, ograniczenia przetwarzania i przeniesienia, a także do sprzeciwu wobec przetwarzania i cofnięcia zgody. Przysługuje Ci również skarga do Prezesa Urzędu Ochrony Danych Osobowych (ul. Stawki 2, 00-193 Warszawa, uodo.gov.pl).</p>
+
+<h2>8. Bezpieczeństwo i dzieci</h2>
+<p>Połączenie z Aplikacją jest szyfrowane (HTTPS), a hasła przechowujemy wyłącznie jako skróty bcrypt. Aplikacja nie jest przeznaczona dla osób poniżej 16 lat.</p>
+
+<h2>9. Zmiany</h2>
+<p>O istotnych zmianach tej polityki poinformujemy w Aplikacji. Aktualna wersja jest zawsze dostępna pod tym adresem.</p>
+</main>
+</body>
+</html>

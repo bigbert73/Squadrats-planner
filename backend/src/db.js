@@ -262,11 +262,11 @@ db.exec(SCHEMA_SQL);
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_garmin_key ON users(garmin_key)"); } catch(_) {}
 })();
 
-// ── Heatmap credentials migration ─────────────────────────────────────────────
-(function migrateHeatmap() {
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_kp  TEXT"); } catch(_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_pol TEXT"); } catch(_) {}
-  try { db.exec("ALTER TABLE users ADD COLUMN hm_sig TEXT"); } catch(_) {}
+// ── Strava heatmap session cookies (feature removed) ─────────────────────────
+// The heatmap proxy used to store a user's Strava session cookie; wipe any
+// that are left. The columns stay so old databases still open.
+(function dropHeatmapCreds() {
+  try { db.exec("UPDATE users SET hm_kp = NULL, hm_pol = NULL, hm_sig = NULL WHERE hm_kp IS NOT NULL OR hm_pol IS NOT NULL OR hm_sig IS NOT NULL"); } catch(_) {}
 })();
 
 // ── Prepared statements ───────────────────────────────────────────────────────
@@ -285,8 +285,6 @@ const q = {
   updateHome:       db.prepare("UPDATE users SET home_lat = ?, home_lng = ? WHERE id = ?"),
   setGarminKey:     db.prepare("UPDATE users SET garmin_key = ? WHERE id = ?"),
   userByGarminKey:  db.prepare("SELECT id FROM users WHERE garmin_key = ?"),
-  updateHeatmap:    db.prepare("UPDATE users SET hm_kp = ?, hm_pol = ?, hm_sig = ? WHERE id = ?"),
-  getHeatmap:       db.prepare("SELECT hm_kp, hm_pol, hm_sig FROM users WHERE id = ?"),
   deleteUser:       db.prepare("DELETE FROM users WHERE id = ?"),
 
   getUserByOAuth:   db.prepare("SELECT * FROM users WHERE oauth_provider = ? AND oauth_id = ?"),
@@ -360,9 +358,15 @@ module.exports = {
   setHomePoint(id, lat, lng){ q.updateHome.run(lat, lng, id); },
   setGarminKey(id, key)     { q.setGarminKey.run(key, id); },
   userIdByGarminKey(key)    { return key ? q.userByGarminKey.get(key)?.id ?? null : null; },
-  setHeatmapCreds(id, kp, pol, sig) { q.updateHeatmap.run(kp, pol, sig, id); },
-  getHeatmapCreds(id) { return q.getHeatmap.get(id); },
-  deleteUser(id)           { q.deleteUser.run(id); },
+  // Older databases were migrated without ON DELETE CASCADE on some tables,
+  // so remove every row that belongs to the user explicitly
+  deleteUser: db.transaction((id) => {
+    for (const t of ['strava_tokens', 'activities', 'tiles_sq', 'tiles_sqi', 'blocked_sqi', 'saved_routes', 'sync_status']) {
+      db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).run(id);
+    }
+    q.deleteUser.run(id);
+  }),
+  getStravaAccessToken(id)  { return db.prepare("SELECT access_token FROM strava_tokens WHERE user_id = ?").get(id)?.access_token || null; },
 
   createOAuthUser(provider, oauthId, email, username) {
     const role = q.countUsers.get().n === 0 ? 'admin' : 'user';
