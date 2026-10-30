@@ -239,7 +239,7 @@ body.elev-open #toast{bottom:calc(32% + 16px)}
 .mtb{width:30px;height:30px;background:rgba(13,17,23,.9);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--tx2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .mtb:hover{color:var(--tx);border-color:var(--bhi)}.mtb.on{background:rgba(0,230,118,.12);border-color:var(--green);color:var(--green)}
 /* secondary tools + base maps live in a labelled popover next to the column */
-#mtools-pop{display:none;position:absolute;top:0;right:38px;flex-direction:column;gap:1px;min-width:200px;background:rgba(13,17,23,.96);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#mtools-pop{display:none;position:absolute;top:0;right:38px;flex-direction:column;gap:1px;min-width:200px;max-height:calc(100vh - 160px);overflow-y:auto;background:rgba(13,17,23,.96);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:10px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 #mtools-pop.open{display:flex}
 #mtools-pop .mtb{width:100%;height:32px;justify-content:flex-start;gap:10px;padding:0 10px;background:none;backdrop-filter:none;border-color:transparent;font-family:'Space Grotesk',sans-serif;font-size:12px}
 #mtools-pop .mtb:hover{background:var(--hover);border-color:transparent}
@@ -906,6 +906,12 @@ body.riding #zlvl{display:none}
         <button class="mtb"    data-base="topo"      onclick="chBase('topo')"><i class="ti ti-mountain"></i>Topograficzna</button>
         <button class="mtb"    data-base="satellite" onclick="chBase('satellite')"><i class="ti ti-satellite"></i>Satelita</button>
         <button class="mtb"    data-base="dark"      onclick="chBase('dark')"><i class="ti ti-moon"></i>Ciemna</button>
+        <div class="mtp-sec">Teren i dostęp (PL)</div>
+        <button class="mtb" id="mtp-geo-lidar"   onclick="togGeo('lidar')"><i class="ti ti-mountain"></i>Lidar (rzeźba terenu)</button>
+        <button class="mtb" id="mtp-geo-orto"    onclick="togGeo('orto')"><i class="ti ti-photo"></i>Ortofotomapa</button>
+        <button class="mtb" id="mtp-geo-bdl"     onclick="togGeo('bdl')"><i class="ti ti-trees"></i>Oddziały leśne</button>
+        <button class="mtb" id="mtp-geo-gdos"    onclick="togGeo('gdos')"><i class="ti ti-leaf"></i>Rezerwaty</button>
+        <button class="mtb" id="mtp-geo-dzialki" onclick="togGeo('dzialki')"><i class="ti ti-border-corners"></i>Działki</button>
       </div>
     </div>
     <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
@@ -3012,6 +3018,7 @@ function togGeo(name,on,quiet){
     if(!quiet&&mz&&map.getZoom()<mz) toast(`Widoczne od zoomu ${mz} — przybliż mapę`);
   }
   g('lb-geo-'+name).className=on?'lb on-b':'lb';
+  g('mtp-geo-'+name)?.classList.toggle('on',!!on);
   try{localStorage.setItem('geo_on',JSON.stringify(Object.keys(geoOn)));}catch(_){}
 }
 function restoreGeo(){
