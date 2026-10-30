@@ -828,6 +828,17 @@ body.riding #zlvl{display:none}
       <button class="btn btn-x" onclick="toggleGpsTraces(false)"><i class="ti ti-eye-off"></i>Ukryj</button>
     </div>
     <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:10px">
+      <div class="sl" style="font-size:12px;margin-bottom:6px">Teren i dostęp (Polska)</div>
+      <div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:8px">Publiczne mapy GUGiK, Lasów Państwowych i GDOŚ — do oceny kwadratów bez drogi w OSM: czy jest tam ścieżka i czy wolno wejść.</div>
+      <div class="lgrid">
+        <button class="lb" id="lb-geo-lidar" onclick="togGeo('lidar')" title="Cieniowanie numerycznego modelu terenu z lotniczego skanowania laserowego (1 m). Widać ścieżki, dukty, rowy i nasypy także pod koronami drzew. Od zoomu 11."><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-mountain"></i>Lidar (rzeźba)</span><span class="lb-sw"></span></button>
+        <button class="lb" id="lb-geo-orto" onclick="togGeo('orto')" title="Zdjęcia lotnicze Geoportalu (do ~10 cm/px), zwykle nowsze niż satelita Esri. Przykrywa mapę bazową."><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-photo"></i>Ortofotomapa</span><span class="lb-sw"></span></button>
+        <button class="lb" id="lb-geo-bdl" onclick="togGeo('bdl')" title="Granice oddziałów leśnych z Banku Danych o Lasach — to zwykle przejezdne dukty (linie oddziałowe). Od zoomu 12."><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-trees"></i>Oddziały leśne</span><span class="lb-sw"></span></button>
+        <button class="lb" id="lb-geo-gdos" onclick="togGeo('gdos')" title="Rezerwaty, parki narodowe i użytki ekologiczne (GDOŚ). W rezerwacie zwykle nie wolno schodzić ze szlaku."><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-leaf"></i>Rezerwaty</span><span class="lb-sw"></span></button>
+        <button class="lb" id="lb-geo-dzialki" onclick="togGeo('dzialki')" title="Działki ewidencyjne z numerami (Krajowa Integracja Ewidencji Gruntów). Pozwala sprawdzić, czy polna droga to osobna działka drogowa. Od zoomu 16."><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-corners"></i>Działki</span><span class="lb-sw"></span></button>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin-top:14px;padding-top:10px">
       <div class="sl" style="font-size:12px;margin-bottom:6px">Strava Global Heatmap</div>
       <div style="font-size:11px;color:var(--tx3);line-height:1.6;margin-bottom:8px">Strava blokuje dostęp z zewnętrznych stron (SameSite cookies). Otwórz bezpośrednio:</div>
       <a href="https://www.strava.com/maps/global-heatmap?sport=Ride&style=standard" target="_blank" class="btn btn-x" style="text-decoration:none;display:flex;align-items:center;gap:6px"><i class="ti ti-external-link"></i>Otwórz w Strava</a>
@@ -1280,7 +1291,7 @@ async function initMap(){
 
   layoutForWidth();
   await checkAuth();
-  restoreHM(); restoreGpsTraces();
+  restoreHM(); restoreGpsTraces(); restoreGeo();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2909,6 +2920,102 @@ function removeHM(){
 function restoreGpsTraces(){ try{ if(localStorage.getItem('gps_on')) toggleGpsTraces(true,true); }catch(_){} }
 function restoreHM(){
   if(localStorage.getItem('hm_on')==='1') showHM();
+}
+
+// ── Terrain & access overlays: Polish public map services ──────────────
+// Lidar shaded relief (WMTS) and cadastral parcels (WMS) exist only in the
+// Polish grid EPSG:2180 (PUWG 1992), so Puwg92Layer builds each Web Mercator
+// tile from them: the tile's corners are projected to EPSG:2180 and the
+// source images drawn through the affine map between the two (over one
+// 256 px tile the projections differ by well under a pixel from affine).
+
+// Geographic → EPSG:2180 [northing, easting]: transverse Mercator on GRS80,
+// central meridian 19°E, k0 0.9993, false easting 500 km, northing −5300 km.
+function puwg92(lat,lon){
+  const a=6378137, f=1/298.257222101, e2=f*(2-f), ep2=e2/(1-e2), k0=0.9993;
+  const p=lat*Math.PI/180, l=(lon-19)*Math.PI/180, sp=Math.sin(p), cp=Math.cos(p), tp=Math.tan(p);
+  const N=a/Math.sqrt(1-e2*sp*sp), T=tp*tp, C=ep2*cp*cp, A=l*cp, e4=e2*e2, e6=e4*e2;
+  const M=a*((1-e2/4-3*e4/64-5*e6/256)*p-(3*e2/8+3*e4/32+45*e6/1024)*Math.sin(2*p)+(15*e4/256+45*e6/1024)*Math.sin(4*p)-(35*e6/3072)*Math.sin(6*p));
+  const x=k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T*T+72*C-58*ep2)*A**5/120);
+  const y=k0*(M+N*tp*(A*A/2+(5-T+9*C+4*C*C)*A**4/24+(61-58*T+T*T+600*C-330*ep2)*A**6/720));
+  return [y-5300000, x+500000];
+}
+// Geoportal NMT WMTS grid (EPSG:2180, 512 px tiles, origin N 850 km / E 100 km)
+const NMT_SCALES=[7559538.928571429,3779769.4642857146,1889884.7321428573,944942.3660714286,472471.1830357143,236235.59151785716,94494.23660714286,47247.11830357143,23623.559151785714,9449.423660714287,4724.711830357143,1889.8847321428573,944.9423660714286];
+const Puwg92Layer = L.GridLayer.extend({
+  createTile(coords,done){
+    const sz=this.getTileSize(), c=document.createElement('canvas');
+    c.width=sz.x; c.height=sz.y;
+    const nw=coords.scaleBy(sz), ll=(u,v)=>this._map.unproject([nw.x+u,nw.y+v],coords.z);
+    const P=[ll(0,0),ll(sz.x,0),ll(0,sz.y),ll(sz.x,sz.y)].map(q=>puwg92(q.lat,q.lng));
+    // canvas (u,v) → (e,n) is [e0,n0] + A·(u,v); invert A
+    const a11=(P[1][1]-P[0][1])/sz.x, a12=(P[2][1]-P[0][1])/sz.y, a21=(P[1][0]-P[0][0])/sz.x, a22=(P[2][0]-P[0][0])/sz.y;
+    const det=a11*a22-a12*a21, i11=a22/det, i12=-a12/det, i21=-a21/det, i22=a11/det;
+    const e0=P[0][1], n0=P[0][0];
+    const es=P.map(q=>q[1]), ns=P.map(q=>q[0]);
+    const emin=Math.min(...es), emax=Math.max(...es), nmin=Math.min(...ns), nmax=Math.max(...ns);
+    const res=Math.hypot(a11,a21); // metres per canvas pixel
+    const ctx=c.getContext('2d');
+    // draw an image whose top-left is at (E0,N0) with r metres per pixel
+    const place=(img,E0,N0,r)=>{
+      const de=E0-e0, dn=N0-n0;
+      ctx.setTransform(i11*r, i21*r, -i12*r, -i22*r, i11*de+i12*dn, i21*de+i22*dn);
+      ctx.drawImage(img,0,0);
+    };
+    const jobs=[];
+    const load=(url,E0,N0,r)=>jobs.push(new Promise(ok=>{
+      const img=new Image();
+      img.onload=()=>{place(img,E0,N0,r);ok();};
+      img.onerror=()=>ok();
+      img.src=url;
+    }));
+    const o=this.options;
+    if(o.wmts){
+      // the coarsest level that is still at least as sharp as the tile
+      let lv=NMT_SCALES.length-1;
+      for(let i=0;i<NMT_SCALES.length;i++) if(NMT_SCALES[i]*0.00028<=res){lv=i;break;}
+      const r=NMT_SCALES[lv]*0.00028, span=512*r;
+      const c0=Math.floor((emin-100000)/span), c1=Math.floor((emax-100000)/span);
+      const r0=Math.floor((850000-nmax)/span), r1=Math.floor((850000-nmin)/span);
+      for(let row=r0;row<=r1;row++) for(let col=c0;col<=c1;col++)
+        load(`${o.wmts}&TILEMATRIX=EPSG:2180:${lv}&TILEROW=${row}&TILECOL=${col}`,100000+col*span,850000-row*span,r);
+    }else{
+      const w=Math.ceil((emax-emin)/res), h=Math.ceil((nmax-nmin)/res);
+      load(`${o.wms}&WIDTH=${w}&HEIGHT=${h}&BBOX=${emin},${nmin},${emax},${nmax}`,emin,nmax,(emax-emin)/w);
+    }
+    Promise.all(jobs).then(()=>done(null,c));
+    return c;
+  }
+});
+const GEO_LAYERS={
+  lidar:()=>new Puwg92Layer({minZoom:11,maxZoom:21,opacity:.65,zIndex:5,
+    wmts:'https://mapy.geoportal.gov.pl/wss/service/PZGIK/NMT/GRID1/WMTS/ShadedRelief?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=Cieniowanie&STYLE=default&TILEMATRIXSET=EPSG:2180&FORMAT=image/jpeg',
+    attribution:'NMT © <a href="https://www.geoportal.gov.pl">GUGiK</a>'}),
+  orto:()=>L.tileLayer.wms('https://mapy.geoportal.gov.pl/wss/service/PZGIK/ORTO/WMS/HighResolution',
+    {layers:'Raster',format:'image/jpeg',version:'1.3.0',maxZoom:21,zIndex:4,attribution:'Ortofotomapa © <a href="https://www.geoportal.gov.pl">GUGiK</a>'}),
+  bdl:()=>L.tileLayer.wms('https://mapserver.bdl.lasy.gov.pl/ArcGIS/services/WMS_BDL/mapserver/WMSServer',
+    {layers:'2,3',format:'image/png',transparent:true,version:'1.3.0',minZoom:12,maxZoom:21,zIndex:6,attribution:'© <a href="https://www.bdl.lasy.gov.pl">Bank Danych o Lasach</a>'}),
+  gdos:()=>L.tileLayer.wms('https://sdi.gdos.gov.pl/wms',
+    {layers:'GDOS:Rezerwaty,GDOS:ParkiNarodowe,GDOS:UzytkiEkologiczne',format:'image/png',transparent:true,version:'1.3.0',opacity:.55,maxZoom:21,zIndex:7,attribution:'© <a href="https://www.gdos.gov.pl">GDOŚ</a>'}),
+  dzialki:()=>new Puwg92Layer({minZoom:16,maxZoom:21,zIndex:8,
+    wms:'https://integracja.gugik.gov.pl/cgi-bin/KrajowaIntegracjaEwidencjiGruntow?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=dzialki,numery_dzialek&STYLES=&SRS=EPSG:2180&FORMAT=image/png&TRANSPARENT=true',
+    attribution:'Działki © <a href="https://www.geoportal.gov.pl">GUGiK</a>'}),
+};
+const GEO_MIN_ZOOM={lidar:11,bdl:12,dzialki:16};
+const geoOn={};
+function togGeo(name,on,quiet){
+  on=on??!geoOn[name];
+  if(geoOn[name]){map.removeLayer(geoOn[name]);delete geoOn[name];}
+  if(on){
+    geoOn[name]=GEO_LAYERS[name]().addTo(map);
+    const mz=GEO_MIN_ZOOM[name];
+    if(!quiet&&mz&&map.getZoom()<mz) toast(`Widoczne od zoomu ${mz} — przybliż mapę`);
+  }
+  g('lb-geo-'+name).className=on?'lb on-b':'lb';
+  try{localStorage.setItem('geo_on',JSON.stringify(Object.keys(geoOn)));}catch(_){}
+}
+function restoreGeo(){
+  try{for(const n of JSON.parse(localStorage.getItem('geo_on')||'[]')) if(GEO_LAYERS[n]) togGeo(n,true,true);}catch(_){}
 }
 
 // ═══════════════════════════════════════════════════════════════════════
