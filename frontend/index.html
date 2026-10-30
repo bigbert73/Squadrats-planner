@@ -279,6 +279,7 @@ body.elev-open #toast{bottom:calc(32% + 16px)}
 #ride-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:1200;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(13,17,23,.94);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:22px;padding:6px 6px 6px 14px;font-size:12.5px;color:var(--tx);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 #ride-bar[hidden]{display:none}
 #mtools-pop .mtb[hidden]{display:none}
+@media(max-width:768px){.mapy-logo{margin-bottom:72px!important}}
 body.riding #toast{bottom:64px}
 body.riding #zlvl{display:none}
 #ride-bar.off{border-color:var(--orange)} #ride-bar.off #ride-ico{color:var(--orange)}
@@ -3497,7 +3498,7 @@ async function initMapyCom(){
   baseLayers.mapyOutdoor=L.tileLayer('/api/mapy/tile/outdoor/{z}/{x}/{y}',{attribution,maxZoom:19,minZoom:0});
   baseLayers.mapyAerial =L.tileLayer('/api/mapy/tile/aerial/{z}/{x}/{y}', {attribution,maxZoom:20,minZoom:0});
   const Logo=L.Control.extend({options:{position:'bottomleft'},onAdd(){
-    const a=L.DomUtil.create('a'); a.href='https://mapy.com/'; a.target='_blank';
+    const a=L.DomUtil.create('a','mapy-logo'); a.href='https://mapy.com/'; a.target='_blank';
     a.innerHTML='<img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" style="width:100px;display:block">';
     L.DomEvent.disableClickPropagation(a); return a;}});
   mapyLogo=new Logo();
