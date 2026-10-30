@@ -124,6 +124,8 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .lb.on-o{border-color:var(--orange)}.lb.on-o .lb-dot{background:var(--orange)}.lb.on-o .lb-sw{background:var(--orange);border-color:var(--orange)}.lb.on-o .lb-sw::after{left:13px}
 .lb.on-b{border-color:var(--blue)}.lb.on-b .lb-dot{background:var(--blue)}.lb.on-b .lb-sw{background:var(--blue);border-color:var(--blue)}.lb.on-b .lb-sw::after{left:13px}
 .lb.on-y{border-color:var(--yellow)}.lb.on-y .lb-dot{background:var(--yellow)}.lb.on-y .lb-sw{background:var(--yellow);border-color:var(--yellow)}.lb.on-y .lb-sw::after{left:13px}
+.prio-row{display:flex;gap:6px;align-items:baseline;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--tx2);text-align:left}
+.prio-row:hover{background:var(--bg3,rgba(255,255,255,.06))}
 .lb.on-r{border-color:var(--red)}.lb.on-r .lb-dot{background:var(--red)}.lb.on-r .lb-sw{background:var(--red);border-color:var(--red)}.lb.on-r .lb-sw::after{left:13px}
 .lb.on-p{border-color:var(--purple)}.lb.on-p .lb-dot{background:var(--purple)}.lb.on-p .lb-sw{background:var(--purple);border-color:var(--purple)}.lb.on-p .lb-sw::after{left:13px}
 
@@ -698,6 +700,7 @@ body.riding #zlvl{display:none}
         <label class="opt-pill" title="Maks. Squadratinhos"><input type="radio" name="opt" value="sqi" checked><i class="ti ti-border-all" style="color:var(--blue)"></i>SQI</label>
         <label class="opt-pill" title="Rozszerz Yard"><input type="radio" name="opt" value="yard"><i class="ti ti-wall" style="color:var(--blue)"></i>Yard</label>
         <label class="opt-pill" title="Rozszerz Yardinho (Yard z squadratinhos)"><input type="radio" name="opt" value="yardi"><i class="ti ti-border-outer" style="color:var(--blue)"></i>Yardinho</label>
+        <label class="opt-pill" title="Pętla przez priorytetowe squadratinhos (warstwa Priorytety): najwięcej punktów w limicie km"><input type="radio" name="opt" value="prio"><i class="ti ti-target-arrow" style="color:var(--orange)"></i>Priorytety</label>
         <label class="opt-pill" title="Zwykła trasa — kwadraty nie mają wagi"><input type="radio" name="opt" value="shortest"><i class="ti ti-route" style="color:var(--yellow)"></i>Bez kwadratów</label>
         <label class="opt-pill" title="Drogi, którymi jeździ najwięcej ludzi: gęste ślady GPS z OpenStreetMap i oznakowane szlaki rowerowe"><input type="radio" name="opt" value="popular"><i class="ti ti-flame" style="color:var(--orange)"></i>Popularne</label>
       </div>
@@ -783,8 +786,10 @@ body.riding #zlvl{display:none}
       <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')" title="Największy pełny kwadrat ze zdobytych squadratinhos"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-style-2"></i>Über SQI</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-dots"></i>Siatka zoom 14</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-3x3"></i>Siatka zoom 17</span><span class="lb-sw"></span></button>
+      <button class="lb" id="lb-sqi-prio" onclick="togLyr('sqi-prio',this,'o')" title="Niezdobyte squadratinhos, które najbardziej powiększą Übersquadratinho i Yardinho — blisko domu i z drogą"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-target-arrow"></i>Priorytety</span><span class="lb-sw"></span></button>
       <button class="lb on-r" id="lb-sqi-noroad" onclick="togLyr('sqi-noroad',this,'r')" title="Squadratinhos, przez które w OpenStreetMap nie biegnie żadna droga ani ścieżka — prawdopodobnie niezdobywalne (woda, tereny zamknięte, pola bez dróg)"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-slash"></i>Bez dróg (sugestie)</span><span class="lb-sw"></span></button>
     </div>
+    <div id="prio-panel" style="display:none;margin:-4px 0 12px"></div>
     <div class="hint" style="margin:-4px 0 12px;display:flex;gap:6px;align-items:flex-start;text-align:left"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><span>Trzy szybkie kliknięcia w kwadrat SQI na mapie (tryb Widok, zoom 14+) oznaczają go jako niezdobywalny — trasy go pominą. Trzy kolejne kliknięcia odznaczają.</span></div>
     <div class="hint" style="margin:-6px 0 8px;display:flex;gap:6px;align-items:flex-start;text-align:left"><i class="ti ti-slash" style="color:var(--red);margin-top:2px"></i><span>Jedno przekreślenie = sugestia: w OpenStreetMap nie ma tam żadnej drogi ani ścieżki (widać od zoomu 13). Trzy kliknięcia zatwierdzają pojedynczy kwadrat, albo zatwierdź wszystkie widoczne:</span></div>
     <button class="btn btn-x" id="noroad-accept" onclick="acceptNoRoadInView()"><i class="ti ti-ban"></i>Oznacz sugerowane w widoku jako niezdobywalne</button>
@@ -1208,7 +1213,7 @@ const LAYERS={};
 const VIS={
   'sq-own':false,'sq-new':true,'sq-yard':false,'sq-uber':false,
   'sqi-own':false,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
-  'grid14':true,'grid17':true,'sqi-noroad':true
+  'grid14':true,'grid17':true,'sqi-noroad':true,'sqi-prio':false
 };
 
 let statsData={}, toastTm=null;
@@ -1301,8 +1306,10 @@ async function loadTilesFromDB(){
     blockedSQI.clear(); (d.blockedSqi||[]).forEach(t=>blockedSQI.add(tileKey(t.tx,t.ty)));
 
     applyStats(d.stats);
+    prioData=null;
     redrawAll();
     loadReachStats();
+    if(VIS['sqi-prio']) loadPriority();
     hideLoad();
     toast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
   }catch(e){
@@ -1485,6 +1492,7 @@ function redrawAll(){
   redrawGrid();
   renderBlocked();
   renderNoRoad();
+  renderPrio();
 }
 
 const CanvasGridLayer = CanvasOverlay.extend({
@@ -1587,8 +1595,108 @@ async function acceptNoRoadInView(){
     list.forEach(([x,y])=>blockedSQI.add(tileKey(x,y)));
     renderBlocked();
     loadReachStats();
+    prioStale();
     toast(`Oznaczono ${d.added} SQI jako niezdobywalne`);
   }catch(e){toast(e.message);}
+}
+
+// Priority squadratinhos (/api/tiles/priority): uncollected tiles ranked by
+// what they add to the Übersquadratinho / Yardinho, distance from home and
+// whether a road goes there. The server recomputes after every sync, blocked
+// tile change or home change; the panel lists the best target squares.
+let prioData=null, _prioLoading=null;
+const prioWalk=L.layerGroup();
+const PRIO_FILL={1:'rgba(239,68,68,.6)',2:'rgba(251,146,60,.45)',3:'rgba(250,204,21,.22)'};
+function prioStale(){prioData=null; if(VIS['sqi-prio']) loadPriority(); else renderPrio();}
+async function loadPriority(){
+  if(prioData||_prioLoading) return _prioLoading;
+  const box=g('prio-panel'); box.style.display=''; box.innerHTML='<div class="hint" style="text-align:left">Liczę priorytety…</div>';
+  _prioLoading=(async()=>{
+    try{
+      const r=await fetch('/api/tiles/priority');
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      prioData=await r.json();
+      renderPrio(); renderPrioPanel();
+    }catch(e){box.innerHTML='<div class="hint" style="text-align:left">Nie udało się policzyć priorytetów</div>';console.error('priority',e);}
+    finally{_prioLoading=null;}
+  })();
+  return _prioLoading;
+}
+const CanvasPrioLayer = CanvasOverlay.extend({
+  initialize(){this._zIndex=456;},
+  _visible(){return VIS['sqi-prio']&&!!prioData;},
+  _paint(ctx,origin){
+    const tw=t=>{const a=tileNW(t.tx,t.ty,Z_SQI), b=tileNW(t.tx+1,t.ty+1,Z_SQI);return[this._px(a.lat,a.lng,origin),this._px(b.lat,b.lng,origin)];};
+    for(const t of [...prioData.tiles].reverse()){
+      if(ownedSQI.has(tileKey(t.tx,t.ty))||blockedSQI.has(tileKey(t.tx,t.ty))) continue;
+      let[p0,p1]=tw(t);
+      // keep tiny tiles visible when zoomed out
+      const m=Math.max(0,(3-(p1.x-p0.x))/2);
+      ctx.fillStyle=PRIO_FILL[t.tier]; ctx.fillRect(p0.x-m,p0.y-m,p1.x-p0.x+2*m,p1.y-p0.y+2*m);
+      if(t.tier===1&&p1.x-p0.x>8){ctx.strokeStyle='rgba(239,68,68,.95)';ctx.lineWidth=2;ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);}
+      if(t.road===0&&p1.x-p0.x>10){ctx.strokeStyle='rgba(0,0,0,.55)';ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.strokeRect(p0.x+1,p0.y+1,p1.x-p0.x-2,p1.y-p0.y-2);ctx.setLineDash([]);}
+    }
+    // the best next Übersquadratinho targets, dashed
+    ctx.setLineDash([8,6]); ctx.lineWidth=2;
+    for(const w of prioWindows().slice(0,2)){
+      const[p0]=tw({tx:w.x,ty:w.y}), [,p1]=tw({tx:w.x+w.k-1,ty:w.y+w.k-1});
+      ctx.strokeStyle='rgba(255,214,10,.95)'; ctx.strokeRect(p0.x,p0.y,p1.x-p0.x,p1.y-p0.y);
+      if(p1.x-p0.x>60){ctx.fillStyle='rgba(255,214,10,.95)';ctx.font='bold 12px system-ui';ctx.fillText(`${w.k}×${w.k}`,p0.x+4,p0.y+14);}
+    }
+    ctx.setLineDash([]);
+  }
+});
+function renderPrio(){clearLyr('sqi-prio'); if(VIS['sqi-prio']&&prioData) LAYERS['sqi-prio']=new CanvasPrioLayer().addTo(map);}
+// Targets worth showing: per side the cheapest window, without sides that a
+// bigger one reaches with no more missing tiles; best value first, then the
+// biggest one still within reach (≤ 40 missing).
+function prioWindows(){
+  const ws=prioData?.windows||[], seen=new Set(), out=[];
+  for(const w of ws){
+    if(seen.has(w.k)||ws.some(o=>o.k>w.k&&o.miss<=w.miss)) continue;
+    seen.add(w.k); out.push(w);
+  }
+  const big=out.filter(w=>w.miss<=40).sort((a,b)=>b.k-a.k)[0];
+  if(big&&out[0]!==big) return [out[0],big,...out.slice(1).filter(w=>w!==big)];
+  return out;
+}
+function prioFly(tx,ty,k=1){
+  const a=tileNW(tx,ty,Z_SQI), b=tileNW(tx+k,ty+k,Z_SQI);
+  map.fitBounds([[a.lat,a.lng],[b.lat,b.lng]],{padding:[60,60],maxZoom:16});
+}
+function prioWhy(t){
+  const r=[];
+  if(t.uk) r.push(t.um===1?`sam odblokowuje Über ${t.uk}×${t.uk}`:`do Über ${t.uk}×${t.uk} (brakuje ${t.um})`);
+  if(t.yd) r.push(`Yardinho +${t.yd}`);
+  if(t.road===0) r.push('bez drogi — pieszo');
+  return r.join(' · ');
+}
+function renderPrioPanel(){
+  const box=g('prio-panel'); if(!prioData) return;
+  if(!prioData.tiles.length){box.innerHTML='<div class="hint" style="text-align:left">Brak priorytetowych kwadratów w promieniu 30 km od domu.</div>';return;}
+  const n=[1,2,3].map(k=>prioData.tiles.filter(t=>t.tier===k).length);
+  const wins=prioWindows().slice(0,3).map(w=>
+    `<div class="prio-row" onclick="prioFly(${w.x},${w.y},${w.k})"><b style="color:var(--yellow)">Über ${w.k}×${w.k}</b> <span>brakuje ${w.miss}${w.noRoad?` (${w.noRoad} bez drogi)`:''} · +${w.gain}</span></div>`).join('');
+  const top=prioData.tiles.slice(0,6).map((t,i)=>
+    `<div class="prio-row" onclick="prioFly(${t.tx},${t.ty})"><b style="color:${t.tier===1?'var(--red)':'var(--orange)'}">${i+1}.</b> <span>${prioWhy(t)} · ${String(t.km).replace('.',',')} km</span></div>`).join('');
+  box.innerHTML=`<div class="hint" style="text-align:left;margin-bottom:6px"><span style="color:var(--red)">■</span> najcenniejsze ${n[0]} · <span style="color:var(--orange)">■</span> dobre ${n[1]} · <span style="color:var(--yellow)">■</span> pozostałe ${n[2]}. Przerywana ramka — brak drogi w OSM.</div>`+
+    `<div class="sl" style="margin:4px 0">Najbliższe cele Über (Übersquadratinho ${prioData.uberi}×${prioData.uberi})</div>${wins||'<div class="hint">—</div>'}`+
+    `<div class="sl" style="margin:8px 0 4px">Najcenniejsze kwadraty</div>${top}`+
+    `<div class="hint" style="text-align:left;margin-top:6px">Zaplanuj pętlę w trybie <b>Priorytety</b> — zbierze ich najwięcej w ustawionym limicie km. Po synchronizacji ze Stravą priorytety przeliczą się same.</div>`;
+}
+function showPrioResult(p,dist){
+  prioWalk.clearLayers().addTo(map);
+  for(const w of p.walk||[]){
+    L.circleMarker([w.lat,w.lng],{radius:9,color:'#111',weight:2,fillColor:'#facc15',fillOpacity:.9,pane:'kmPane'})
+      .bindTooltip('Kwadrat bez drogi w OSM — dojdź pieszo z roweru',{direction:'top'}).addTo(prioWalk);
+  }
+  const parts=[`${dist.toFixed(1)} km`,`${p.prioHit} priorytetowych SQI`];
+  const gain=(a,b,lbl)=>{if(b>a) parts.push(`${lbl} +${a} (+${b} z dojściem pieszo)`); else if(a>0) parts.push(`${lbl} +${a}`);};
+  gain(p.uberiGain||0,p.uberiWalk||0,'Über');
+  gain(p.yardGain||0,p.yardiWalk||0,'Yardinho');
+  if(p.walk?.length) parts.push(`${p.walk.length} do dojścia pieszo (żółte kółka)`);
+  parts.push(`${p.newSQI} nowych SQI`);
+  toast('✅ '+parts.join(' · '));
 }
 
 // Share of collectable squadratinhos (with a road, not blocked) collected
@@ -1626,12 +1734,14 @@ function togLyr(name,btn,c){
       'sqi-yard':()=>renderSet(yardiTiles,Z_SQI,'rgba(88,166,255,.30)', 0,0,name,12),
       'sqi-uber':()=>renderSet(uberiTiles,Z_SQI,'rgba(255,214,10,.22)', 0,0,name,12),
       'grid14':redrawGrid,'grid17':redrawGrid,
-      'sqi-noroad':renderNoRoad
+      'sqi-noroad':renderNoRoad,
+      'sqi-prio':()=>{renderPrio(); loadPriority();}
     };
     fn[name]?.();
   }else{
     btn.className='lb';
     clearLyr(name);
+    if(name==='sqi-prio') g('prio-panel').style.display='none';
   }
 }
 
@@ -2014,6 +2124,7 @@ async function calcRoute(){
   if(!loop && wpts.length<2){toast('Dodaj start i metę!');return;}
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
+  prioWalk.clearLayers();
   showLoad(loop&&wpts.length===1?'Szukam najlepszej pętli (kilka sekund)…':'Obliczam trasę…');
 
   try{
@@ -2045,6 +2156,9 @@ async function calcRoute(){
         btn.onclick=addReturnLeg;
         btn.style.display='flex';
       }
+    }else if(opt==='prio'&&data.planner?.prioHit!=null){
+      showPrioResult(data.planner,dist);
+      g('return-leg-btn').style.display='none';
     }else{
       toast(_routePop?`✅ ${dist.toFixed(1)}km · popularne drogi ${Math.round(_routePop.share*100)}% · ${engineLabel}`
                      :`✅ ${dist.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI · ${engineLabel}`);
@@ -2127,6 +2241,7 @@ function resetRoute(){
   wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
+  prioWalk.clearLayers();
   elevData=[]; clearElevCursor();
   if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
@@ -2520,6 +2635,7 @@ async function toggleBlockedAt(ll){
     navigator.vibrate?.(40);
     loadReachStats();
     renderBlocked();
+    prioStale();
     toast(d.blocked?'SQI oznaczony jako niezdobywalny — trasy będą go pomijać':'Odznaczono — ten SQI znów jest do zdobycia');
     if(routeCoords.length){ // the current route's "new SQI" count changes
       const prv=await (await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})).json();
@@ -2979,6 +3095,7 @@ async function saveHomePoint(lat,lng){
   if(!r.ok){if(g('prof-home-err'))g('prof-home-err').textContent=d.error||'Błąd';return;}
   currentUser={...currentUser,...d.user};
   updateHomeCoords();
+  prioStale();
   toast('✅ Dom zapisany — będzie startem tras');
   await loadHomeAddr();
   // Use it right away as the start unless a route is already planned

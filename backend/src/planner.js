@@ -76,14 +76,14 @@ function reuseAnalysis(coords) {
 
 // ── objective ───────────────────────────────────────────────────────────────
 
-function buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI }) {
+function buildContext({ mode, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority }) {
   const ownedSQ  = new Set(sqRows.map(r => `${r.tx},${r.ty}`));
   const ownedSQI = new Set(sqiRows.map(r => `${r.tx},${r.ty}`));
   // Squadratinhos marked as impossible to collect: never a target, never
   // counted as collected by a route.
   const blocked = new Set((blockedSQI || []).map(r => `${r.tx},${r.ty}`));
   const takenSQI = blocked.size ? new Set([...ownedSQI, ...blocked]) : ownedSQI;
-  const ctx = { mode, sqRows, sqiRows, ownedSQ, ownedSQI, takenSQI, yardBefore: yard?.size || 0, yardiBefore: yardi?.size || 0 };
+  const ctx = { mode, sqRows, sqiRows, ownedSQ, ownedSQI, takenSQI, yardBefore: yard?.size || 0, yardiBefore: yardi?.size || 0, uberiBefore: uberi?.size || 0 };
 
   // Unowned tiles within 2 of the Yard(inho): visiting them is what can turn
   // owned border tiles "complete" and grow it.
@@ -118,6 +118,13 @@ function buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI }) {
   } else if (mode === 'yardi') {
     ctx.z = tiles.Z_SQI;
     nearYard(yardi?.tiles, takenSQI);
+  } else if (mode === 'prio') {
+    // Priority squadratinhos (priority.js): weighted targets
+    ctx.z = tiles.Z_SQI;
+    ctx.prio = (priority?.tiles || []).filter(t => !takenSQI.has(`${t.tx},${t.ty}`));
+    ctx.weights = new Map(ctx.prio.map(t => [`${t.tx},${t.ty}`, t.s]));
+    ctx.isTarget = (k) => ctx.weights.has(k);
+    ctx.valueOf = (x, y) => ctx.weights.get(`${x},${y}`) || 0;
   } else {
     // 'shortest': no tile objective, just a clean loop; 'popular': no tile
     // objective either, the track is scored on how popular its roads are
@@ -137,7 +144,15 @@ async function evaluate(data, ctx, targetKm) {
   for (const k of sq17) if (!ctx.takenSQI.has(k)) { newSQI++; newSQIKeys.push(k); }
 
   const toRows = (keys) => keys.map(k => { const [tx, ty] = k.split(',').map(Number); return { tx, ty }; });
-  let yardGain = 0;
+  let yardGain = 0, uberiGain = 0, prioValue = 0, prioHit = 0;
+  if (ctx.mode === 'prio') {
+    for (const k of sq17) { const w = ctx.weights.get(k); if (w) { prioValue += w; prioHit++; } }
+    if (newSQIKeys.length) {
+      const rows = ctx.sqiRows.concat(toRows(newSQIKeys));
+      yardGain = tiles.computeYard(rows).size - ctx.yardiBefore;
+      uberiGain = tiles.computeUber(rows).size - ctx.uberiBefore;
+    }
+  }
   if (ctx.mode === 'yard' && newSQKeys.length) {
     yardGain = tiles.computeYard(ctx.sqRows.concat(toRows(newSQKeys))).size - ctx.yardBefore;
   } else if (ctx.mode === 'yardi' && newSQIKeys.length) {
@@ -150,6 +165,7 @@ async function evaluate(data, ctx, targetKm) {
     ctx.mode === 'yard' ? 100 * yardGain + 20 * newSQ + 0.2 * newSQI :
     ctx.mode === 'yardi' ? 10 * yardGain + newSQI + 20 * newSQ :
     ctx.mode === 'popular' ? 100 * pop.share :
+    ctx.mode === 'prio' ? prioValue + 15 * uberiGain + 2 * yardGain + 0.2 * newSQI :
     10;
   const reuse = reuseAnalysis(coords);
   const dev = Math.abs(km - targetKm) / targetKm;
@@ -157,7 +173,7 @@ async function evaluate(data, ctx, targetKm) {
   // Riding the same road twice is something the rider actively dislikes:
   // 8% repeated road costs about half the score.
   const reuseFactor = Math.max(0.05, 1 - 6 * reuse.fraction);
-  return { km, newSQ, newSQI, yardGain, pop, value, reuse, score: (value + 1) * lenFactor * reuseFactor };
+  return { km, newSQ, newSQI, yardGain, uberiGain, prioValue, prioHit, pop, value, reuse, score: (value + 1) * lenFactor * reuseFactor };
 }
 
 // ── candidate geometry ──────────────────────────────────────────────────────
@@ -249,7 +265,7 @@ function targetClusters(start, minKm, maxKm, ctx, max = 6) {
     for (let dx = -rad; dx <= rad; dx++) for (let dy = -rad; dy <= rad; dy++) {
       const x = cx + dx, y = cy + dy;
       let v = 0;
-      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (ctx.isTarget(`${x * 8 + i},${y * 8 + j}`)) v++;
+      for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) if (ctx.isTarget(`${x * 8 + i},${y * 8 + j}`)) v += ctx.weights ? ctx.valueOf(x * 8 + i, y * 8 + j) : 1;
       blockFree.set(`${x},${y}`, v);
     }
   }
@@ -327,15 +343,198 @@ async function mapLimit(items, limit, fn) {
   return res;
 }
 
+// ── priority tour ───────────────────────────────────────────────────────────
+//
+// Priority targets are single scattered squadratinhos, so instead of loop
+// shapes this is an orienteering problem: pick the set worth the most points
+// that fits the distance budget and visit it in a sensible order. Greedy
+// insertion (best points per extra km, so tiles next to the tour come almost
+// free) + 2-opt on straight-line distances; routed, then the budget is
+// rescaled by the measured road/straight-line ratio and the tour rebuilt.
+
+const PRIO_MAX_WAYPOINTS = 60;
+
+function tourLength(pts) {
+  let d = 0;
+  for (let i = 1; i < pts.length; i++) d += tiles.haversineDistance(pts[i - 1], pts[i]);
+  return d;
+}
+
+function buildTour(start, cands, budgetKm, maxWaypoints) {
+  const tour = [start, start];
+  let len = 0;
+  const left = cands.slice();
+  while (left.length && tour.length - 2 < maxWaypoints) {
+    let best = null;
+    for (let ci = 0; ci < left.length; ci++) {
+      const c = left[ci];
+      for (let i = 0; i < tour.length - 1; i++) {
+        const a = tour[i], b = tour[i + 1];
+        const delta = tiles.haversineDistance(a, c) + tiles.haversineDistance(c, b) - tiles.haversineDistance(a, b);
+        if (len + delta > budgetKm) continue;
+        const ratio = c.s ** 1.5 / (delta + 0.15); // favours valuable tiles over cheap filler
+        if (!best || ratio > best.ratio) best = { ratio, ci, i, delta };
+      }
+    }
+    if (!best) break;
+    tour.splice(best.i + 1, 0, left[best.ci]);
+    left.splice(best.ci, 1);
+    len += best.delta;
+  }
+  // 2-opt
+  for (let improved = true, guard = 0; improved && guard < 50; guard++) {
+    improved = false;
+    for (let i = 1; i < tour.length - 2; i++) for (let j = i + 1; j < tour.length - 1; j++) {
+      const d = (p, q) => tiles.haversineDistance(p, q);
+      if (d(tour[i - 1], tour[j]) + d(tour[i], tour[j + 1]) < d(tour[i - 1], tour[i]) + d(tour[j], tour[j + 1]) - 1e-6) {
+        tour.splice(i, j - i + 1, ...tour.slice(i, j + 1).reverse());
+        improved = true;
+      }
+    }
+  }
+  return tour;
+}
+
+// Waypoints the routed track reaches by riding the same road in and out
+// (dead-end jabs): somewhere 60–400 m before and after the closest track
+// sample, the track is at the same spot (reuse.pts are ~20 m apart). Spurs
+// up to JAB_OK_STEPS samples (~100 m) each way are tolerated.
+const JAB_OK_STEPS = 5;
+function jabWaypoints(pts, reuse) {
+  const out = [], P = reuse.pts;
+  for (let i = 1; i < pts.length - 1; i++) {
+    let j = 0, bd = Infinity;
+    P.forEach((q, k) => { const d = Math.abs(q.lat - pts[i].lat) + Math.abs(q.lng - pts[i].lng); if (d < bd) { bd = d; j = k; } });
+    for (let k = 20; k > JAB_OK_STEPS; k--) {
+      if (j - k < 0 || j + k >= P.length) continue;
+      if (tiles.haversineDistance(P[j - k], P[j + k]) < 0.03) { out.push(pts[i]); break; }
+    }
+  }
+  return out;
+}
+
+// A tile with no road can't be ridden into: count it as collectable on foot
+// when the track passes within this distance of its centre.
+const WALK_KM = 0.25;
+
+async function planPriority(start, target, profile, ctx) {
+  const maxReach = target * 0.48;
+  const all = ctx.prio.map(t => ({ ...tiles.tileCenter(t.tx, t.ty, tiles.Z_SQI), s: t.s, key: `${t.tx},${t.ty}`, walk: t.road === 0 }));
+  const cands = all.filter(c => tiles.haversineDistance(start, c) <= maxReach);
+  if (!cands.length) {
+    if (!all.length) throw new PlannerError('Brak priorytetowych kwadratów — wszystkie zdobyte albo poza zasięgiem 30 km od domu');
+    const nearest = Math.min(...all.map(c => tiles.haversineDistance(start, c)));
+    throw new PlannerError(`Najbliższy priorytetowy kwadrat jest ~${nearest.toFixed(0)} km stąd — ustaw pętlę ≥ ${Math.ceil(nearest / 0.48 / 5) * 5} km`);
+  }
+  const walkCands = cands.filter(c => c.walk);
+
+  const rate = async (tour, data) => {
+    const ev = await evaluate(data, ctx, target);
+    const coords = coordsOf(data);
+    const walk = walkCands.filter(c => coords.some(p => tiles.haversineDistance(p, c) < WALK_KM));
+    const walkValue = walk.reduce((v, c) => v + c.s, 0);
+    // reaching a no-road tile is a dead end by nature: that spur isn't
+    // counted as riding the same road twice
+    const R = ev.reuse;
+    let reused = 0;
+    R.pts.forEach((q, i) => { if (R.flags[i] && !walk.some(c => tiles.haversineDistance(q, c) < 0.4)) reused++; });
+    const reuse = R.pts.length ? reused / R.pts.length : 0;
+    const dev = Math.abs(ev.km - target) / target;
+    // the distance is a limit: shorter is fine, longer is not
+    const lenFactor = ev.km <= target * (1 + LEN_TOLERANCE) ? 1 : Math.max(0.02, 1 - 5 * (dev - LEN_TOLERANCE));
+    // keeps telling heavy-reuse tracks apart (the linear factor bottoms out)
+    const reuseFactor = Math.exp(-5 * reuse);
+    return { pts: tour, data, ev, walk, reuse, score: (ev.value + walkValue + 1) * lenFactor * reuseFactor };
+  };
+
+  let factor = ROAD_FACTOR, best = null, tried = 0, stale = 0;
+  const banned = new Set();
+  const maxWaypoints = Math.min(PRIO_MAX_WAYPOINTS, Math.round(4 + target * 0.6));
+  for (let iter = 0; iter < 7 && stale < 3; iter++) {
+    const tour = buildTour(start, cands.filter(c => !banned.has(c.key)), target / factor, maxWaypoints);
+    if (tour.length < 3) break;
+    // Route the tour as is, and in two halves with the way back avoiding the
+    // way out; keep whichever scores better.
+    const variants = (await Promise.all([
+      routing.fetchBRouterRoute(tour, profile, 0, null, 60000),
+      routeLoopHalves(tour, profile, 60000),
+    ].map(p => p.catch(() => null)))).filter(Boolean);
+    let round = null;
+    for (const data of variants) {
+      const r = await rate(tour, data);
+      tried++;
+      if (!round || r.score > round.score) round = r;
+    }
+    if (!round) break;
+    if (!best || round.score > best.score) { best = round; stale = 0; } else stale++;
+
+    // Drop what the track misses (a road tile BRouter routed past) and what
+    // it reaches only by a dead-end jab, unless the tile is worth that much.
+    let changed = false;
+    const { sq17 } = tiles.trackToTiles(coordsOf(round.data));
+    for (const c of tour.slice(1, -1)) if (!c.walk && !sq17.has(c.key)) { banned.add(c.key); changed = true; }
+    for (const c of jabWaypoints(tour, round.ev.reuse)) if (c.key && !c.walk && c.s < 8 && !banned.has(c.key)) { banned.add(c.key); changed = true; }
+    const km = round.ev.km;
+    if (!changed && Math.abs(km - target) / target <= LEN_TOLERANCE) break;
+    factor = Math.max(1.05, Math.min(3, (factor + km / tourLength(tour)) / 2));
+  }
+  if (!best) throw new Error('Nie udało się wyznaczyć trasy przez priorytetowe kwadraty (BRouter)');
+
+  // Clean-up: try the best tour without each waypoint that still costs a
+  // dead-end jab (and without all of them at once); keep what scores better.
+  const routeBoth = async (tour) => {
+    const vs = (await Promise.all([
+      routing.fetchBRouterRoute(tour, profile, 0, null, 60000),
+      routeLoopHalves(tour, profile, 60000),
+    ].map(p => p.catch(() => null)))).filter(Boolean);
+    let r = null;
+    for (const data of vs) { const x = await rate(tour, data); tried++; if (!r || x.score > r.score) r = x; }
+    return r;
+  };
+  for (let round = 0; round < 2; round++) {
+    const jabs = jabWaypoints(best.pts, best.ev.reuse).filter(c => c.key && !c.walk);
+    if (!jabs.length) break;
+    const tours = jabs.map(j => best.pts.filter(p => p !== j));
+    if (jabs.length > 1) tours.push(best.pts.filter(p => !jabs.includes(p)));
+    const trials = (await mapLimit(tours.filter(t => t.length >= 3), 4, routeBoth)).filter(Boolean);
+    trials.sort((a, b) => b.score - a.score);
+    if (!trials.length || trials[0].score <= best.score) break;
+    best = trials[0];
+  }
+
+  // What the ride gives if the no-road tiles are walked in, too
+  let uberiWalk = best.ev.uberiGain, yardiWalk = best.ev.yardGain;
+  if (best.walk.length) {
+    const { sq17 } = tiles.trackToTiles(coordsOf(best.data));
+    const add = [...sq17].filter(k => !ctx.takenSQI.has(k)).concat(best.walk.map(c => c.key));
+    const rows = ctx.sqiRows.concat(add.map(k => { const [tx, ty] = k.split(',').map(Number); return { tx, ty }; }));
+    uberiWalk = tiles.computeUber(rows).size - ctx.uberiBefore;
+    yardiWalk = tiles.computeYard(rows).size - ctx.yardiBefore;
+  }
+
+  const out = best.data;
+  out.routes[0].reuse = best.reuse;
+  out.planner = {
+    candidates: tried,
+    newSQ: best.ev.newSQ, newSQI: best.ev.newSQI, yardGain: best.ev.yardGain,
+    uberiGain: best.ev.uberiGain, uberiWalk, yardiWalk, prioHit: best.ev.prioHit, prioPoints: +best.ev.prioValue.toFixed(1),
+    walk: best.walk.map(c => ({ lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6), s: c.s })),
+    reuse: best.reuse,
+    waypoints: best.pts.map(p => ({ lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6) })),
+  };
+  return out;
+}
+
 // ── entry point ─────────────────────────────────────────────────────────────
 
 class PlannerError extends Error {}
 
-async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi, blockedSQI }) {
+async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority }) {
   const t0 = Date.now(), overBudget = () => Date.now() - t0 > SOFT_BUDGET_MS;
   const profile = routing.brouterProfile(bikeProfile);
-  const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi, blockedSQI });
+  const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority });
   const target = Math.max(5, targetKm || 15);
+  if (ctx.mode === 'prio') return planPriority(start, target, profile, ctx);
   const reach = PETAL_REACH * target * (1 + LEN_TOLERANCE);
 
   if (ctx.mode === 'sq' || ctx.mode === 'yard' || ctx.mode === 'yardi') {

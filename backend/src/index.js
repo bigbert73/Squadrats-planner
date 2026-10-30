@@ -42,6 +42,7 @@ const routing = require('./routing');
 const planner = require('./planner');
 const popular = require('./popular');
 const reach   = require('./reach');
+const priority = require('./priority');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 const crypto = require('crypto');
@@ -187,6 +188,8 @@ app.put('/api/profile/home', requireAuth, (req, res) => {
   if (lat !== null && (typeof lat !== 'number' || typeof lng !== 'number'))
     return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
   db.setHomePoint(req.userId, lat ?? null, lng ?? null);
+  const c = userCaches.get(req.userId);
+  if (c) delete c.priority; // priorities are ranked by distance from home
   res.json({ user: safeUser(db.getUserById(req.userId)) });
 });
 
@@ -614,6 +617,28 @@ app.get('/api/tiles/noroad', requireAuth, (req, res) => {
   res.json({ available: true, tiles: reach.noRoadIn(x0, y0, x1, y1, skip) });
 });
 
+// Priority squadratinhos: the uncollected ones that grow the
+// Übersquadratinho / Yardinho, near home and reachable (priority.js). Part
+// of the user cache, so every sync or blocked-tile change recomputes it.
+function getPriority(userId, c) {
+  if (!c.priority) {
+    const u = db.getUserById(userId);
+    let home = u?.home_lat != null ? { lat: u.home_lat, lng: u.home_lng } : null;
+    if (!home && c.uberi.tiles.length) {
+      const t = c.uberi.tiles[Math.floor(c.uberi.tiles.length / 2)];
+      home = tiles.tileCenter(t.tx, t.ty, tiles.Z_SQI);
+    }
+    c.priority = home
+      ? priority.computePriority({ sqiRows: c.sqiRows, blockedSQI: c.blockedSQI, uberi: c.uberi, yardi: c.yardi, home })
+      : { home: null, tiles: [], windows: [] };
+  }
+  return c.priority;
+}
+
+app.get('/api/tiles/priority', requireAuth, (req, res) => {
+  res.json(getPriority(req.userId, getUserCache(req.userId)));
+});
+
 // Accept suggestions: mark many squadratinhos as impossible at once
 app.post('/api/tiles/blocked/bulk', requireAuth, (req, res) => {
   const list = Array.isArray(req.body.tiles) ? req.body.tiles : [];
@@ -665,7 +690,7 @@ const { fetchRoute, routeDistanceKm } = routing;
 app.post('/api/route/detour', requireAuth, async (req, res) => {
   const { waypoints, loop = false, targetKm = 0, bikeProfile = 'standard', returnLeg = false, avoidCoords = null } = req.body;
   // 'heatmap' (old "Pop." option) never had data behind it; treat as SQI.
-  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest', 'popular'].includes(req.body.mode) ? req.body.mode : 'sqi';
+  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest', 'popular', 'prio'].includes(req.body.mode) ? req.body.mode : 'sqi';
   if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
 
   const c = getUserCache(req.userId);
@@ -679,7 +704,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
     try {
       return res.json(await planner.planLoop({
         start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard, yardi: c.yardi,
-        blockedSQI: c.blockedSQI,
+        uberi: c.uberi, blockedSQI: c.blockedSQI, priority: mode === 'prio' ? getPriority(req.userId, c) : null,
       }));
     } catch (e) {
       if (e instanceof planner.PlannerError) return res.status(422).json({ error: e.message });
@@ -748,7 +773,7 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   let lo = baseKm, hi = target * 2, currentTarget = target, prevKm = baseKm;
   const maxAttempts = baseKm > 50 ? 3 : 8;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const detourPts = tiles.buildDetourWaypoints(pts, ownedSQSet, ownedSQISet, mode, currentTarget / roadFactor);
+    const detourPts = tiles.buildDetourWaypoints(pts, ownedSQSet, ownedSQISet, mode === 'prio' ? 'sqi' : mode, currentTarget / roadFactor);
     if (detourPts.length < 2) break;
     let dd;
     try { dd = await route(detourPts); } catch { break; }
