@@ -278,6 +278,7 @@ body.elev-open #toast{bottom:calc(32% + 16px)}
 .sv-del.armed{border-color:var(--red);color:var(--red)}
 #ride-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:1200;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(13,17,23,.94);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:22px;padding:6px 6px 6px 14px;font-size:12.5px;color:var(--tx);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 #ride-bar[hidden]{display:none}
+#mtools-pop .mtb[hidden]{display:none}
 body.riding #toast{bottom:64px}
 body.riding #zlvl{display:none}
 #ride-bar.off{border-color:var(--orange)} #ride-bar.off #ride-ico{color:var(--orange)}
@@ -856,6 +857,8 @@ body.riding #zlvl{display:none}
       <label><input type="radio" name="bm" value="satellite"        onchange="chBase('satellite')">🛰️ Satelita (ESRI)</label>
       <label><input type="radio" name="bm" value="topo"             onchange="chBase('topo')">⛰️ OpenTopoMap</label>
       <label><input type="radio" name="bm" value="cycle"            onchange="chBase('cycle')">🚲 CyclOSM</label>
+      <label hidden data-mapy><input type="radio" name="bm" value="mapyOutdoor" onchange="chBase('mapyOutdoor')">🥾 Turystyczna (Mapy.com)</label>
+      <label hidden data-mapy><input type="radio" name="bm" value="mapyAerial"  onchange="chBase('mapyAerial')">✈️ Lotnicza (Mapy.com)</label>
     </div>
     <div class="sl mt8">Squadrats — specyfikacja</div>
     <div style="font-size:12px;color:var(--tx2);line-height:1.8;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:10px">
@@ -906,6 +909,8 @@ body.riding #zlvl{display:none}
         <button class="mtb"    data-base="topo"      onclick="chBase('topo')"><i class="ti ti-mountain"></i>Topograficzna</button>
         <button class="mtb"    data-base="satellite" onclick="chBase('satellite')"><i class="ti ti-satellite"></i>Satelita</button>
         <button class="mtb"    data-base="dark"      onclick="chBase('dark')"><i class="ti ti-moon"></i>Ciemna</button>
+        <button class="mtb"    data-base="mapyOutdoor" onclick="chBase('mapyOutdoor')" hidden><i class="ti ti-trekking"></i>Turystyczna (Mapy.com)</button>
+        <button class="mtb"    data-base="mapyAerial"  onclick="chBase('mapyAerial')" hidden><i class="ti ti-drone"></i>Lotnicza (Mapy.com)</button>
         <div class="mtp-sec">Teren i dostęp (PL)</div>
         <button class="mtb" id="mtp-geo-lidar"   onclick="togGeo('lidar')"><i class="ti ti-mountain"></i>Lidar (rzeźba terenu)</button>
         <button class="mtb" id="mtp-geo-orto"    onclick="togGeo('orto')"><i class="ti ti-photo"></i>Ortofotomapa</button>
@@ -1253,6 +1258,7 @@ async function initMap(){
   baseLayers.topo     =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
   baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
   baseLayers.osm.addTo(map);
+  initMapyCom();
 
   map.on('click',e=>{
     if(_homePicking){finishHomePick(e.latlng);return;}
@@ -3479,9 +3485,29 @@ function swTab(id,btn){
   btn.classList.add('on');
 }
 
+// Mapy.com base maps, through the server's tile proxy (it holds the API
+// key); offered only when the server has one. Their terms require the logo.
+let mapyLogo=null;
+async function initMapyCom(){
+  try{
+    const d=await (await fetch('/api/mapy/status')).json();
+    if(!d.enabled) return;
+  }catch(_){return;}
+  const attribution='<a href="https://api.mapy.com/copyright" target="_blank">© Seznam.cz a.s. a další</a>';
+  baseLayers.mapyOutdoor=L.tileLayer('/api/mapy/tile/outdoor/{z}/{x}/{y}',{attribution,maxZoom:19,minZoom:0});
+  baseLayers.mapyAerial =L.tileLayer('/api/mapy/tile/aerial/{z}/{x}/{y}', {attribution,maxZoom:20,minZoom:0});
+  const Logo=L.Control.extend({options:{position:'bottomleft'},onAdd(){
+    const a=L.DomUtil.create('a'); a.href='https://mapy.com/'; a.target='_blank';
+    a.innerHTML='<img src="https://api.mapy.com/img/api/logo.svg" alt="Mapy.com" style="width:100px;display:block">';
+    L.DomEvent.disableClickPropagation(a); return a;}});
+  mapyLogo=new Logo();
+  document.querySelectorAll('[data-base^="mapy"],[data-mapy]').forEach(el=>el.hidden=false);
+}
+
 function chBase(n){
   Object.values(baseLayers).forEach(l=>{if(map.hasLayer(l))map.removeLayer(l);});
   baseLayers[n]?.addTo(map);
+  if(mapyLogo){ if(n.startsWith('mapy')) mapyLogo.addTo(map); else mapyLogo.remove(); }
   document.querySelectorAll('[data-base]').forEach(b=>b.classList.toggle('on',b.dataset.base===n));
   const r=document.querySelector(`input[name="bm"][value="${n}"]`);
   if(r) r.checked=true;

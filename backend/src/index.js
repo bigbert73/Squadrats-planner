@@ -859,6 +859,26 @@ app.post('/api/route/preview-tiles', requireAuth, (req, res) => {
   res.json({ newSQ, newSQI, countSQ: newSQ.length, countSQI: newSQI.length });
 });
 
+// ── Mapy.com tiles ────────────────────────────────────────────────────────────
+// Base maps from Mapy.com (outdoor = detailed paths). The API key stays on
+// the server: tiles are fetched through here, for logged-in users only.
+const MAPY_SETS = new Set(['outdoor', 'aerial', 'basic', 'winter']);
+app.get('/api/mapy/status', requireAuth, (req, res) => res.json({ enabled: !!process.env.MAPY_API_KEY }));
+app.get('/api/mapy/tile/:set/:z/:x/:y', requireAuth, async (req, res) => {
+  const key = process.env.MAPY_API_KEY;
+  if (!key) return res.status(404).end();
+  const [z, x, y] = ['z', 'x', 'y'].map(k => Number(req.params[k]));
+  if (!MAPY_SETS.has(req.params.set) || ![z, x, y].every(Number.isInteger) || z < 0 || z > 20) return res.status(400).end();
+  try {
+    const r = await axios.get(`https://api.mapy.com/v1/maptiles/${req.params.set}/256/${z}/${x}/${y}`,
+      { params: { apikey: key }, responseType: 'arraybuffer', timeout: 15000, validateStatus: () => true });
+    res.status(r.status).type(r.headers['content-type'] || 'image/png')
+      .set('Cache-Control', r.status === 200 ? 'private, max-age=86400' : 'no-store').send(Buffer.from(r.data));
+  } catch (e) {
+    res.status(502).end();
+  }
+});
+
 // ── Street View ───────────────────────────────────────────────────────────────
 
 app.get('/api/streetview/embed-url', (req, res) => {
