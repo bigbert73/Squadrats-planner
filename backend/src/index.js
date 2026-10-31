@@ -44,6 +44,7 @@ const popular = require('./popular');
 const reach   = require('./reach');
 const priority = require('./priority');
 const photos = require('./photos');
+const mapillary = require('./mapillary');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 const crypto = require('crypto');
@@ -1201,11 +1202,10 @@ app.post('/api/photos/info', requireAuth, (req, res) => {
   res.json({ saved: photos.saveInfo(req.body?.items) });
 });
 
-// ── Mapillary photos along the route ──────────────────────────────────────────
-// Street-level images people uploaded (often from bikes), with MAPILLARY_TOKEN
-// set. Wikimedia Commons photos are fetched by the browser instead: Wikimedia
-// allows unidentified server clients only 10 req/min, browsers 200.
-const PHOTO_CELL_DEG = 0.0015;     // ~150 m: keep about one image per cell
+// ── Mapillary photos along the route (see mapillary.js) ──────────────────────
+// Positions from vector tiles, thinned to about one image per PHOTO_CELL_DEG
+// (newest first); the thumbnail is fetched when a popup opens.
+const PHOTO_CELL_DEG = 0.0015;     // ~150 m
 
 async function mapLimit(items, n, fn) {
   const out = new Array(items.length);
@@ -1216,33 +1216,44 @@ async function mapLimit(items, n, fn) {
   return out;
 }
 
-// Not cached: Mapillary thumbnail URLs are signed and expire.
-async function mapillaryNear(pt, token) {
-  const d = 0.0015;
-  const r = await axios.get('https://graph.mapillary.com/images', { timeout: 10000, params: {
-    access_token: token, fields: 'id,geometry,thumb_256_url,thumb_1024_url,captured_at,creator',
-    bbox: [pt.lng - d, pt.lat - d, pt.lng + d, pt.lat + d].join(','), limit: 20 } });
-  return r.data?.data || [];
-}
-
 app.post('/api/route/photos', requireAuth, async (req, res) => {
   const token = process.env.MAPILLARY_TOKEN;
   if (!token) return res.json({ photos: [], mapillary: false });
-  const all = (req.body?.samples || []).filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng));
-  const samples = all.filter((_, i) => i % Math.ceil(all.length / 300) === 0);
-  const seen = new Set(), photos = [];
-  for (const list of await mapLimit(samples, 6, (p) => mapillaryNear(p, token)))
-    for (const im of list || []) {
-      const [lng, lat] = im.geometry?.coordinates || [];
-      if (!Number.isFinite(lat) || !im.thumb_256_url) continue;
-      const k = `${Math.floor(lat / PHOTO_CELL_DEG)},${Math.floor(lng / PHOTO_CELL_DEG)}`;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      photos.push({ src: 'mapillary', id: im.id, lat, lng, thumb: im.thumb_1024_url || im.thumb_256_url,
-        page: `https://www.mapillary.com/app/?pKey=${im.id}`, author: im.creator?.username || '',
-        date: im.captured_at ? new Date(im.captured_at).toISOString().slice(0, 10) : '' });
-    }
-  res.json({ photos, mapillary: true });
+  const samples = photoSamples(req.body?.samples);
+  if (!samples.length) return res.json({ photos: [], mapillary: true });
+  const pad = 0.004, tilesNeeded = new Set();
+  for (const p of samples) for (const dy of [-pad, 0, pad]) for (const dx of [-pad * 1.6, 0, pad * 1.6])
+    tilesNeeded.add(mapillary.tileOf(p.lat + dy, p.lng + dx).join(','));
+  const lists = await mapLimit([...tilesNeeded].slice(0, 400), 6, (k) => mapillary.tileImages(...k.split(',').map(Number), token));
+  let s = 90, n = -90, w = 180, e = -180;
+  for (const p of samples) { s = Math.min(s, p.lat); n = Math.max(n, p.lat); w = Math.min(w, p.lng); e = Math.max(e, p.lng); }
+  const cand = lists.flat().filter(im => im && im.lat > s - pad && im.lat < n + pad && im.lng > w - pad * 1.6 && im.lng < e + pad * 1.6)
+    .sort((a, b) => b.t - a.t);
+  // corridor test once per ~150 m cell (from its centre), exact only near the edge
+  const seen = new Set(), cellKm = new Map(), out = [];
+  for (const im of cand) {
+    const cy = Math.floor(im.lat / PHOTO_CELL_DEG), cx = Math.floor(im.lng / PHOTO_CELL_DEG), k = `${cy},${cx}`;
+    if (seen.has(k)) continue;
+    if (!cellKm.has(k)) cellKm.set(k, photos.kmToPolyline((cy + 0.5) * PHOTO_CELL_DEG, (cx + 0.5) * PHOTO_CELL_DEG, samples));
+    const ck = cellKm.get(k);
+    if (ck > PHOTO_CORRIDOR_KM + 0.12) continue;
+    if (ck > PHOTO_CORRIDOR_KM - 0.12 && photos.kmToPolyline(im.lat, im.lng, samples) > PHOTO_CORRIDOR_KM) continue;
+    seen.add(k);
+    out.push({ src: 'mapillary', id: im.id, lat: im.lat, lng: im.lng, pano: im.pano,
+      date: im.t ? new Date(im.t).toISOString().slice(0, 10) : '', page: `https://www.mapillary.com/app/?pKey=${im.id}` });
+  }
+  res.json({ photos: out, mapillary: true });
+});
+
+// Thumbnail + author for one image (signed URLs expire, so fetched on demand).
+app.get('/api/mapillary/image/:id', requireAuth, async (req, res) => {
+  const token = process.env.MAPILLARY_TOKEN;
+  if (!token || !/^\d{1,20}$/.test(req.params.id)) return res.status(404).json({});
+  try {
+    const r = await axios.get(`https://graph.mapillary.com/${req.params.id}`, { timeout: 10000,
+      params: { access_token: token, fields: 'thumb_1024_url,creator,captured_at' } });
+    res.json({ thumb: r.data.thumb_1024_url || null, author: r.data.creator?.username || '' });
+  } catch (e) { res.status(502).json({}); }
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────

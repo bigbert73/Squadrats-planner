@@ -4337,15 +4337,25 @@ function addRoutePhotos(list){
     const src=PHOTO_SRC[p.src]||PHOTO_SRC.commons;
     const icon=L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],
       html:`<div style="width:20px;height:20px;border-radius:50%;background:${src.color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px rgba(0,0,0,.5)"><i class="ti ti-camera" style="font-size:11px;color:#fff"></i></div>`});
-    const meta=[p.author,p.date,p.license].filter(Boolean).map(esc).join(' · ');
-    const popup=`<div class="photo-popup">
-      <a href="${esc(p.page)}" target="_blank" rel="noopener"><img src="${esc(p.thumb)}" alt="" loading="lazy"></a>
-      ${p.title?`<b>${esc(p.title)}</b>`:''}
-      <div class="ph-km">${fmtPasses(p._passes)}</div>
-      <div class="ph-meta">${meta}</div>
-      <a href="${esc(p.page)}" target="_blank" rel="noopener">Zobacz w ${src.label} →</a>
-    </div>`;
-    L.marker([p.lat,p.lng],{icon,zIndexOffset:150}).bindPopup(popup,{maxWidth:280,minWidth:260}).addTo(photoLayer);
+    const html=()=>{
+      const meta=[p.author,p.date,p.license,p.pano?'panorama 360°':''].filter(Boolean).map(esc).join(' · ');
+      return `<div class="photo-popup">
+        <a href="${esc(p.page)}" target="_blank" rel="noopener">${p.thumb?`<img src="${esc(p.thumb)}" alt="">`:'<img alt="" style="height:170px">'}</a>
+        ${p.title?`<b>${esc(p.title)}</b>`:''}
+        <div class="ph-km">${fmtPasses(p._passes)}</div>
+        <div class="ph-meta">${meta}</div>
+        <a href="${esc(p.page)}" target="_blank" rel="noopener">${p.pano?'Obejrzyj panoramę':'Zobacz'} w ${src.label} →</a>
+      </div>`;
+    };
+    const m=L.marker([p.lat,p.lng],{icon,zIndexOffset:150}).bindPopup(html,{maxWidth:280,minWidth:260}).addTo(photoLayer);
+    // Mapillary thumbnails are signed, expiring URLs: look one up when opened
+    if(p.src==='mapillary') m.on('popupopen',async e=>{
+      if(p.thumb) return;
+      const d=await fetch(`/api/mapillary/image/${encodeURIComponent(p.id)}`).then(r=>r.ok?r.json():{}).catch(()=>({}));
+      if(!d.thumb) return;
+      p.thumb=d.thumb; p.author=d.author||'';
+      e.popup.setContent(html);
+    });
   });
 }
 async function fetchRoutePhotos(){

@@ -104,4 +104,4 @@ function saveInfo(items) {
   return n;
 }
 
-module.exports = { CELL_LAT, CELL_LNG, cellOf, doneCells, filesNear, saveCell, saveInfo };
+module.exports = { CELL_LAT, CELL_LNG, cellOf, doneCells, filesNear, saveCell, saveInfo, kmToPolyline };
