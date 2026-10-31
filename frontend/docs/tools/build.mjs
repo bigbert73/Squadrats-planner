@@ -320,6 +320,134 @@ function build(L) {
     `<div class="int-filter" role="group" aria-label="${T(['Filtr integracji', 'Integration filter'])}">${CATS.map(([k, l], i) => `<button type="button" data-f="${k}" aria-pressed="${i ? 'false' : 'true'}">${T(l)}</button>`).join('')}</div>
      <div class="int-grid">${INT.map(([cat, mono, name, sub, desc]) => `<article class="int" data-cat="${cat}" style="--c:var(${C[cat]})"><header><span class="mono">${mono}</span><h4>${T(name)}<small>${T(sub)}</small></h4></header><p>${T(desc)}</p></article>`).join('')}</div>`));
 
+  // ── technical chapter ────────────────────────────────────────────────────
+  const archSvg = () => {
+    const box = (x, y, w, h, cls, title, lines = [], tag = '') => `<g class="${cls}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12"/>
+      <text class="t" x="${x + 16}" y="${y + 26}">${title}</text>${tag ? `<text class="tag" x="${x + w - 14}" y="${y + 26}" text-anchor="end">${tag}</text>` : ''}
+      ${lines.map((l, i) => `<text class="s" x="${x + 16}" y="${y + 48 + i * 18}">${l}</text>`).join('')}</g>`;
+    const db = (x, y, w, name, sub) => `<g class="db"><path d="M${x} ${y + 7}v26c0 4 ${w / 2 - 4} 7 ${w / 2} 7s${w / 2} -3 ${w / 2} -7v-26"/><ellipse cx="${x + w / 2}" cy="${y + 7}" rx="${w / 2}" ry="7"/>
+      <text class="d" x="${x + w / 2}" y="${y + 26}" text-anchor="middle">${name}</text><text class="ds" x="${x + w / 2}" y="${y + 52}" text-anchor="middle">${sub}</text></g>`;
+    const list = (x, y, w, title, items, cls) => `<g class="${cls}"><rect x="${x}" y="${y}" width="${w}" height="${36 + items.length * 26}" rx="12"/>
+      <text class="t" x="${x + 16}" y="${y + 24}">${title}</text>
+      ${items.map((l, i) => `<text class="s" x="${x + 16}" y="${y + 52 + i * 26}"><tspan class="dot">●</tspan> ${l}</text>`).join('')}</g>`;
+    const lbl = (x, y, t, a = 'middle') => `<text class="lbl" x="${x}" y="${y}" text-anchor="${a}">${t}</text>`;
+    return `<svg class="arch" viewBox="0 0 1100 700" role="img" aria-label="${T(['Diagram architektury Squadrats', 'Squadrats architecture diagram'])}">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ahp"/></marker></defs>
+      <text class="col" x="20" y="40">${T(['URZĄDZENIA', 'DEVICES'])}</text>
+      <text class="col" x="300" y="40">${T(['SERWER · DOCKER COMPOSE', 'SERVER · DOCKER COMPOSE'])}</text>
+      <text class="col" x="810" y="40">${T(['USŁUGI ZEWNĘTRZNE', 'EXTERNAL SERVICES'])}</text>
+      <rect class="frame" x="290" y="58" width="460" height="566" rx="18"/>
+      ${box(20, 80, 230, 170, 'b-dev', T(['Przeglądarka', 'Browser']), [T(['komputer i telefon', 'computer and phone']), 'index.html (SPA)', 'Leaflet 1.9.4', 'i18n.js · PL / EN', T(['brak kroku budowania', 'no build step'])])}
+      ${box(20, 350, 230, 120, 'b-dev', 'Garmin Edge', [T(['pole danych Connect IQ', 'Connect IQ data field']), T(['internet przez telefon', 'internet via the phone']), '(Garmin Connect)'])}
+      ${box(20, 520, 230, 100, 'b-tool', 'tools/update-pois.sh', [T(['import OSM z Geofabrik', 'OSM import from Geofabrik']), T(['Polska · .osm.pbf · osmium', 'Poland · .osm.pbf · osmium'])])}
+      ${box(320, 80, 410, 66, 'b-web', 'squadrats-frontend', ['nginx:alpine · ' + T(['pliki statyczne, proxy /api i /auth', 'static files, proxy for /api and /auth'])], ':8081')}
+      ${box(320, 186, 410, 196, 'b-api', 'squadrats-backend', ['Node 20 · Express · better-sqlite3', 'planner · priority · routing · tiles', 'strava · oauth · photos · mapillary', 'popular · reach · kml · db', T(['SSE: postęp synchronizacji na żywo', 'SSE: live sync progress']), T(['auto-sync Stravy co 30 min', 'Strava auto-sync every 30 min'])], ':3000')}
+      ${box(320, 420, 150, 90, 'b-rt', 'squadrats-brouter', ['Java 17 · :17777', T(['profile .brf', '.brf profiles'])])}
+      ${db(335, 548, 120, 'brouter-segments', T(['650 MB · rd5', '650 MB · rd5']))}
+      <g class="vol"><rect x="490" y="420" width="240" height="190" rx="12"/><text class="t" x="506" y="444">${T(['wolumen ./data', 'volume ./data'])}</text></g>
+      ${db(502, 458, 104, 'squadrats.db', T(['konta, kwadraty', 'accounts, squares']))}
+      ${db(614, 458, 104, 'pois.db', T(['punkty POI', 'POIs']))}
+      ${db(502, 530, 104, 'popular.db', T(['szlaki', 'cycle network']))}
+      ${db(614, 530, 104, 'reach.db', T(['bez dróg', 'no-road index']))}
+      <text class="ds" x="610" y="600" text-anchor="middle">+ photos.db · gpstiles/</text>
+      ${list(800, 70, 280, T(['przez backend (klucze na serwerze)', 'via the backend (server-side keys)']), ['Strava API · OAuth', 'Google OAuth · Places', 'Google Street View', T(['OSRM (rezerwa tras)', 'OSRM (routing fallback)']), 'Overpass API', 'Wikipedia', 'Mapillary', T(['Mapy.com (proxy kafelków)', 'Mapy.com (tile proxy)']), T(['ślady GPS OSM (cache)', 'OSM GPS traces (cached)'])], 'b-ext')}
+      ${list(800, 400, 280, T(['wprost z przeglądarki', 'straight from the browser']), [T(['kafelki map: OSM, Carto, Esri…', 'map tiles: OSM, Carto, Esri…']), 'Geoportal · BDL · GDOŚ', T(['Nominatim (adresy)', 'Nominatim (addresses)']), 'Wikimedia Commons'], 'b-dir')}
+      <g class="ar">
+        <path d="M250 112H318" marker-end="url(#ah)"/>${lbl(284, 104, 'HTTP(S)')}
+        <path d="M250 410H300V136H318" marker-end="url(#ah)"/><text class="lbl" transform="translate(294 300) rotate(-90)" text-anchor="middle">/api/garmin/area</text>
+        <path d="M525 146V184" marker-end="url(#ah)"/>${lbl(533, 170, T(['/api, /auth, SSE', '/api, /auth, SSE']), 'start')}
+        <path d="M395 382V418" marker-end="url(#ah)"/>${lbl(403, 404, 'HTTP', 'start')}
+        <path d="M395 510V546" marker-end="url(#ah)"/>
+        <path d="M610 382V418" marker-end="url(#ah)"/>${lbl(618, 404, 'SQLite', 'start')}
+        <path d="M730 284H760V200H798" marker-end="url(#ah)"/>${lbl(764, 280, 'HTTPS', 'start')}
+        <path d="M135 250V320H270V672H940V640" marker-end="url(#ah)" class="dash"/>${lbl(600, 666, T(['kafelki map, adresy i zdjęcia pobiera przeglądarka', 'the browser fetches map tiles, addresses and photos itself']))}
+        <path d="M250 600H280V650H610V612" marker-end="url(#ah)"/>${lbl(445, 644, T(['nowe pois / popular / reach.db', 'fresh pois / popular / reach.db']))}
+      </g>
+    </svg>`;
+  };
+  const tbl = (head, rows) => `<div class="table-wrap"><table><thead><tr>${head.map(h => `<th>${T(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${T(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const flow = (title, steps) => `<section class="flow"><h4>${T(title)}</h4><ol>${steps.map(s => `<li>${T(s)}</li>`).join('')}</ol></section>`;
+
+  chapters.push(chapter('technika', '--route', ['Technika', 'Under the hood'], ['Architektura: kontenery, bazy i połączenia', 'Architecture: containers, databases and connections'],
+    ['Squadrats to trzy kontenery Dockera i kilka plików SQLite. Bez chmury i bez zewnętrznej bazy danych: całość działa na jednym komputerze, a w produkcji w OpenShift. Ten rozdział jest dla osób, które aplikację uruchamiają, rozwijają albo oceniają jej bezpieczeństwo.',
+     'Squadrats is three Docker containers and a few SQLite files. No cloud and no external database: it all runs on one computer, and on OpenShift in production. This chapter is for people who run, develop or review the app.'],
+    `<div class="arch-wrap">${archSvg()}</div><p class="swipe-hint">${T(['← przesuń diagram w bok →', '← swipe the diagram sideways →'])}</p>
+    <p class="note">${T(['<b>Jak czytać diagram:</b> ciągłe strzałki to ruch przez serwer, przerywana to zapytania, które przeglądarka wysyła sama. Klucze płatnych usług (Google, Mapy.com, Mapillary, Strava) są tylko w backendzie, w pliku <code>.env</code>.', '<b>Reading the diagram:</b> solid arrows go through the server, the dashed one is requests the browser makes itself. Keys for paid services (Google, Mapy.com, Mapillary, Strava) live only in the backend, in <code>.env</code>.'])}</p>
+
+    <h3>${T(['Kontenery', 'Containers'])}</h3>
+    ${tbl([['Kontener', 'Container'], ['Technologia', 'Technology'], ['Port', 'Port'], ['Rola', 'Role']], [
+      ['<code>squadrats-frontend</code>', 'nginx:alpine', '8081', ['Serwuje aplikację (<code>index.html</code>, <code>i18n.js</code>), podręcznik <code>/docs</code> i strony prawne. Przekazuje <code>/api</code> i <code>/auth</code> do backendu bez buforowania, żeby postęp synchronizacji (SSE) docierał na żywo.', 'Serves the app (<code>index.html</code>, <code>i18n.js</code>), the <code>/docs</code> manual and legal pages. Proxies <code>/api</code> and <code>/auth</code> to the backend unbuffered, so sync progress (SSE) arrives live.']],
+      ['<code>squadrats-backend</code>', 'Node 20 · Express · better-sqlite3', '3000', ['Całe API: konta, kwadraty, planowanie pętli, priorytety, synchronizacja Stravy, POI, zdjęcia, pośrednik dla płatnych map. Kompresja gzip odpowiedzi.', 'The whole API: accounts, squares, loop planning, priorities, Strava sync, POIs, photos, a proxy for paid maps. Gzip-compressed responses.']],
+      ['<code>squadrats-brouter</code>', 'Java 17 · BRouter', '17777', ['Silnik tras offline na mapie Polski. Własne profile <code>rowery-pl.brf</code> i <code>safety.brf</code> wykluczają drogi ekspresowe. Umie omijać już przejechane drogi.', 'Offline routing engine on the map of Poland. Custom <code>rowery-pl.brf</code> and <code>safety.brf</code> profiles rule out expressways. Can avoid roads already ridden.']],
+    ])}
+
+    <h3>${T(['Bazy danych', 'Databases'])}</h3>
+    <p>${T(['Każda baza to jeden plik SQLite w wolumenie <code>./data</code>, więc kopia zapasowa to skopiowanie katalogu. Bazy OSM są przebudowywane obok i podmieniane w locie; backend sam je ponownie otwiera.', 'Each database is a single SQLite file in the <code>./data</code> volume, so a backup is a copy of the folder. OSM databases are rebuilt alongside and swapped in live; the backend reopens them by itself.'])}</p>
+    ${tbl([['Plik', 'File'], ['Zawartość', 'Contents'], ['Źródło', 'Source'], ['Rozmiar', 'Size']], [
+      ['<code>squadrats.db</code>', ['Konta, tokeny Stravy, aktywności, zdobyte SQ i SQI, kwadraty niezdobywalne, zapisane trasy, stan synchronizacji', 'Accounts, Strava tokens, activities, collected SQ and SQI, uncollectable squares, saved routes, sync status'], ['użytkownicy i Strava', 'users and Strava'], '5 MB'],
+      ['<code>pois.db</code>', ['Punkty na trasie: jedzenie, woda, sklepy, noclegi, serwisy, atrakcje', 'Points along the route: food, water, shops, lodging, bike service, sights'], 'OSM · Geofabrik', '38 MB'],
+      ['<code>popular.db</code>', ['Oznakowane szlaki i drogi rowerowe dla trybu Popularne', 'Signed cycle routes and paths for Popular mode'], 'OSM · Geofabrik', '15 MB'],
+      ['<code>reach.db</code>', ['Squadratinhos, przez które nie biegnie żadna droga', 'Squadratinhos with no road through them'], 'OSM · Geofabrik', '2 MB'],
+      ['<code>photos.db</code>', ['Pamięć zdjęć z Wikimedia Commons według obszarów, ważna 60 dni', 'Wikimedia Commons photo cache per area, kept for 60 days'], ['przeglądarki użytkowników', 'users’ browsers'], '1 MB'],
+      ['<code>gpstiles/</code>', ['Pamięć kafelków śladów GPS OSM dla trybu Popularne', 'Cache of OSM GPS trace tiles for Popular mode'], 'openstreetmap.org', '—'],
+      ['<code>brouter-segments/</code>', ['Graf drogowy Polski dla BRouter', 'Road graph of Poland for BRouter'], 'brouter.de', '650 MB'],
+    ])}
+
+    <h3>${T(['Jak płyną dane', 'How data flows'])}</h3>
+    <div class="flows">
+      ${flow(['Planowanie pętli', 'Planning a loop'], [
+        ['Przeglądarka wysyła start, długość, profil i cel do <code>/api/route/detour</code>.', 'The browser sends the start, length, profile and goal to <code>/api/route/detour</code>.'],
+        ['Planer rysuje dziesiątki kandydatów: elipsy w 16 kierunkach i „płatki” do skupisk niezdobytych kwadratów.', 'The planner draws dozens of candidates: ellipses in 16 directions and “petals” towards clusters of uncollected squares.'],
+        ['Najlepsze wyznacza BRouter w dwóch połowach. Druga omija drogi pierwszej, więc powrót jest inny.', 'BRouter routes the best ones in two halves. The second avoids the first one’s roads, so the way back differs.'],
+        ['Wygrywa trasa, która realnie zbiera najwięcej, trzyma długość i nie dubluje dróg.', 'The winner is the route that actually collects the most, keeps the length and doesn’t repeat roads.'],
+      ])}
+      ${flow(['Synchronizacja Stravy', 'Strava sync'], [
+        ['Logowanie OAuth Stravy zapisuje tokeny w <code>squadrats.db</code>.', 'Strava OAuth sign-in stores tokens in <code>squadrats.db</code>.'],
+        ['Co 5 minut backend sprawdza, czyja synchronizacja jest starsza niż 30 minut.', 'Every 5 minutes the backend checks whose sync is older than 30 minutes.'],
+        ['Nowe aktywności zamienia na SQ i SQI i przelicza Yard, Über i priorytety.', 'New activities become SQ and SQI, and Yard, Über and priorities are recalculated.'],
+        ['Ręczna synchronizacja pokazuje postęp na żywo przez SSE.', 'A manual sync shows live progress over SSE.'],
+      ])}
+      ${flow(['Zdjęcia z trasy', 'Photos along the route'], [
+        ['Backend zwraca zdjęcia z <code>photos.db</code> dla obszarów już znanych.', 'The backend returns photos from <code>photos.db</code> for areas it already knows.'],
+        ['Brakujące obszary przeglądarka pobiera z Commons i odsyła na serwer, więc następna osoba dostaje je od razu.', 'The browser fetches missing areas from Commons and posts them back, so the next person gets them at once.'],
+        ['Mapillary czyta backend z kafelków wektorowych, a miniaturę dopiero po kliknięciu.', 'The backend reads Mapillary from vector tiles, and the thumbnail only on click.'],
+      ])}
+      ${flow(['Pole danych Garmin', 'Garmin data field'], [
+        ['Profil generuje osobisty klucz Garmina.', 'The profile generates a personal Garmin key.'],
+        ['Edge co 5 minut wysyła pozycję i klucz do <code>/api/garmin/area</code> przez telefon.', 'Every 5 minutes the Edge sends its position and key to <code>/api/garmin/area</code> through the phone.'],
+        ['Backend odsyła mapę kwadratów wokół rowerzysty, a Edge rysuje ją w trakcie jazdy.', 'The backend returns the square map around the rider, and the Edge draws it while riding.'],
+      ])}
+    </div>
+
+    <h3>${T(['API w skrócie', 'API at a glance'])}</h3>
+    ${tbl([['Obszar', 'Area'], ['Endpointy', 'Endpoints'], ['Dostęp', 'Access']], [
+      [['Konto', 'Account'], '<code>/api/auth/*</code> · <code>/api/profile/*</code> · <code>/auth/google</code> · <code>/auth/strava</code>', ['publiczne / zalogowany', 'public / signed in']],
+      [['Kwadraty', 'Squares'], '<code>/api/tiles/sq|sqi|yard|uber|yardinho|uberinho|priority|noroad|reach-stats</code> · <code>/api/tiles/blocked/*</code>', ['zalogowany', 'signed in']],
+      [['Trasy', 'Routes'], '<code>/api/route/detour</code> · <code>/api/route/preview-tiles</code> · <code>/api/routes</code> (CRUD)', ['zalogowany', 'signed in']],
+      [['Dane', 'Data'], '<code>/api/sync</code> · <code>/api/sync/status</code> · <code>/api/gpx/import</code> · <code>/api/squadrats/import-kml</code>', ['zalogowany', 'signed in']],
+      [['Na trasie', 'Along the route'], '<code>/api/route/pois|overpass|wiki-poi|photos</code> · <code>/api/photos/*</code> · <code>/api/poi/gplace</code> · <code>/api/mapillary/image/:id</code>', ['zalogowany', 'signed in']],
+      [['Mapy', 'Maps'], '<code>/api/mapy/tile/:set/:z/:x/:y</code> · <code>/api/streetview/*</code>', ['zalogowany', 'signed in']],
+      ['Garmin', '<code>/api/garmin/area</code>', ['klucz Garmina', 'Garmin key']],
+      [['Administracja', 'Admin'], '<code>/api/admin/users</code> · <code>/api/log</code> · <code>/api/health</code>', ['administrator', 'administrator']],
+    ])}
+
+    <h3>${T(['Bezpieczeństwo i prywatność', 'Security and privacy'])}</h3>
+    ${benefits([
+      [['Sesja', 'Sessions'], ['Token JWT w ciasteczku httpOnly (SameSite=Lax) ważnym 30 dni. Skrypty strony nie mają do niego dostępu.', 'A JWT in an httpOnly cookie (SameSite=Lax) valid for 30 days. Page scripts cannot read it.']],
+      [['Hasła', 'Passwords'], ['Skróty bcrypt, minimum 8 znaków z cyfrą. Logowanie: 10 prób na 15 minut, rejestracja: 5 na godzinę.', 'bcrypt hashes, at least 8 characters with a digit. Login: 10 tries per 15 minutes, sign-up: 5 per hour.']],
+      [['Klucze usług', 'Service keys'], ['Google, Mapy.com, Mapillary i Strava tylko w <code>.env</code> serwera. Kafelki Mapy.com idą przez pośrednika, więc klucz nie trafia do przeglądarki.', 'Google, Mapy.com, Mapillary and Strava only in the server’s <code>.env</code>. Mapy.com tiles go through a proxy, so the key never reaches the browser.']],
+      [['Logi', 'Logs'], ['Logi kontenerów mają limit 3 × 10 MB, bo zawierają adresy IP i pozycje.', 'Container logs are capped at 3 × 10 MB, as they contain IP addresses and positions.']],
+    ])}
+
+    <h3>${T(['Uruchomienie i aktualizacja', 'Running and updating'])}</h3>
+    <div class="table-wrap"><table><tbody>
+      <tr><td>${T(['Lokalnie', 'Locally'])}</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
+      <tr><td>${T(['Produkcja', 'Production'])}</td><td>${T(['Manifesty OpenShift w <code>ocp/manifests</code>: sekret, backend, frontend, route i BRouter.', 'OpenShift manifests in <code>ocp/manifests</code>: secret, backend, frontend, route and BRouter.'])}</td></tr>
+      <tr><td>${T(['Dane OSM', 'OSM data'])}</td><td><code>tools/update-pois.sh</code> · ${T(['pobiera nowszy wyciąg Polski i przebudowuje pois, popular i reach.db bez zatrzymywania aplikacji', 'downloads a newer Poland extract and rebuilds pois, popular and reach.db without stopping the app'])}</td></tr>
+      <tr><td>Garmin</td><td><code>garmin/build.sh</code> · ${T(['buduje pole danych Connect IQ', 'builds the Connect IQ data field'])}</td></tr>
+      <tr><td>${T(['Podręcznik', 'Manual'])}</td><td><code>node frontend/docs/tools/build.mjs</code> · ${T(['zrzuty:', 'screenshots:'])} <code>tools/docshots.mjs</code></td></tr>
+    </tbody></table></div>`));
+
   chapters.push(chapter('skroty', '--muted', ['Skróty', 'Shortcuts'], ['Szybciej klawiaturą i gestami', 'Faster with keys and gestures'],
     ['Na komputerze najczęstsze czynności mają skróty klawiszowe. Na telefonie wszystko jest pod kciukiem.', 'On a computer the most common actions have keyboard shortcuts. On a phone everything is under your thumb.'],
     `<div class="kbd-grid">

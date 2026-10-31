@@ -242,3 +242,39 @@ footer.foot .wrap { display: flex; gap: 20px; justify-content: space-between; fl
   .brand small { display: none; }
   .hero-shots { aspect-ratio: 16 / 12; }
 }
+
+/* ── technical chapter: architecture diagram, flows ─────────────────────── */
+.arch-wrap { overflow-x: auto; margin: 26px 0 0; padding: 18px; border: 1px solid var(--line); border-radius: var(--r); background:
+  radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0) 0 0 / 22px 22px, var(--bg-2); }
+.arch { display: block; width: 100%; min-width: 820px; height: auto; font-family: var(--f-ui); }
+.arch .col { font: 600 12px var(--f-ui); letter-spacing: .16em; fill: var(--muted); }
+.arch .frame { fill: none; stroke: var(--line-2); stroke-width: 1.5; stroke-dasharray: 6 6; }
+.arch rect { stroke-width: 1.5; }
+.arch .t { font: 700 15px var(--f-ui); fill: var(--ink); }
+.arch .s { font: 500 12px var(--f-mono); fill: var(--ink-2); }
+.arch .tag { font: 700 12px var(--f-mono); }
+.arch .dot { font-size: 9px; }
+.arch .b-dev rect { fill: var(--panel); stroke: var(--sqi); } .arch .b-dev .tag, .arch .b-dev .dot { fill: var(--sqi); }
+.arch .b-tool rect { fill: var(--panel); stroke: var(--line-2); stroke-dasharray: 4 4; }
+.arch .b-web rect { fill: var(--panel); stroke: var(--yard); } .arch .b-web .tag { fill: var(--yard); }
+.arch .b-api rect { fill: color-mix(in srgb, var(--sq) 9%, var(--panel)); stroke: var(--sq); stroke-width: 2; } .arch .b-api .tag { fill: var(--sq); }
+.arch .b-rt rect { fill: var(--panel); stroke: var(--new); } .arch .b-rt .tag { fill: var(--new); }
+.arch .vol rect { fill: color-mix(in srgb, var(--uber) 6%, var(--panel)); stroke: var(--uber); stroke-dasharray: 5 4; }
+.arch .db path, .arch .db ellipse { fill: var(--panel-2); stroke: var(--uber); stroke-width: 1.4; }
+.arch .d { font: 600 11.5px var(--f-mono); fill: var(--ink); }
+.arch .ds { font: 500 11px var(--f-ui); fill: var(--muted); }
+.arch .b-ext rect { fill: var(--panel); stroke: var(--route); } .arch .b-ext .dot { fill: var(--route); }
+.arch .b-dir rect { fill: var(--panel); stroke: var(--muted); stroke-dasharray: 5 4; } .arch .b-dir .dot { fill: var(--muted); }
+.arch .ar path { fill: none; stroke: var(--ink-2); stroke-width: 1.6; }
+.arch .ar path.dash { stroke-dasharray: 6 5; stroke: var(--muted); }
+.arch .ahp { fill: var(--ink-2); }
+.arch .lbl { font: 600 11px var(--f-mono); fill: var(--ink-2); paint-order: stroke; stroke: var(--bg-2); stroke-width: 5px; stroke-linejoin: round; }
+.flows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 22px 0 6px; }
+.flow { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent, var(--route)); border-radius: var(--r); padding: 18px 22px 16px; min-width: 0; }
+.flow h4 { margin: 0 0 10px; font: 600 16px/1.2 var(--f-display, var(--f-ui)); color: var(--ink); }
+.flow ol { margin: 0; padding-left: 1.25em; display: grid; gap: 7px; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.flow li::marker { color: var(--accent, var(--route)); font: 600 13px var(--f-mono); }
+.chapter td code, .flow code, .note code { overflow-wrap: anywhere; }
+@media (max-width: 760px) { .flows { grid-template-columns: 1fr; } .arch-wrap { padding: 10px; } }
+.swipe-hint { display: none; margin: 8px 0 0; text-align: center; font: 500 12px var(--f-mono); color: var(--muted); }
+@media (max-width: 860px) { .swipe-hint { display: block; } }
