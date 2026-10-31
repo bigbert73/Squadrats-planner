@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Podręcznik Squadrats</title>
+<meta name="description" content="Podręcznik użytkownika Squadrats Route Planner: planowanie tras zbierających kwadraty, mapy, integracje, komputer i telefon.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+<link rel="alternate" hreflang="en" href="en.html">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="#"><span class="brand-mark">SQ</span>Squadrats <small>podręcznik</small></a>
+  <nav class="top-nav" aria-label="Główne">
+    <a class="pill-link" href="#planowanie">Planowanie</a>
+    <a class="pill-link" href="#integracje">Integracje</a>
+    <span class="lang"><a href="index.html" hreflang="pl" aria-current="page">PL</a><a href="en.html" hreflang="en" >EN</a></span>
+    <a class="pill-link cta" href="/">Otwórz aplikację</a>
+  </nav>
+</div></header>
+
+<section class="hero">
+  <canvas id="hero-grid" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div>
+      <span class="eyebrow rise">Squadrats Route Planner</span>
+      <h1 class="rise d1">Każdy przejazd <em>zdobywa&nbsp;teren.</em></h1>
+      <p class="lede rise d2">Planer tras rowerowych dla graczy Squadrats. Łączy Twoje przejazdy ze Stravy z siatką kwadratów, układa pętle, które zbierają najwięcej nowych kwadratów i nie wracają tą samą drogą, i pokazuje wszystko, co spotkasz po drodze. Na komputerze i na telefonie.</p>
+      <div class="hero-cta rise d3">
+        <a class="btn primary" href="#start">Start w 4 krokach →</a>
+        <a class="btn" href="#kwadraty">Jak działają kwadraty</a>
+      </div>
+      <div class="hud" aria-label="Animacja: pętla zdobywa kwadraty">
+        <span class="hud-chip"><i style="background:var(--new)"></i><span data-hud="sqi">+0</span>&nbsp;SQI</span>
+        <span class="hud-chip"><i style="background:var(--route)"></i><span data-hud="km">0</span>&nbsp;km</span>
+        <span class="hud-chip"><i style="background:var(--sqi)"></i>z14 · 1524 m</span>
+        <span class="hud-chip"><i style="background:var(--sq)"></i>z17 · 191 m</span>
+      </div>
+    </div>
+    <div class="hero-shots">
+      <div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats</span></div><img class="shot" src="img/d-hero.webp" alt="Planer na komputerze: pętla 37 km z 52 nowymi squadratinhos" width="2160" height="1350"></div>
+      <div class="frame-phone"><img class="shot" src="img/m-route.webp" alt="Planer na telefonie" width="975" height="2110"></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap layout">
+  <nav class="toc" aria-label="Rozdziały">
+    <p>Rozdziały</p>
+    <ol><li><a href="#kwadraty"><span>01</span>Zasady gry</a></li><li><a href="#start"><span>02</span>Szybki start</a></li><li><a href="#planowanie"><span>03</span>Planowanie trasy</a></li><li><a href="#priorytety"><span>04</span>Inteligentne zbieranie</a></li><li><a href="#twoje-kwadraty"><span>05</span>Twoje terytorium</a></li><li><a href="#na-trasie"><span>06</span>Rozpoznanie trasy</a></li><li><a href="#mapy"><span>07</span>Mapy i nakładki</a></li><li><a href="#jazda"><span>08</span>Na rowerze</a></li><li><a href="#dane"><span>09</span>Twoje przejazdy</a></li><li><a href="#konto"><span>10</span>Konto i prywatność</a></li><li><a href="#integracje"><span>11</span>26 integracje</a></li><li><a href="#skroty"><span>12</span>Skróty</a></li></ol>
+  </nav>
+  <main>
+  <section class="chapter" id="kwadraty" style="--accent:var(--sqi)">
+    <header><span class="eyebrow">Zasady gry</span><h2>Czym są kwadraty</h2><p class="lead">Squadrats dzieli mapę świata na stałą siatkę. Każdy kwadrat, przez który przejedziesz, zostaje Twój. Planer zna tę siatkę co do metra i liczy, ile zdobędziesz, zanim wyjedziesz z domu.</p></header>
+    <div class="concept">
+        <svg viewBox="0 0 400 300" role="img" aria-label="Jeden squadrat to 8 na 8 squadratinhos">
+          <rect x="40" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="121" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="121" y="40" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="121" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="148" y="40" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="148" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="175" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="175" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="94" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="229" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="229" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/>
+          <rect x="40" y="40" width="216" height="216" fill="none" stroke="var(--sqi)" stroke-width="3"/>
+          <rect x="94" y="94" width="108" height="108" fill="none" stroke="var(--uber)" stroke-width="3" stroke-dasharray="7 5"/>
+          <rect x="121" y="121" width="54" height="54" fill="none" stroke="var(--yard)" stroke-width="3"/>
+          <path d="M20 270 C 90 220, 120 150, 180 130 S 300 60, 380 30" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round"/>
+          <text x="270" y="60" fill="var(--ink-2)" font-family="JetBrains Mono, monospace" font-size="13">z14 · 1524 m</text>
+          <text x="270" y="80" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="13">= 8 × 8 · z17</text>
+          <text x="270" y="230" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="13">z17 · 191 m</text>
+        </svg>
+        <ul class="legend">
+          <li><span class="sw" style="border-color:var(--sqi)"></span><span><b>Squadrat (SQ)</b>Kafel mapy na zoomie 14, bok ok. <span class="num">1,5 km</span>. Duża skala: zdobywasz nowe okolice.</span></li>
+          <li><span class="sw" style="border-color:var(--sq);background:color-mix(in srgb,var(--sq) 45%,transparent)"></span><span><b>Squadratinho (SQI)</b>Kafel na zoomie 17, bok ok. <span class="num">191 m</span>. W jednym squadracie jest ich <span class="num">64</span>. Tu liczy się każda uliczka.</span></li>
+          <li><span class="sw" style="border-color:var(--yard)"></span><span><b>Yard / Yardinho</b>Zdobyte kwadraty, które mają zdobytych sąsiadów ze wszystkich czterech stron. Mierzą, jak „pełne” jest Twoje terytorium.</span></li>
+          <li><span class="sw" style="border-color:var(--uber);border-style:dashed"></span><span><b>Übersquadrat / Übersquadratinho</b>Największy pełny kwadrat N×N bez ani jednej dziury, np. <span class="num">25 × 25</span>. Najtrudniejszy wynik do podbicia.</span></li>
+        </ul>
+      </div>
+  </section>
+
+  <section class="chapter" id="start" style="--accent:var(--sq)">
+    <header><span class="eyebrow">Szybki start</span><h2>Pierwsza trasa w czterech krokach</h2><p class="lead">Od założenia konta do trasy na liczniku mija kilka minut. Kolejne razy to już tylko jedno kliknięcie, bo planer pamięta Twój dom i ustawienia.</p></header>
+    <ol class="steps">
+        <li><b>Załóż konto</b>Login i hasło albo „Kontynuuj z Google”.</li>
+        <li><b>Wczytaj swoje przejazdy</b>Połącz Stravę albo zaimportuj KML ze Squadrats.com lub pliki GPX.</li>
+        <li><b>Ustaw dom</b>W profilu wpisz adres lub wskaż go na mapie. Każda trasa zacznie się tam sama.</li>
+        <li><b>Zaplanuj i jedź</b>Wybierz dystans, kliknij „Oblicz trasę”, pobierz GPX na Garmina.</li>
+      </ol>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-login.webp" alt="Ekran logowania: konto, Google, regulamin i polityka prywatności." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Ekran logowania: konto, Google, regulamin i polityka prywatności.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-map.webp" alt="Po zalogowaniu: Twoje kwadraty na mapie i licznik w nagłówku." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Po zalogowaniu: Twoje kwadraty na mapie i licznik w nagłówku.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="planowanie" style="--accent:var(--route)">
+    <header><span class="eyebrow">Planowanie trasy</span><h2>Pętla, która zbiera kwadraty i nie wraca tą samą drogą</h2><p class="lead">Podajesz start i dystans. Planer sprawdza dziesiątki wariantów pętli na prawdziwych drogach, liczy nowe kwadraty każdego z nich i wybiera ten, który daje najwięcej, z jak najmniejszym powtarzaniem odcinków.</p></header>
+    <ul class="benefits"><li><b>Pętla albo A → B</b>Pętla z domu na zadany dystans (5–200 km) albo przejazd z punktu do punktu, z opcjonalnym powrotem inną drogą.</li><li><b>Wynik od razu</b>Karta trasy: kilometry, czas przy Twojej średniej, nowe SQ i SQI, przewyższenia i odsetek drogi przejechanej dwa razy.</li><li><b>Pełna kontrola</b>Przeciągaj punkty, klikaj w trasę, by dodać punkt pośredni, cofaj, odwracaj kierunek, zapisuj ulubione trasy.</li></ul>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-form.webp" alt="Formularz trasy: adres, pętla lub A → B, dystans, sześć profili roweru i zaawansowane tryby." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Formularz trasy: adres, pętla lub A → B, dystans, sześć profili roweru i zaawansowane tryby.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-sheet.webp" alt="Na telefonie formularz wysuwa się z dołu ekranu." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Na telefonie formularz wysuwa się z dołu ekranu.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Kliknij <b>Start</b> na pasku nad mapą i kliknij punkt na mapie albo wpisz adres w polu „Skąd?”.</li><li>Wybierz <b>Pętla</b> lub <b>A → B</b> i ustaw suwakiem dystans.</li><li>Wybierz profil roweru, a w sekcji <b>Zaawansowane</b> cel optymalizacji.</li><li>Kliknij <b>Oblicz trasę</b> (albo naciśnij <kbd>Enter</kbd>).</li><li>Przeciągnij dowolny punkt albo kliknij linię trasy, by dodać punkt pośredni. Przelicza się tylko zmieniony odcinek.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Dotknij <b>Zaplanuj trasę</b> na dolnym pasku. Gdy dom jest ustawiony, start jest już wpisany.</li><li>Wybierz pętlę lub A → B, dystans i profil roweru.</li><li>Dotknij <b>Oblicz trasę</b>. Arkusz zwija się i pokazuje kartę wyniku.</li><li>Przytrzymaj i przeciągnij punkt na mapie, by poprawić przebieg.</li><li>Przesuń arkusz w górę, by zobaczyć podsumowanie, punkty i zapisane trasy.</li></ol></section>
+    </div>
+      <h3>Sześć profili roweru</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Profil</th><th>Dla kogo</th><th>Silnik</th></tr></thead>
+        <tbody>
+          <tr><td>Bezpieczny</td><td>Domyślny. Ścieżki rowerowe na pierwszym miejscu, drogi ekspresowe wykluczone.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Spokojny</td><td>Boczne drogi z małym ruchem i ścieżki, profil dopasowany do Polski.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Szosowy</td><td>Szybko i po asfalcie.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Gravel</td><td>Szuter i drogi gruntowe mile widziane.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>MTB</td><td>Teren, ścieżki leśne, single tracki.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Ogólny</td><td>Zwykły rower, szybkie wyliczenie.</td><td><span class="tag">OSRM</span></td></tr>
+        </tbody></table></div>
+      <h3>Siedem celów optymalizacji</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Tryb</th><th>Co robi</th></tr></thead>
+        <tbody>
+          <tr><td>SQI</td><td>Najwięcej nowych squadratinhos. Domyślny i najczęściej używany.</td></tr>
+          <tr><td>Nowe SQ</td><td>Najwięcej nowych dużych kwadratów, czyli nowe okolice.</td></tr>
+          <tr><td>Yard</td><td>Wypełnia luki tak, by urósł Yard.</td></tr>
+          <tr><td>Yardinho</td><td>To samo na poziomie squadratinhos.</td></tr>
+          <tr><td>Priorytety</td><td>Pętla przez najcenniejsze kwadraty z warstwy Priorytety (rozdział niżej).</td></tr>
+          <tr><td>Popularne</td><td>Drogi, którymi jeździ najwięcej ludzi: gęste ślady GPS z OpenStreetMap i oznakowane szlaki.</td></tr>
+          <tr><td>Bez kwadratów</td><td>Zwykła trasa, gdy kwadraty nie mają znaczenia.</td></tr>
+        </tbody></table></div>
+      <h3>Wynik i profil wysokości</h3>
+      <p>Karta trasy pokazuje najważniejsze liczby, a pod nią podsumowanie nawierzchni: ile kilometrów asfaltu, ścieżek rowerowych, szutru i kostki. Profil wysokości otwiera się pod mapą. Przesuwając palcem lub myszą po wykresie, widzisz ten punkt na trasie. Na samej trasie co kilka kilometrów są znaczniki kilometrów, a ich gęstość dopasowuje się do przybliżenia mapy.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-elev.webp" alt="Pętla 37 km: 52 nowe SQI, nawierzchnie i profil wysokości." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Pętla 37 km: 52 nowe SQI, nawierzchnie i profil wysokości.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-elev.webp" alt="Profil wysokości na telefonie." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Profil wysokości na telefonie.</figcaption></figure></div>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-ab.webp" alt="Trasa A → B przez miasto. Po wyliczeniu przycisk „Dodaj powrót inną drogą” domyka ją w pętlę." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Trasa A → B przez miasto. Po wyliczeniu przycisk „Dodaj powrót inną drogą” domyka ją w pętlę.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-card.webp" alt="Karta trasy na telefonie: GPX dla Garmina, Wyślij, Zapisz." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Karta trasy na telefonie: GPX dla Garmina, Wyślij, Zapisz.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="priorytety" style="--accent:var(--new)">
+    <header><span class="eyebrow">Inteligentne zbieranie</span><h2>Priorytety: które kwadraty warto zdobyć najpierw</h2><p class="lead">Nie każdy brakujący kwadrat jest wart tyle samo. Planer ocenia każdy niezdobyty squadratinho w promieniu 30 km od domu: ile powiększy Twój Übersquadratinho i Yardinho, czy prowadzi do niego droga i jak daleko trzeba jechać.</p></header>
+    <ul class="benefits"><li><b>Trzy poziomy</b>Mapa koloruje kwadraty według wartości. Najcenniejsze świecą najmocniej.</li><li><b>Gotowe cele</b>Lista mówi wprost: „brakuje 1 kwadratu do Über 27 × 27” i ile to kilometrów od domu.</li><li><b>Trasa jednym kliknięciem</b>Tryb Priorytety układa pętlę, która zbiera jak najwięcej punktów w limicie kilometrów. Kwadraty bez drogi bierze „z dojściem pieszo”.</li></ul>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-prio.webp" alt="Warstwa Priorytety i panel celów: najbliższe powiększenia Übersquadratinho." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Warstwa Priorytety i panel celów: najbliższe powiększenia Übersquadratinho.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-prio.webp" alt="Priorytety na telefonie." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Priorytety na telefonie.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Otwórz zakładkę <b>Kwadraty</b> i włącz warstwę <b>Priorytety</b>.</li><li>Kliknij cel na liście, a mapa przeleci do tego okna.</li><li>W zakładce <b>Trasa</b> → <b>Zaawansowane</b> wybierz <b>Priorytety</b>, ustaw limit km i oblicz.</li><li>Po przejechaniu i synchronizacji ranking przelicza się sam, więc kolejna pętla celuje w następne kwadraty.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Otwórz arkusz, przejdź do <b>Kwadraty</b> i włącz <b>Priorytety</b>.</li><li>Dotknij celu na liście, by zobaczyć go na mapie.</li><li>W <b>Trasa</b> wybierz tryb <b>Priorytety</b> i dotknij <b>Oblicz trasę</b>.</li><li>Kwadraty „z dojściem pieszo” mają na mapie osobne znaczniki.</li></ol></section>
+    </div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-prio-route.webp" alt="Pętla w trybie Priorytety: zbiera najcenniejsze kwadraty w limicie kilometrów." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Pętla w trybie Priorytety: zbiera najcenniejsze kwadraty w limicie kilometrów.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="twoje-kwadraty" style="--accent:var(--yard)">
+    <header><span class="eyebrow">Twoje terytorium</span><h2>Kwadraty, Yard i Über w jednym miejscu</h2><p class="lead">Zakładka Kwadraty to tablica wyników. Liczniki na dwóch poziomach, warstwy do włączania na mapie i narzędzia do oznaczania terenu, na który nie da się wjechać.</p></header>
+    <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-squares.webp" alt="Zdobyte squadraty, Yard i Übersquadrat 25 × 25 na mapie całej okolicy." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Zdobyte squadraty, Yard i Übersquadrat 25 × 25 na mapie całej okolicy.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-squares.webp" alt="Liczniki i warstwy na telefonie." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Liczniki i warstwy na telefonie.</figcaption></figure></div>
+      <ul class="benefits"><li><b>Dwanaście warstw</b>Zdobyte, nowe z trasy, Yard, Über, siatki z14 i z17, Priorytety i „bez drogi”. Każda jednym przełącznikiem.</li><li><b>Niezdobywalne</b>Trzy szybkie kliknięcia w kwadrat oznaczają go jako niedostępny (woda, teren zamknięty). Planer go pominie, a Über liczy się bez niego.</li><li><b>Podpowiedzi „bez drogi”</b>Przekreślone kwadraty to miejsca, przez które w OpenStreetMap nie biegnie żadna droga ani ścieżka. Możesz zatwierdzić je hurtowo dla widoku.</li></ul>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-sqi.webp" alt="Poziom squadratinhos: Yardinho, Über SQI i przekreślone kwadraty bez drogi." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Poziom squadratinhos: Yardinho, Über SQI i przekreślone kwadraty bez drogi.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Otwórz zakładkę <b>Kwadraty</b>. Liczniki są też zawsze w nagłówku.</li><li>Włącz warstwy przełącznikami, np. <b>Yard</b> i <b>Übersquadrat</b>.</li><li>W trybie <b>Widok</b> przy zoomie 14+ kliknij kwadrat trzy razy, by oznaczyć go jako niezdobywalny. Trzy kolejne kliknięcia cofają oznaczenie.</li><li>Przycisk <b>Oznacz sugerowane w widoku</b> zatwierdza wszystkie podpowiedzi „bez drogi” na ekranie.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Liczniki SQ, Yard, Über i SQI są w górnym pasku.</li><li>W arkuszu otwórz <b>Kwadraty</b>, by przełączać warstwy.</li><li>Stuknij kwadrat szybko trzy razy, by oznaczyć go jako niezdobywalny. Działa na iPhonie i Androidzie.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="na-trasie" style="--accent:var(--sqi)">
+    <header><span class="eyebrow">Rozpoznanie trasy</span><h2>Zobacz trasę, zanim na nią wyjedziesz</h2><p class="lead">Po wyliczeniu trasy planer sam zbiera, co jest po drodze: gdzie zjeść, gdzie nalać wody, gdzie przenocować, jak wygląda droga na zdjęciach ludzi i w Street View.</p></header>
+    <h3>Punkty na trasie</h3>
+      <p>Sześć kategorii: jedzenie, woda, sklepy (i stacje Orlen), noclegi, serwis rowerowy, atrakcje. Każdy punkt ma kilometr trasy i odległość od niej, w kolejności jazdy. Filtr <b>Tylko przy trasie</b> zostawia miejsca do 60 m od trasy, czyli takie, przy których nie trzeba zjeżdżać. Dymek punktu ma przycisk <b>Google Maps</b> z opiniami i zdjęciami.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-poi.webp" alt="Lista punktów w kolejności jazdy i dymek z przyciskiem Google Maps." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Lista punktów w kolejności jazdy i dymek z przyciskiem Google Maps.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-poi.webp" alt="Na telefonie przycisk otwiera aplikację Google Maps." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Na telefonie przycisk otwiera aplikację Google Maps.</figcaption></figure></div>
+      <h3>Zdjęcia ludzi wzdłuż trasy</h3>
+      <p>Niebieskie kropki to zdjęcia z Wikimedia Commons, zielone to zdjęcia z Mapillary, robione z poziomu drogi, często z roweru, czasem jako panoramy 360°. Pokazują się zdjęcia do 300 m od trasy, mniej więcej co 150 m. Widać, czy to asfalt, szuter czy piach, zanim tam dojedziesz. Zdjęcia raz pobrane dla okolicy są zapamiętywane, więc kolejne trasy ładują się natychmiast.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-photos-mly.webp" alt="Zdjęcie z Mapillary: kilometr trasy, autor i data." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Zdjęcie z Mapillary: kilometr trasy, autor i data.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-photo.webp" alt="Zdjęcie z trasy na telefonie." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Zdjęcie z trasy na telefonie.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-photos.webp" alt="Zdjęcie z Wikimedia Commons z licencją i linkiem do źródła." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Zdjęcie z Wikimedia Commons z licencją i linkiem do źródła.</figcaption></figure></div>
+      <h3>Ciekawe miejsca z Wikipedii</h3>
+      <p>Do 15 miejsc z artykułem na Wikipedii w pobliżu trasy: zabytki, rezerwaty, punkty widokowe. Na mapie mają miniaturę zdjęcia, a dymek pokazuje krótki opis i link do artykułu.</p>
+      <h3>Street View</h3>
+      <p>Panel Street View otwiera się obok mapy. Kliknij dowolne miejsce, a panorama Google pokaże, jak tam jest. Strzałka na mapie pokazuje, gdzie stoisz i w którą stronę patrzysz.</p>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-sv.webp" alt="Street View obok mapy: sprawdzenie ścieżki przed wyjazdem." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Street View obok mapy: sprawdzenie ścieżki przed wyjazdem.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Po wyliczeniu trasy przewiń panel do <b>Punkty na trasie</b> i filtruj kategoriami.</li><li>Kliknij pozycję na liście, by przybliżyć mapę do tego miejsca.</li><li>Kliknij kropkę z aparatem, by zobaczyć zdjęcie. Kliknięcie w zdjęcie otwiera je w pełnym rozmiarze.</li><li>Przycisk menu mapy (prawa strona) → <b>Street View</b>, potem kliknij mapę.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Menu mapy (ikona suwaków) → <b>Punkty na trasie</b> pokazuje filtry kategorii.</li><li>Stuknij pinezkę, a potem <b>Google Maps — opinie, zdjęcia</b>.</li><li>W tym samym menu włączysz <b>Zdjęcia z trasy</b>, <b>Ciekawe miejsca (Wikipedia)</b> i <b>Street View</b> na podzielonym ekranie.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="mapy" style="--accent:var(--uber)">
+    <header><span class="eyebrow">Mapy i nakładki</span><h2>Najdokładniejsze mapy Polski w jednym planerze</h2><p class="lead">Gdy kwadrat nie ma drogi w OpenStreetMap, trzeba wiedzieć, co tam naprawdę jest. Planer łączy mapy bazowe z publicznymi danymi państwowymi: laserowym skanem terenu, zdjęciami lotniczymi, oddziałami leśnymi, rezerwatami i działkami.</p></header>
+    <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-lidar.webp" alt="Lidar (rzeźba terenu z lotniczego skanu, 1 m) z oddziałami leśnymi: dukty widać nawet pod drzewami." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Lidar (rzeźba terenu z lotniczego skanu, 1 m) z oddziałami leśnymi: dukty widać nawet pod drzewami.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-lidar.webp" alt="Lidar na telefonie przy zoomie 16." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Lidar na telefonie przy zoomie 16.</figcaption></figure></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Nakładka</th><th>Do czego</th><th>Źródło</th></tr></thead>
+        <tbody>
+          <tr><td>Lidar</td><td>Zobaczyć ścieżki, rowy i nasypy pod koronami drzew. Od zoomu 11.</td><td><span class="tag">GUGiK</span></td></tr>
+          <tr><td>Ortofotomapa</td><td>Zdjęcia lotnicze do ok. 10 cm na piksel, zwykle nowsze niż satelita.</td><td><span class="tag">Geoportal</span></td></tr>
+          <tr><td>Oddziały leśne</td><td>Granice oddziałów, czyli zwykle przejezdne dukty. Od zoomu 12.</td><td><span class="tag">BDL</span></td></tr>
+          <tr><td>Rezerwaty</td><td>Rezerwaty, parki narodowe, użytki ekologiczne: gdzie nie schodzić ze szlaku.</td><td><span class="tag">GDOŚ</span></td></tr>
+          <tr><td>Działki</td><td>Działki z numerami: czy polna droga to osobna działka drogowa. Od zoomu 16.</td><td><span class="tag">KIEG</span></td></tr>
+          <tr><td>Trasy rowerowe</td><td>Oznakowane szlaki rowerowe.</td><td><span class="tag">Waymarked Trails</span></td></tr>
+          <tr><td>Ślady GPS</td><td>Publiczne nagrania użytkowników OSM: im gęściej, tym więcej przejazdów.</td><td><span class="tag">OpenStreetMap</span></td></tr>
+        </tbody></table></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-orto.webp" alt="Ortofotomapa z granicami działek przy zoomie 17: widać ogrodzenia i przejścia." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Ortofotomapa z granicami działek przy zoomie 17: widać ogrodzenia i przejścia.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-gdos.webp" alt="Rezerwaty i obszary chronione GDOŚ." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Rezerwaty i obszary chronione GDOŚ.</figcaption></figure></div>
+      <h3>Siedem map bazowych</h3>
+      <p>OpenStreetMap, rowerowa CyclOSM, topograficzna OpenTopoMap, satelita Esri, ciemna Carto oraz dwie mapy Mapy.com: turystyczna, ze szlakami i ścieżkami MTB, i lotnicza.</p>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-mapy.webp" alt="Turystyczna mapa Mapy.com ze szlakami MTB i Twoimi squadratinhos." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Turystyczna mapa Mapy.com ze szlakami MTB i Twoimi squadratinhos.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-popular.webp" alt="Tryb Popularne na tle śladów GPS: pętla po drogach, którymi jeździ najwięcej ludzi." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Tryb Popularne na tle śladów GPS: pętla po drogach, którymi jeździ najwięcej ludzi.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-routes.webp" alt="Oznakowane szlaki rowerowe wokół Warszawy." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Oznakowane szlaki rowerowe wokół Warszawy.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Zakładka <b>Nakładki</b> → sekcja <b>Teren i dostęp (Polska)</b> → przełączniki.</li><li>Mapę bazową zmienisz w <b>Opcje</b> albo w menu mapy po prawej.</li><li>Włączone nakładki są zapamiętywane do następnej wizyty.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Menu mapy (ikona suwaków) ma sekcje <b>Mapa bazowa</b> i <b>Teren i dostęp (PL)</b>.</li><li>Stuknij nakładkę, by ją włączyć lub wyłączyć. Aktywne są podświetlone.</li></ol></section>
+    </div>
+      <div class="screens"><figure><div class="frame-phone"><img class="shot" src="img/m-tools.webp" alt="Menu mapy na telefonie: narzędzia, mapy bazowe i nakładki terenu." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Menu mapy na telefonie: narzędzia, mapy bazowe i nakładki terenu.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="jazda" style="--accent:var(--sq)">
+    <header><span class="eyebrow">Na rowerze</span><h2>Z planera na licznik i w drogę</h2><p class="lead">Trasa trafia tam, gdzie jej potrzebujesz: na Garmina, Wahoo albo prosto do telefonu z podglądem Twojej pozycji na trasie.</p></header>
+    <ul class="benefits"><li><b>GPX dla Garmina</b>Plik z wysokościami gotowy do importu jako kurs w Garmin Connect.</li><li><b>Wyślij</b>Systemowe udostępnianie pliku, np. do aplikacji Wahoo ELEMNT.</li><li><b>Jadę</b>Pozycja GPS na trasie: przejechany kilometr, ile zostało, ostrzeżenie o zjechaniu z trasy.</li><li><b>Moje trasy</b>Zapisuj trasy pod nazwą i wracaj do nich jednym kliknięciem.</li></ul>
+      <div class="duo">
+        <div>
+          <h3 style="margin-top:0">Pole danych na Garmin Edge</h3>
+          <p>Squadrats ma własne pole danych Connect IQ dla liczników Edge 1040 i 1050. W trakcie jazdy pokazuje siatkę kwadratów wokół Ciebie, zdobyte i brakujące squadratinhos oraz licznik nowych kwadratów z tej jazdy. Dane okolicy pobiera przez telefon z Twojego konta, korzystając z osobistego klucza.</p>
+          <p class="note"><b>Ilustracja.</b> Obok jest schemat ekranu pola danych, a nie zrzut z licznika.</p>
+        </div>
+        <div class="edge"><canvas id="edge-field" aria-label="Schemat pola danych Squadrats na Garmin Edge"></canvas></div>
+      </div>
+      <div class="screens"><figure><div class="frame-phone"><img class="shot" src="img/m-ride.webp" alt="Tryb Jadę: Twoja pozycja i postęp na zaplanowanej trasie." loading="lazy" width="975" height="2110"></div><figcaption><b>Telefon</b>Tryb Jadę: Twoja pozycja i postęp na zaplanowanej trasie.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li>Na karcie trasy kliknij <b>Pobierz GPX dla Garmina</b>, a w Garmin Connect wybierz <b>Kursy → Importuj</b>.</li><li><b>Zapisz</b> dodaje trasę do listy <b>Moje trasy</b> w zakładce Trasa.</li><li><b>GPX</b> pobiera zwykły plik dla innych aplikacji.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li><b>Wyślij</b> otwiera udostępnianie: wybierz Wahoo, Garmin Connect lub pliki.</li><li>Przycisk nawigacji po prawej włącza tryb <b>Jadę</b>. Pasek u góry pokazuje kilometr i dystans do końca.</li><li><b>Wycentruj</b> wraca do Twojej pozycji, <b>Zakończ</b> wyłącza śledzenie.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="dane" style="--accent:var(--yard)">
+    <header><span class="eyebrow">Twoje przejazdy</span><h2>Synchronizacja i import</h2><p class="lead">Kwadraty biorą się z Twoich przejazdów. Planer zapisuje je raz we własnej bazie, a potem dociąga tylko nowe aktywności.</p></header>
+    <ul class="benefits"><li><b>Strava, automatycznie</b>Po połączeniu konta nowe jazdy pobierają się same co 30 minut. Przycisk „Synchronizuj” robi to od razu.</li><li><b>KML ze Squadrats.com</b>Oficjalny eksport kwadratów z aplikacji Squadrats wczytasz jednym plikiem, również z historii sprzed Stravy.</li><li><b>Pliki GPX</b>Przeciągnij pliki na mapę albo wybierz kilka naraz. Działa z każdym urządzeniem.</li></ul>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Na komputerze</h4><ol><li><b>Profil i Strava</b> (menu konta) → wklej Client ID i Secret z strava.com/settings/api → <b>Połącz ze Stravą</b>.</li><li>Zakładka <b>Kwadraty</b> → <b>Synchronizuj z Strava</b>. Pasek pokazuje postęp pierwszego pobrania.</li><li><b>Importuj GPX</b> lub <b>Importuj z Squadrats.com (KML)</b> w tej samej zakładce. Pliki GPX możesz też upuścić na mapę.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>Na telefonie</h4><ol><li>Połączenie ze Stravą ustawisz raz, w profilu.</li><li>Potem nic nie musisz robić: synchronizacja co 30 minut działa w tle na serwerze.</li><li>Import GPX i KML działa z plików w telefonie (Pliki, iCloud, Dysk).</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="konto" style="--accent:var(--ink-2)">
+    <header><span class="eyebrow">Konto i prywatność</span><h2>Twoje dane pod Twoją kontrolą</h2><p class="lead">Każdy użytkownik ma osobne konto, własne klucze Stravy i własne kwadraty. Klucze do zewnętrznych map zostają na serwerze i nigdy nie trafiają do przeglądarki.</p></header>
+    <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · komputer</span></div><img class="shot" src="img/d-profile.webp" alt="Profil: konto, hasło, punkt startowy, klucze Stravy, prywatność i usunięcie konta (dane przykładowe)." loading="lazy" width="2160" height="1350"></div><figcaption><b>Komputer</b>Profil: konto, hasło, punkt startowy, klucze Stravy, prywatność i usunięcie konta (dane przykładowe).</figcaption></figure></div>
+      <ul class="benefits"><li><b>Logowanie</b>Login i hasło (min. 8 znaków z cyfrą) albo konto Google. Sesja trwa 30 dni.</li><li><b>Punkt startowy</b>Adres albo punkt wskazany na mapie. Każda nowa trasa startuje z domu.</li><li><b>Usunięcie konta</b>Jednym przyciskiem kasujesz aktywności, kwadraty, trasy i klucze, a aplikacja odłącza się od Stravy.</li><li><b>Panel admina</b>Administrator zarządza kontami użytkowników.</li></ul>
+  </section>
+
+  <section class="chapter" id="integracje" style="--accent:var(--sq)">
+    <header><span class="eyebrow">26 integracje</span><h2>Wszystko, z czym współpracuje planer</h2><p class="lead">Planer łączy dane, które zwykle są rozsiane po kilkunastu stronach i aplikacjach. Poniżej jest pełna lista, z tym, co każda integracja daje Tobie.</p></header>
+    <div class="int-filter" role="group" aria-label="Filtr integracji"><button type="button" data-f="all" aria-pressed="true">Wszystkie</button><button type="button" data-f="data" aria-pressed="false">Dane</button><button type="button" data-f="routing" aria-pressed="false">Trasy</button><button type="button" data-f="maps" aria-pressed="false">Mapy</button><button type="button" data-f="places" aria-pressed="false">Miejsca i zdjęcia</button><button type="button" data-f="devices" aria-pressed="false">Urządzenia</button><button type="button" data-f="account" aria-pressed="false">Konto</button></div>
+     <div class="int-grid"><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">St</span><h4>Strava<small>OAuth · API v3</small></h4></header><p>Pobiera Twoje aktywności, automatycznie co 30 minut.</p></article><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">Sq</span><h4>Squadrats.com<small>KML</small></h4></header><p>Import oficjalnego eksportu zdobytych kwadratów.</p></article><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">Gx</span><h4>GPX<small>pliki</small></h4></header><p>Import przejazdów z dowolnego urządzenia, także przeciągnięciem na mapę.</p></article><article class="int" data-cat="routing" style="--c:var(--route)"><header><span class="mono">BR</span><h4>BRouter<small>własny serwer</small></h4></header><p>Silnik tras z pięcioma profilami rowerowymi i omijaniem już przejechanych dróg.</p></article><article class="int" data-cat="routing" style="--c:var(--route)"><header><span class="mono">OR</span><h4>OSRM<small>API</small></h4></header><p>Szybkie trasy dla profilu Ogólny i jako rezerwa.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">OSM</span><h4>OpenStreetMap<small>mapa · baza POI · drogi</small></h4></header><p>Mapa bazowa, lokalna baza punktów na trasie i informacja, czy przez kwadrat biegnie droga.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Nm</span><h4>Nominatim<small>geocoding</small></h4></header><p>Wyszukiwanie adresów i nazwy punktów trasy.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Op</span><h4>Overpass API<small>OSM</small></h4></header><p>Rezerwowe źródło punktów na trasie.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">SV</span><h4>Google Street View<small>Maps JS API</small></h4></header><p>Panoramy obok mapy, ze strzałką Twojego widoku.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">GM</span><h4>Google Maps<small>karty miejsc</small></h4></header><p>Opinie, zdjęcia i godziny otwarcia punktów na trasie.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">W</span><h4>Wikipedia<small>geosearch</small></h4></header><p>Ciekawe miejsca przy trasie ze zdjęciem i opisem.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">WC</span><h4>Wikimedia Commons<small>zdjęcia</small></h4></header><p>Zdjęcia ludzi do 300 m od trasy, zapamiętywane dla okolicy.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Ml</span><h4>Mapillary<small>zdjęcia z drogi</small></h4></header><p>Zdjęcia z poziomu drogi i panoramy 360°.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">My</span><h4>Mapy.com<small>mapy turystyczne</small></h4></header><p>Mapa turystyczna ze szlakami MTB i mapa lotnicza.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">Bm</span><h4>Mapy bazowe<small>CyclOSM · OpenTopoMap · Esri · Carto</small></h4></header><p>Rowerowa, topograficzna, satelitarna i ciemna.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GU</span><h4>Geoportal GUGiK<small>lidar · orto · działki</small></h4></header><p>Rzeźba terenu z lotniczego skanu, zdjęcia lotnicze i ewidencja działek.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">LP</span><h4>Bank Danych o Lasach<small>Lasy Państwowe</small></h4></header><p>Oddziały leśne, czyli sieć duktów.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GD</span><h4>GDOŚ<small>ochrona przyrody</small></h4></header><p>Rezerwaty, parki narodowe i użytki ekologiczne.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">WT</span><h4>Waymarked Trails<small>szlaki</small></h4></header><p>Oznakowane szlaki rowerowe.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GPS</span><h4>Ślady GPS OSM<small>heatmapa</small></h4></header><p>Gęstość publicznych przejazdów, podstawa trybu Popularne.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">SH</span><h4>Strava Global Heatmap<small>link</small></h4></header><p>Otwiera globalną heatmapę Stravy w nowej karcie.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">CIQ</span><h4>Garmin Connect IQ<small>Edge 1040 / 1050</small></h4></header><p>Pole danych z mapą kwadratów na żywo w trakcie jazdy.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">GC</span><h4>Garmin Connect<small>kursy</small></h4></header><p>GPX z wysokościami gotowy do importu jako kurs.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">Wa</span><h4>Wahoo ELEMNT<small>udostępnianie</small></h4></header><p>Wysyłka pliku trasy z telefonu jednym dotknięciem.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">Loc</span><h4>GPS telefonu<small>tryb Jadę</small></h4></header><p>Pozycja i postęp na zaplanowanej trasie.</p></article><article class="int" data-cat="account" style="--c:var(--new)"><header><span class="mono">G</span><h4>Google Sign-In<small>OAuth</small></h4></header><p>Logowanie kontem Google bez nowego hasła.</p></article></div>
+  </section>
+
+  <section class="chapter" id="skroty" style="--accent:var(--muted)">
+    <header><span class="eyebrow">Skróty</span><h2>Szybciej klawiaturą i gestami</h2><p class="lead">Na komputerze najczęstsze czynności mają skróty klawiszowe. Na telefonie wszystko jest pod kciukiem.</p></header>
+    <div class="kbd-grid">
+      <div><kbd>S</kbd>tryb Start</div><div><kbd>E</kbd>tryb Meta</div>
+      <div><kbd>W</kbd>punkt pośredni</div><div><kbd>Esc</kbd>tryb Widok</div>
+      <div><kbd>Enter</kbd>oblicz trasę</div><div><kbd>Del</kbd>wyczyść trasę</div>
+      <div><kbd>Ctrl</kbd><kbd>Z</kbd>cofnij punkt</div><div><kbd>3×</kbd>kliknięcie: kwadrat niezdobywalny</div>
+    </div>
+    <p class="note"><b>Telefon:</b> dolny pasek „Zaplanuj trasę” otwiera arkusz, przeciągnięcie uchwytu zmienia jego wysokość, menu mapy ma wszystkie narzędzia, a trzy szybkie stuknięcia oznaczają kwadrat.</p>
+  </section></main>
+</div>
+
+<footer class="foot"><div class="wrap">
+  <span>Squadrats Route Planner · podręcznik aktualny na 31 października 2026 · wersja <code>030192a</code></span>
+  <span><a href="en.html">English version</a> · <a href="/privacy.html">Prywatność</a> · <a href="/terms.html">Regulamin</a></span>
+</div></footer>
+<script src="assets/docs.js"></script>
+</body>
+</html>

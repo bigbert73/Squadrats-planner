@@ -76,6 +76,14 @@ Przeglądarka: **http://localhost:8080**
 
 ---
 
+## Dokumentacja użytkownika
+
+Podręcznik (PL + EN) ze zrzutami z komputera i telefonu: **http://localhost:8081/docs/** (`frontend/docs/`).
+
+- treść obu wersji: `frontend/docs/tools/build.mjs` → `node frontend/docs/tools/build.mjs` generuje `index.html` (PL) i `en.html` (EN)
+- zrzuty: `frontend/docs/tools/docshots.mjs` + sceny w `steps.mjs` (`d-*` komputer, `m-*` telefon) → `frontend/docs/img/`
+- po każdej zmianie funkcji aktualizuj tekst i zrzuty tej funkcji
+
 ## Pierwsze użycie
 
 1. Kliknij **"Zaloguj Strava"** → zaakceptuj uprawnienia

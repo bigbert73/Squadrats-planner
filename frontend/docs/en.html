@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Squadrats Manual</title>
+<meta name="description" content="Squadrats Route Planner user manual: planning routes that collect squares, maps, integrations, computer and phone.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/docs.css">
+<link rel="alternate" hreflang="pl" href="index.html">
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="#"><span class="brand-mark">SQ</span>Squadrats <small>manual</small></a>
+  <nav class="top-nav" aria-label="Main">
+    <a class="pill-link" href="#planowanie">Planning</a>
+    <a class="pill-link" href="#integracje">Integrations</a>
+    <span class="lang"><a href="index.html" hreflang="pl" >PL</a><a href="en.html" hreflang="en" aria-current="page">EN</a></span>
+    <a class="pill-link cta" href="/">Open the app</a>
+  </nav>
+</div></header>
+
+<section class="hero">
+  <canvas id="hero-grid" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div>
+      <span class="eyebrow rise">Squadrats Route Planner</span>
+      <h1 class="rise d1">Every ride <em>claims ground.</em></h1>
+      <p class="lede rise d2">A cycling route planner for Squadrats players. It joins your Strava rides with the square grid, builds loops that collect the most new squares without riding back the same road, and shows everything you will meet on the way. On a computer and on a phone.</p>
+      <div class="hero-cta rise d3">
+        <a class="btn primary" href="#start">Start in 4 steps →</a>
+        <a class="btn" href="#kwadraty">How squares work</a>
+      </div>
+      <div class="hud" aria-label="Animation: a loop claims squares">
+        <span class="hud-chip"><i style="background:var(--new)"></i><span data-hud="sqi">+0</span>&nbsp;SQI</span>
+        <span class="hud-chip"><i style="background:var(--route)"></i><span data-hud="km">0</span>&nbsp;km</span>
+        <span class="hud-chip"><i style="background:var(--sqi)"></i>z14 · 1524 m</span>
+        <span class="hud-chip"><i style="background:var(--sq)"></i>z17 · 191 m</span>
+      </div>
+    </div>
+    <div class="hero-shots">
+      <div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats</span></div><img class="shot" src="img/d-hero.webp" alt="The planner on a computer: a 37 km loop with 52 new squadratinhos" width="2160" height="1350"></div>
+      <div class="frame-phone"><img class="shot" src="img/m-route.webp" alt="The planner on a phone" width="975" height="2110"></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap layout">
+  <nav class="toc" aria-label="Chapters">
+    <p>Chapters</p>
+    <ol><li><a href="#kwadraty"><span>01</span>How the game works</a></li><li><a href="#start"><span>02</span>Quick start</a></li><li><a href="#planowanie"><span>03</span>Route planning</a></li><li><a href="#priorytety"><span>04</span>Smart collecting</a></li><li><a href="#twoje-kwadraty"><span>05</span>Your territory</a></li><li><a href="#na-trasie"><span>06</span>Know your route</a></li><li><a href="#mapy"><span>07</span>Maps and overlays</a></li><li><a href="#jazda"><span>08</span>On the bike</a></li><li><a href="#dane"><span>09</span>Your rides</a></li><li><a href="#konto"><span>10</span>Account and privacy</a></li><li><a href="#integracje"><span>11</span>26 integrations</a></li><li><a href="#skroty"><span>12</span>Shortcuts</a></li></ol>
+  </nav>
+  <main>
+  <section class="chapter" id="kwadraty" style="--accent:var(--sqi)">
+    <header><span class="eyebrow">How the game works</span><h2>What squares are</h2><p class="lead">Squadrats divides the world map into a fixed grid. Every square you ride through becomes yours. The planner knows this grid to the metre and counts what you will collect before you leave home.</p></header>
+    <div class="concept">
+        <svg viewBox="0 0 400 300" role="img" aria-label="One squadrat is 8 by 8 squadratinhos">
+          <rect x="40" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="121" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="40" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="40" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="67" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="67" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="94" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="121" y="40" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="121" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="121" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="148" y="40" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="148" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="148" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="175" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="148" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="175" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="175" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="67" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="94" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="202" y="202" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="202" y="229" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="40" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="67" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="94" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="229" y="121" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="148" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/><rect x="229" y="175" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="202" width="26" height="26" fill="var(--sq)" fill-opacity="0.55"/><rect x="229" y="229" width="26" height="26" fill="var(--panel-2)" fill-opacity="1"/>
+          <rect x="40" y="40" width="216" height="216" fill="none" stroke="var(--sqi)" stroke-width="3"/>
+          <rect x="94" y="94" width="108" height="108" fill="none" stroke="var(--uber)" stroke-width="3" stroke-dasharray="7 5"/>
+          <rect x="121" y="121" width="54" height="54" fill="none" stroke="var(--yard)" stroke-width="3"/>
+          <path d="M20 270 C 90 220, 120 150, 180 130 S 300 60, 380 30" fill="none" stroke="var(--route)" stroke-width="4" stroke-linecap="round"/>
+          <text x="270" y="60" fill="var(--ink-2)" font-family="JetBrains Mono, monospace" font-size="13">z14 · 1524 m</text>
+          <text x="270" y="80" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="13">= 8 × 8 · z17</text>
+          <text x="270" y="230" fill="var(--muted)" font-family="JetBrains Mono, monospace" font-size="13">z17 · 191 m</text>
+        </svg>
+        <ul class="legend">
+          <li><span class="sw" style="border-color:var(--sqi)"></span><span><b>Squadrat (SQ)</b>A map tile at zoom 14, about <span class="num">1.5 km</span> across. The big scale: new areas.</span></li>
+          <li><span class="sw" style="border-color:var(--sq);background:color-mix(in srgb,var(--sq) 45%,transparent)"></span><span><b>Squadratinho (SQI)</b>A tile at zoom 17, about <span class="num">191 m</span> across. One squadrat holds <span class="num">64</span> of them. Every lane counts here.</span></li>
+          <li><span class="sw" style="border-color:var(--yard)"></span><span><b>Yard / Yardinho</b>Collected squares whose four neighbours are all collected too. They measure how solid your territory is.</span></li>
+          <li><span class="sw" style="border-color:var(--uber);border-style:dashed"></span><span><b>Übersquadrat / Übersquadratinho</b>The largest solid N×N square without a single gap, e.g. <span class="num">25 × 25</span>. The hardest score to grow.</span></li>
+        </ul>
+      </div>
+  </section>
+
+  <section class="chapter" id="start" style="--accent:var(--sq)">
+    <header><span class="eyebrow">Quick start</span><h2>Your first route in four steps</h2><p class="lead">From sign-up to a route on your bike computer takes a few minutes. After that it is a single tap, because the planner remembers your home and settings.</p></header>
+    <ol class="steps">
+        <li><b>Create an account</b>Username and password, or “Continue with Google”.</li>
+        <li><b>Load your rides</b>Connect Strava, or import the Squadrats.com KML or GPX files.</li>
+        <li><b>Set your home</b>Type your address in the profile or pick it on the map. Every route will start there.</li>
+        <li><b>Plan and ride</b>Pick a distance, press “Calculate route”, download the GPX for your Garmin.</li>
+      </ol>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-login.webp" alt="Sign-in screen: account, Google, terms and privacy policy." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Sign-in screen: account, Google, terms and privacy policy.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-map.webp" alt="After signing in: your squares on the map and the counters in the header." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>After signing in: your squares on the map and the counters in the header.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="planowanie" style="--accent:var(--route)">
+    <header><span class="eyebrow">Route planning</span><h2>Loops that collect squares and never ride back the same road</h2><p class="lead">You give a start and a distance. The planner tries dozens of loop variants on real roads, counts the new squares of each and keeps the one that collects most with as little repeated road as possible.</p></header>
+    <ul class="benefits"><li><b>Loop or A → B</b>A loop from home over a set distance (5–200 km), or a point-to-point ride with an optional return by a different road.</li><li><b>Results at a glance</b>Route card: distance, time at your average speed, new SQ and SQI, climbing, and the share of road ridden twice.</li><li><b>Full control</b>Drag points, click the route to add a via point, undo, reverse the direction, save favourite routes.</li></ul>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-form.webp" alt="Route form: address, loop or A → B, distance, six bike profiles and advanced modes." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Route form: address, loop or A → B, distance, six bike profiles and advanced modes.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-sheet.webp" alt="On a phone the form slides up from the bottom." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>On a phone the form slides up from the bottom.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li>Press <b>Start</b> on the bar above the map and click the map, or type an address in “From?”.</li><li>Choose <b>Loop</b> or <b>A → B</b> and set the distance with the slider.</li><li>Choose a bike profile and, under <b>Advanced</b>, what to optimise for.</li><li>Press <b>Calculate route</b> (or hit <kbd>Enter</kbd>).</li><li>Drag any point, or click the route line to add a via point. Only the changed leg is recalculated.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>Tap <b>Plan route</b> on the bottom bar. With a home set, the start is already filled in.</li><li>Pick loop or A → B, the distance and a bike profile.</li><li>Tap <b>Calculate route</b>. The sheet folds down to the result card.</li><li>Press and drag a point on the map to adjust the course.</li><li>Swipe the sheet up for the summary, points and saved routes.</li></ol></section>
+    </div>
+      <h3>Six bike profiles</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Profile</th><th>For</th><th>Engine</th></tr></thead>
+        <tbody>
+          <tr><td>Safe</td><td>Default. Cycle paths first, expressways ruled out.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Quiet</td><td>Low-traffic side roads and paths, a profile tuned for Poland.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Road</td><td>Fast and on tarmac.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>Gravel</td><td>Gravel and dirt roads welcome.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>MTB</td><td>Off-road, forest paths, single track.</td><td><span class="tag">BRouter</span></td></tr>
+          <tr><td>General</td><td>A plain bike, quick to compute.</td><td><span class="tag">OSRM</span></td></tr>
+        </tbody></table></div>
+      <h3>Seven optimisation goals</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Mode</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>SQI</td><td>Most new squadratinhos. The default and the most used.</td></tr>
+          <tr><td>New SQ</td><td>Most new big squares, i.e. new areas.</td></tr>
+          <tr><td>Yard</td><td>Fills gaps so your Yard grows.</td></tr>
+          <tr><td>Yardinho</td><td>The same at squadratinho level.</td></tr>
+          <tr><td>Priorities</td><td>A loop through the most valuable squares from the Priorities layer (next chapter).</td></tr>
+          <tr><td>Popular</td><td>Roads most people ride: dense OpenStreetMap GPS traces and signed cycle routes.</td></tr>
+          <tr><td>No squares</td><td>A plain route when squares don’t matter.</td></tr>
+        </tbody></table></div>
+      <h3>Result and elevation profile</h3>
+      <p>The route card shows the key numbers, with a surface summary below: kilometres of tarmac, cycle paths, gravel and cobbles. The elevation profile opens under the map. Slide a finger or the mouse along the chart and the point moves along the route. The route itself carries kilometre markers whose spacing adapts to the map zoom.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-elev.webp" alt="A 37 km loop: 52 new SQI, surfaces and the elevation profile." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>A 37 km loop: 52 new SQI, surfaces and the elevation profile.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-elev.webp" alt="Elevation profile on a phone." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Elevation profile on a phone.</figcaption></figure></div>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-ab.webp" alt="An A → B ride across town. Afterwards “Add a return by another road” closes it into a loop." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>An A → B ride across town. Afterwards “Add a return by another road” closes it into a loop.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-card.webp" alt="Route card on a phone: GPX for Garmin, Send, Save." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Route card on a phone: GPX for Garmin, Send, Save.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="priorytety" style="--accent:var(--new)">
+    <header><span class="eyebrow">Smart collecting</span><h2>Priorities: which squares to collect first</h2><p class="lead">Not every missing square is worth the same. The planner scores every uncollected squadratinho within 30 km of home: how much it grows your Übersquadratinho and Yardinho, whether a road leads there and how far it is.</p></header>
+    <ul class="benefits"><li><b>Three tiers</b>The map colours squares by value. The most valuable glow the brightest.</li><li><b>Ready-made goals</b>The list says it plainly: “1 square missing for Über 27 × 27”, and how many kilometres from home.</li><li><b>A route in one click</b>Priorities mode builds a loop that collects the most points within your distance limit. Squares without a road are taken “with a short walk”.</li></ul>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-prio.webp" alt="The Priorities layer and goals panel: the nearest Übersquadratinho upgrades." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>The Priorities layer and goals panel: the nearest Übersquadratinho upgrades.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-prio.webp" alt="Priorities on a phone." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Priorities on a phone.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li>Open the <b>Squares</b> tab and turn on the <b>Priorities</b> layer.</li><li>Click a goal in the list and the map flies to that window.</li><li>In <b>Route</b> → <b>Advanced</b>, choose <b>Priorities</b>, set the distance limit and calculate.</li><li>After the ride syncs, the ranking recalculates itself, so the next loop aims at the next squares.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>Open the sheet, go to <b>Squares</b> and turn on <b>Priorities</b>.</li><li>Tap a goal in the list to see it on the map.</li><li>In <b>Route</b>, choose <b>Priorities</b> mode and tap <b>Calculate route</b>.</li><li>Squares “with a short walk” get their own markers on the map.</li></ol></section>
+    </div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-prio-route.webp" alt="A Priorities loop: the most valuable squares within the distance limit." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>A Priorities loop: the most valuable squares within the distance limit.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="twoje-kwadraty" style="--accent:var(--yard)">
+    <header><span class="eyebrow">Your territory</span><h2>Squares, Yard and Über in one place</h2><p class="lead">The Squares tab is your scoreboard: counters at both levels, map layers to switch on and tools to mark ground you can’t get into.</p></header>
+    <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-squares.webp" alt="Collected squadrats, Yard and the 25 × 25 Übersquadrat across the whole area." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Collected squadrats, Yard and the 25 × 25 Übersquadrat across the whole area.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-squares.webp" alt="Counters and layers on a phone." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Counters and layers on a phone.</figcaption></figure></div>
+      <ul class="benefits"><li><b>Twelve layers</b>Collected, new from the route, Yard, Über, z14 and z17 grids, Priorities and “no road”. Each one switch.</li><li><b>Uncollectable</b>Three quick taps mark a square as unreachable (water, fenced land). The planner skips it and Über is counted around it.</li><li><b>“No road” hints</b>Crossed-out squares are places with no road or path in OpenStreetMap. You can accept them in bulk for the current view.</li></ul>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-sqi.webp" alt="Squadratinho level: Yardinho, Über SQI and crossed-out squares with no road." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Squadratinho level: Yardinho, Über SQI and crossed-out squares with no road.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li>Open the <b>Squares</b> tab. The counters are always in the header too.</li><li>Switch on layers, e.g. <b>Yard</b> and <b>Übersquadrat</b>.</li><li>In <b>View</b> mode at zoom 14+, click a square three times to mark it uncollectable. Three more clicks undo it.</li><li><b>Mark suggested in view</b> accepts every “no road” hint on screen.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>SQ, Yard, Über and SQI counters sit in the top bar.</li><li>Open <b>Squares</b> in the sheet to switch layers.</li><li>Tap a square three times quickly to mark it uncollectable. Works on iPhone and Android.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="na-trasie" style="--accent:var(--sqi)">
+    <header><span class="eyebrow">Know your route</span><h2>See the route before you ride it</h2><p class="lead">Once a route is calculated, the planner gathers what lies along it: where to eat, where to refill water, where to sleep, and what the road looks like in people’s photos and in Street View.</p></header>
+    <h3>Points along the route</h3>
+      <p>Six categories: food, water, shops (and Orlen fuel stations), lodging, bike service, sights. Every point shows its kilometre on the route and its distance off it, in riding order. The <b>Only by the route</b> filter keeps places within 60 m, so no detour is needed. A point’s popup has a <b>Google Maps</b> button with reviews and photos.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-poi.webp" alt="Points in riding order and a popup with the Google Maps button." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Points in riding order and a popup with the Google Maps button.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-poi.webp" alt="On a phone the button opens the Google Maps app." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>On a phone the button opens the Google Maps app.</figcaption></figure></div>
+      <h3>People’s photos along the route</h3>
+      <p>Blue dots are Wikimedia Commons photos; green dots are Mapillary street-level images, often taken from a bike, sometimes 360° panoramas. Photos within 300 m of the route are shown, about one per 150 m. You can tell tarmac from gravel or sand before you get there. Photos fetched for an area are kept, so later routes there load instantly.</p>
+      <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-photos-mly.webp" alt="A Mapillary photo: kilometre on the route, author and date." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>A Mapillary photo: kilometre on the route, author and date.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-photo.webp" alt="A route photo on a phone." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>A route photo on a phone.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-photos.webp" alt="A Wikimedia Commons photo with its licence and a link to the source." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>A Wikimedia Commons photo with its licence and a link to the source.</figcaption></figure></div>
+      <h3>Places of interest from Wikipedia</h3>
+      <p>Up to 15 places near the route that have a Wikipedia article: monuments, reserves, viewpoints. On the map they show a photo thumbnail; the popup has a short summary and a link to the article.</p>
+      <h3>Street View</h3>
+      <p>The Street View panel opens beside the map. Click any spot and the Google panorama shows what it looks like. An arrow on the map shows where you stand and which way you are looking.</p>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-sv.webp" alt="Street View beside the map: checking a path before the ride." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Street View beside the map: checking a path before the ride.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li>After calculating, scroll the panel to <b>Points along the route</b> and filter by category.</li><li>Click an item to zoom the map to that place.</li><li>Click a camera dot to see the photo. Clicking the photo opens it full size.</li><li>Map menu button (right side) → <b>Street View</b>, then click the map.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>Map menu (sliders icon) → <b>Points along the route</b> shows the category filters.</li><li>Tap a pin, then <b>Google Maps — reviews, photos</b>.</li><li>The same menu toggles <b>Route photos</b>, <b>Places of interest (Wikipedia)</b> and split-screen <b>Street View</b>.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="mapy" style="--accent:var(--uber)">
+    <header><span class="eyebrow">Maps and overlays</span><h2>The most detailed maps of Poland in one planner</h2><p class="lead">When a square has no road in OpenStreetMap, you need to know what is really there. The planner combines base maps with Polish public data: laser terrain scans, aerial photos, forest compartments, nature reserves and land parcels.</p></header>
+    <div class="screens"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-lidar.webp" alt="Lidar (terrain relief from an airborne scan, 1 m) with forest compartments: tracks show even under trees." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Lidar (terrain relief from an airborne scan, 1 m) with forest compartments: tracks show even under trees.</figcaption></figure><figure><div class="frame-phone"><img class="shot" src="img/m-lidar.webp" alt="Lidar on a phone at zoom 16." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Lidar on a phone at zoom 16.</figcaption></figure></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Overlay</th><th>Use it to</th><th>Source</th></tr></thead>
+        <tbody>
+          <tr><td>Lidar</td><td>See paths, ditches and embankments under the tree canopy. From zoom 11.</td><td><span class="tag">GUGiK</span></td></tr>
+          <tr><td>Orthophoto</td><td>Aerial photos down to about 10 cm per pixel, usually newer than satellite.</td><td><span class="tag">Geoportal</span></td></tr>
+          <tr><td>Forest compartments</td><td>Compartment boundaries, usually passable forest tracks. From zoom 12.</td><td><span class="tag">BDL</span></td></tr>
+          <tr><td>Nature reserves</td><td>Reserves, national parks, ecological sites: where to stay on the trail.</td><td><span class="tag">GDOŚ</span></td></tr>
+          <tr><td>Parcels</td><td>Numbered land parcels: is a field track its own road parcel? From zoom 16.</td><td><span class="tag">KIEG</span></td></tr>
+          <tr><td>Cycle routes</td><td>Signed cycle routes.</td><td><span class="tag">Waymarked Trails</span></td></tr>
+          <tr><td>GPS traces</td><td>Public OSM recordings: the denser, the more rides.</td><td><span class="tag">OpenStreetMap</span></td></tr>
+        </tbody></table></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-orto.webp" alt="Orthophoto with parcel boundaries at zoom 17: fences and gaps are visible." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Orthophoto with parcel boundaries at zoom 17: fences and gaps are visible.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-gdos.webp" alt="GDOŚ nature reserves and protected areas." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>GDOŚ nature reserves and protected areas.</figcaption></figure></div>
+      <h3>Seven base maps</h3>
+      <p>OpenStreetMap, the cycling map CyclOSM, OpenTopoMap, Esri satellite, Carto dark, and two Mapy.com maps: outdoor, with trails and MTB paths, and aerial.</p>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-mapy.webp" alt="The Mapy.com outdoor map with MTB trails and your squadratinhos." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>The Mapy.com outdoor map with MTB trails and your squadratinhos.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-popular.webp" alt="Popular mode over GPS traces: a loop on the roads most people ride." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Popular mode over GPS traces: a loop on the roads most people ride.</figcaption></figure></div>
+      <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-routes.webp" alt="Signed cycle routes around Warsaw." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Signed cycle routes around Warsaw.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li><b>Overlays</b> tab → <b>Terrain and access (Poland)</b> → switches.</li><li>Change the base map in <b>Options</b> or in the map menu on the right.</li><li>Overlays you turn on are remembered for your next visit.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>The map menu (sliders icon) has <b>Base map</b> and <b>Terrain and access (PL)</b> sections.</li><li>Tap an overlay to toggle it. Active ones are highlighted.</li></ol></section>
+    </div>
+      <div class="screens"><figure><div class="frame-phone"><img class="shot" src="img/m-tools.webp" alt="The map menu on a phone: tools, base maps and terrain overlays." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>The map menu on a phone: tools, base maps and terrain overlays.</figcaption></figure></div>
+  </section>
+
+  <section class="chapter" id="jazda" style="--accent:var(--sq)">
+    <header><span class="eyebrow">On the bike</span><h2>From the planner to your bike computer</h2><p class="lead">The route goes where you need it: to a Garmin, a Wahoo, or straight to your phone with your position on the route.</p></header>
+    <ul class="benefits"><li><b>GPX for Garmin</b>A file with elevations, ready to import as a course in Garmin Connect.</li><li><b>Send</b>The system share sheet, e.g. to the Wahoo ELEMNT app.</li><li><b>Riding</b>Your GPS position on the route: kilometre ridden, distance left, a warning when you leave the route.</li><li><b>My routes</b>Save routes by name and reopen them in one click.</li></ul>
+      <div class="duo">
+        <div>
+          <h3 style="margin-top:0">A data field for Garmin Edge</h3>
+          <p>Squadrats has its own Connect IQ data field for Edge 1040 and 1050 bike computers. While you ride it shows the square grid around you, collected and missing squadratinhos, and a counter of new squares from this ride. It fetches your area through the phone from your account using a personal key.</p>
+          <p class="note"><b>Illustration.</b> Shown is a sketch of the data field screen, not a capture from the device.</p>
+        </div>
+        <div class="edge"><canvas id="edge-field" aria-label="Sketch of the Squadrats data field on a Garmin Edge"></canvas></div>
+      </div>
+      <div class="screens"><figure><div class="frame-phone"><img class="shot" src="img/m-ride.webp" alt="Riding mode: your position and progress on the planned route." loading="lazy" width="975" height="2110"></div><figcaption><b>Phone</b>Riding mode: your position and progress on the planned route.</figcaption></figure></div>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li>On the route card, press <b>Download GPX for Garmin</b>; in Garmin Connect choose <b>Courses → Import</b>.</li><li><b>Save</b> adds the route to <b>My routes</b> in the Route tab.</li><li><b>GPX</b> downloads a plain file for other apps.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li><b>Send</b> opens sharing: pick Wahoo, Garmin Connect or Files.</li><li>The navigation button on the right starts <b>Riding</b> mode. The top bar shows your kilometre and the distance left.</li><li><b>Center</b> returns to your position, <b>Stop</b> ends tracking.</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="dane" style="--accent:var(--yard)">
+    <header><span class="eyebrow">Your rides</span><h2>Sync and import</h2><p class="lead">Squares come from your rides. The planner stores them once in its own database and then only fetches new activities.</p></header>
+    <ul class="benefits"><li><b>Strava, automatically</b>Once connected, new rides arrive by themselves every 30 minutes. “Sync” does it right away.</li><li><b>KML from Squadrats.com</b>The official squares export from the Squadrats app loads in one file, including history from before Strava.</li><li><b>GPX files</b>Drag files onto the map or pick several at once. Works with any device.</li></ul>
+      <div class="howto">
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>On a computer</h4><ol><li><b>Profile and Strava</b> (account menu) → paste the Client ID and Secret from strava.com/settings/api → <b>Connect with Strava</b>.</li><li><b>Squares</b> tab → <b>Sync with Strava</b>. A bar shows the progress of the first download.</li><li><b>Import GPX</b> or <b>Import from Squadrats.com (KML)</b> in the same tab. GPX files can also be dropped on the map.</li></ol></section>
+      <section><h4><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>On a phone</h4><ol><li>Set up the Strava connection once, in your profile.</li><li>After that there is nothing to do: the 30-minute sync runs on the server.</li><li>GPX and KML import works from files on the phone (Files, iCloud, Drive).</li></ol></section>
+    </div>
+  </section>
+
+  <section class="chapter" id="konto" style="--accent:var(--ink-2)">
+    <header><span class="eyebrow">Account and privacy</span><h2>Your data under your control</h2><p class="lead">Every user has their own account, their own Strava keys and their own squares. Keys for external maps stay on the server and never reach the browser.</p></header>
+    <div class="screens solo"><figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · computer</span></div><img class="shot" src="img/d-profile.webp" alt="Profile: account, password, home point, Strava keys, privacy and account deletion (sample data)." loading="lazy" width="2160" height="1350"></div><figcaption><b>Computer</b>Profile: account, password, home point, Strava keys, privacy and account deletion (sample data).</figcaption></figure></div>
+      <ul class="benefits"><li><b>Sign-in</b>Username and password (8+ characters with a digit) or a Google account. Sessions last 30 days.</li><li><b>Home point</b>An address or a point picked on the map. Every new route starts from home.</li><li><b>Account deletion</b>One button deletes activities, squares, routes and keys, and disconnects the app from Strava.</li><li><b>Admin panel</b>The administrator manages user accounts.</li></ul>
+  </section>
+
+  <section class="chapter" id="integracje" style="--accent:var(--sq)">
+    <header><span class="eyebrow">26 integrations</span><h2>Everything the planner works with</h2><p class="lead">The planner brings together data that usually lives on a dozen sites and apps. Here is the full list, with what each one gives you.</p></header>
+    <div class="int-filter" role="group" aria-label="Integration filter"><button type="button" data-f="all" aria-pressed="true">All</button><button type="button" data-f="data" aria-pressed="false">Data</button><button type="button" data-f="routing" aria-pressed="false">Routing</button><button type="button" data-f="maps" aria-pressed="false">Maps</button><button type="button" data-f="places" aria-pressed="false">Places and photos</button><button type="button" data-f="devices" aria-pressed="false">Devices</button><button type="button" data-f="account" aria-pressed="false">Account</button></div>
+     <div class="int-grid"><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">St</span><h4>Strava<small>OAuth · API v3</small></h4></header><p>Fetches your activities, automatically every 30 minutes.</p></article><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">Sq</span><h4>Squadrats.com<small>KML</small></h4></header><p>Imports the official export of collected squares.</p></article><article class="int" data-cat="data" style="--c:var(--yard)"><header><span class="mono">Gx</span><h4>GPX<small>files</small></h4></header><p>Imports rides from any device, also by dropping them on the map.</p></article><article class="int" data-cat="routing" style="--c:var(--route)"><header><span class="mono">BR</span><h4>BRouter<small>self-hosted</small></h4></header><p>Routing engine with five bike profiles and avoidance of roads already ridden.</p></article><article class="int" data-cat="routing" style="--c:var(--route)"><header><span class="mono">OR</span><h4>OSRM<small>API</small></h4></header><p>Fast routes for the General profile and as a fallback.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">OSM</span><h4>OpenStreetMap<small>map · POI database · roads</small></h4></header><p>Base map, the local database of points along routes, and whether a road crosses a square.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Nm</span><h4>Nominatim<small>geocoding</small></h4></header><p>Address search and names of route points.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Op</span><h4>Overpass API<small>OSM</small></h4></header><p>Fallback source of points along the route.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">SV</span><h4>Google Street View<small>Maps JS API</small></h4></header><p>Panoramas beside the map, with an arrow for your view.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">GM</span><h4>Google Maps<small>place cards</small></h4></header><p>Reviews, photos and opening hours of points along the route.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">W</span><h4>Wikipedia<small>geosearch</small></h4></header><p>Places of interest by the route with a photo and summary.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">WC</span><h4>Wikimedia Commons<small>photos</small></h4></header><p>People’s photos within 300 m of the route, cached per area.</p></article><article class="int" data-cat="places" style="--c:var(--sqi)"><header><span class="mono">Ml</span><h4>Mapillary<small>street-level</small></h4></header><p>Street-level images and 360° panoramas.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">My</span><h4>Mapy.com<small>outdoor maps</small></h4></header><p>Outdoor map with MTB trails and an aerial map.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">Bm</span><h4>Base maps<small>CyclOSM · OpenTopoMap · Esri · Carto</small></h4></header><p>Cycling, topographic, satellite and dark.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GU</span><h4>Geoportal GUGiK<small>lidar · orthophoto · parcels</small></h4></header><p>Terrain relief from airborne scans, aerial photos and the land parcel register.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">LP</span><h4>Forest Data Bank<small>State Forests</small></h4></header><p>Forest compartments, i.e. the network of forest tracks.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GD</span><h4>GDOŚ<small>nature protection</small></h4></header><p>Reserves, national parks and ecological sites.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">WT</span><h4>Waymarked Trails<small>routes</small></h4></header><p>Signed cycle routes.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">GPS</span><h4>OSM GPS traces<small>heatmap</small></h4></header><p>Density of public rides, the basis of Popular mode.</p></article><article class="int" data-cat="maps" style="--c:var(--uber)"><header><span class="mono">SH</span><h4>Strava Global Heatmap<small>link</small></h4></header><p>Opens the Strava global heatmap in a new tab.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">CIQ</span><h4>Garmin Connect IQ<small>Edge 1040 / 1050</small></h4></header><p>A data field with a live square map while you ride.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">GC</span><h4>Garmin Connect<small>courses</small></h4></header><p>GPX with elevations, ready to import as a course.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">Wa</span><h4>Wahoo ELEMNT<small>share sheet</small></h4></header><p>Sends the route file from the phone in one tap.</p></article><article class="int" data-cat="devices" style="--c:var(--sq)"><header><span class="mono">Loc</span><h4>Phone GPS<small>Riding mode</small></h4></header><p>Position and progress on the planned route.</p></article><article class="int" data-cat="account" style="--c:var(--new)"><header><span class="mono">G</span><h4>Google Sign-In<small>OAuth</small></h4></header><p>Sign in with a Google account, no new password.</p></article></div>
+  </section>
+
+  <section class="chapter" id="skroty" style="--accent:var(--muted)">
+    <header><span class="eyebrow">Shortcuts</span><h2>Faster with keys and gestures</h2><p class="lead">On a computer the most common actions have keyboard shortcuts. On a phone everything is under your thumb.</p></header>
+    <div class="kbd-grid">
+      <div><kbd>S</kbd>Start mode</div><div><kbd>E</kbd>Finish mode</div>
+      <div><kbd>W</kbd>via point</div><div><kbd>Esc</kbd>View mode</div>
+      <div><kbd>Enter</kbd>calculate route</div><div><kbd>Del</kbd>clear route</div>
+      <div><kbd>Ctrl</kbd><kbd>Z</kbd>undo point</div><div><kbd>3×</kbd>click: uncollectable square</div>
+    </div>
+    <p class="note"><b>Phone:</b> the “Plan route” bar opens the sheet, dragging the handle resizes it, the map menu holds every tool, and three quick taps mark a square.</p>
+  </section></main>
+</div>
+
+<footer class="foot"><div class="wrap">
+  <span>Squadrats Route Planner · manual current as of 31 October 2026 · version <code>030192a</code></span>
+  <span><a href="index.html">Wersja polska</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
+</div></footer>
+<script src="assets/docs.js"></script>
+</body>
+</html>
