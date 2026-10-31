@@ -1,4 +1,5 @@
 // Screenshot runner for the Squadrats docs: node docshots.mjs <token> <steps.mjs> <outdir> [only1,only2]
+// DOCS_LANG=en takes the shots in the English UI and lists texts it left untranslated.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,6 +31,8 @@ const DEV = {
 };
 await send('Network.enable');
 await send('Page.enable');
+const LANG = process.env.DOCS_LANG || 'pl';
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `try{localStorage.setItem('sq-lang','${LANG}');${LANG === 'en' ? "localStorage.setItem('sq-i18n-debug','1')" : "localStorage.removeItem('sq-i18n-debug')"}}catch(e){}` });
 await send('Network.setCookie', { name: 'token', value: token, domain: 'localhost', path: '/' });
 await send('Browser.grantPermissions', { origin: 'http://localhost:8081', permissions: ['geolocation'] });
 
@@ -55,6 +58,7 @@ for (const s of steps) {
   await sleep(s.wait ?? 1500);
   const shot = await send('Page.captureScreenshot', { format: 'webp', quality: 82, ...(s.clip ? { clip: { ...s.clip, scale: 1 } } : {}) });
   fs.writeFileSync(path.join(outDir, s.name + '.webp'), Buffer.from(shot.result.data, 'base64'));
+  if (LANG === 'en') { const miss = await evaluate('window.i18nMiss?[...i18nMiss].splice(0):[]'); await evaluate('window.i18nMiss?.clear()'); if (miss?.length) console.log('  untranslated:', JSON.stringify(miss)); }
   console.log(`${s.name} (${s.device}) ${((Date.now() - t) / 1000).toFixed(1)}s →`, JSON.stringify(r)?.slice(0, 200));
 }
 ch.kill(); process.exit(0);

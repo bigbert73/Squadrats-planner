@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Squadrats Route Planner v2</title>
+<script src="/i18n.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
@@ -338,7 +339,7 @@ body.riding #zlvl{display:none}
 #auth-gate .auth-bg-svg .bike-b{animation:bikemove 22s linear infinite alternate-reverse}
 #auth-gate .auth-bg-svg .rdash{stroke-dasharray:12 6;animation:routedash 1.5s linear infinite}
 
-.auth-card{background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.75);border-radius:16px;width:400px;max-width:95vw;padding:28px 30px;margin:auto;box-shadow:0 20px 60px rgba(30,90,160,.13),0 4px 18px rgba(0,0,0,.07);position:relative;z-index:1}
+.auth-card{position:relative;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.75);border-radius:16px;width:400px;max-width:95vw;padding:28px 30px;margin:auto;box-shadow:0 20px 60px rgba(30,90,160,.13),0 4px 18px rgba(0,0,0,.07);position:relative;z-index:1}
 .auth-logo{display:flex;justify-content:center;margin-bottom:10px}
 .auth-logo .logo{width:48px;height:48px;font-size:18px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#059669);color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.35)}
 .auth-card h2{font-size:15px;font-weight:700;text-align:center;margin-bottom:4px;color:#111827}
@@ -529,6 +530,14 @@ body.riding #zlvl{display:none}
 .udrop-btn i{font-size:14px;width:16px}
 .udrop-sep{border:none;border-top:1px solid var(--border);margin:2px 0}
 .udrop-danger{color:var(--red)!important}
+a.udrop-btn{text-decoration:none}
+.udrop-lang{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--tx2)}
+.udrop-lang i{font-size:14px;width:16px}
+.lang-sw{display:inline-flex;margin-left:auto;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lang-sw button{background:none;border:none;padding:4px 9px;font:600 11px 'Space Grotesk',sans-serif;color:var(--tx3);cursor:pointer;letter-spacing:.04em}
+.lang-sw button.on{background:var(--blue);color:#fff}
+.auth-lang{position:absolute;top:14px;right:14px;border-color:#e5e7eb}
+.auth-lang button{color:#6b7280}
 .udrop-danger:hover{background:rgba(248,113,113,.08)!important}
 
 /* ── MODALS ── */
@@ -591,6 +600,8 @@ body.riding #zlvl{display:none}
       </div>
       <button class="udrop-btn" onclick="openProfile();closeUserMenu()"><i class="ti ti-user"></i>Profil i Strava</button>
       <button class="udrop-btn" id="admin-menu-btn" style="display:none" onclick="openAdmin();closeUserMenu()"><i class="ti ti-shield"></i>Panel admina</button>
+      <a class="udrop-btn" id="manual-link" href="/docs/" target="_blank" rel="noopener"><i class="ti ti-book"></i>Podręcznik</a>
+      <div class="udrop-lang"><i class="ti ti-language"></i><span>Język</span><div class="lang-sw notranslate"><button data-lang="pl" onclick="setLang('pl')">PL</button><button data-lang="en" onclick="setLang('en')">EN</button></div></div>
       <hr class="udrop-sep">
       <button class="udrop-btn udrop-danger" onclick="doLogout()"><i class="ti ti-logout"></i>Wyloguj</button>
     </div>
@@ -1039,6 +1050,7 @@ body.riding #zlvl{display:none}
   </svg>
 
   <div class="auth-card">
+    <div class="lang-sw auth-lang notranslate"><button data-lang="pl" onclick="setLang('pl')">PL</button><button data-lang="en" onclick="setLang('en')">EN</button></div>
     <div class="auth-logo"><span class="logo">SQ</span></div>
     <h2>Squadrats Route Planner</h2>
     <div class="auth-tagline">planuj trasy &bull; zbieraj kwadraty &bull; jeździj</div>
@@ -1620,7 +1632,7 @@ async function acceptNoRoadInView(){
     if(x>=a.x&&x<=c.x&&y>=a.y&&y<=c.y) list.push([x,y]);
   }
   if(!list.length){toast('Brak sugestii w widoku');return;}
-  if(!confirm(`Oznaczyć ${list.length} SQI bez dróg jako niezdobywalne? Trasy będą je pomijać. Każdy możesz odznaczyć trzema kliknięciami.`)) return;
+  if(!confirm(t(`Oznaczyć ${list.length} SQI bez dróg jako niezdobywalne? Trasy będą je pomijać. Każdy możesz odznaczyć trzema kliknięciami.`))) return;
   try{
     const r=await fetch('/api/tiles/blocked/bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tiles:list})});
     const d=await r.json().catch(()=>({}));
@@ -1699,9 +1711,9 @@ function prioFly(tx,ty,k=1){
 }
 function prioWhy(t){
   const r=[];
-  if(t.uk) r.push(t.um===1?`sam odblokowuje Über ${t.uk}×${t.uk}`:`do Über ${t.uk}×${t.uk} (brakuje ${t.um})`);
+  if(t.uk) r.push(t.um===1?tl(`sam odblokowuje Über ${t.uk}×${t.uk}`,`unlocks Über ${t.uk}×${t.uk} on its own`):tl(`do Über ${t.uk}×${t.uk} (brakuje ${t.um})`,`towards Über ${t.uk}×${t.uk} (${t.um} missing)`));
   if(t.yd) r.push(`Yardinho +${t.yd}`);
-  if(t.road===0) r.push('bez drogi — pieszo');
+  if(t.road===0) r.push(tl('bez drogi — pieszo','no road — on foot'));
   return r.join(' · ');
 }
 function renderPrioPanel(){
@@ -1711,7 +1723,7 @@ function renderPrioPanel(){
   const wins=prioWindows().slice(0,3).map(w=>
     `<div class="prio-row" onclick="prioFly(${w.x},${w.y},${w.k})"><b style="color:var(--yellow)">Über ${w.k}×${w.k}</b> <span>brakuje ${w.miss}${w.noRoad?` (${w.noRoad} bez drogi)`:''} · +${w.gain}</span></div>`).join('');
   const top=prioData.tiles.slice(0,6).map((t,i)=>
-    `<div class="prio-row" onclick="prioFly(${t.tx},${t.ty})"><b style="color:${t.tier===1?'var(--red)':'var(--orange)'}">${i+1}.</b> <span>${prioWhy(t)} · ${String(t.km).replace('.',',')} km</span></div>`).join('');
+    `<div class="prio-row" onclick="prioFly(${t.tx},${t.ty})"><b style="color:${t.tier===1?'var(--red)':'var(--orange)'}">${i+1}.</b> <span>${prioWhy(t)} · ${LANG==='en'?t.km:String(t.km).replace('.',',')} km</span></div>`).join('');
   box.innerHTML=`<div class="hint" style="text-align:left;margin-bottom:6px"><span style="color:var(--red)">■</span> najcenniejsze ${n[0]} · <span style="color:var(--orange)">■</span> dobre ${n[1]} · <span style="color:var(--yellow)">■</span> pozostałe ${n[2]}. Przerywana ramka — brak drogi w OSM.</div>`+
     `<div class="sl" style="margin:4px 0">Najbliższe cele Über (Übersquadratinho ${prioData.uberi}×${prioData.uberi})</div>${wins||'<div class="hint">—</div>'}`+
     `<div class="sl" style="margin:8px 0 4px">Najcenniejsze kwadraty</div>${top}`+
@@ -1723,12 +1735,12 @@ function showPrioResult(p,dist){
     L.circleMarker([w.lat,w.lng],{radius:9,color:'#111',weight:2,fillColor:'#facc15',fillOpacity:.9,pane:'kmPane'})
       .bindTooltip('Kwadrat bez drogi w OSM — dojdź pieszo z roweru',{direction:'top'}).addTo(prioWalk);
   }
-  const parts=[`${dist.toFixed(1)} km`,`${p.prioHit} priorytetowych SQI`];
-  const gain=(a,b,lbl)=>{if(b>a) parts.push(`${lbl} +${a} (+${b} z dojściem pieszo)`); else if(a>0) parts.push(`${lbl} +${a}`);};
+  const parts=[`${dist.toFixed(1)} km`,tl(`${p.prioHit} priorytetowych SQI`,`${p.prioHit} priority SQI`)];
+  const gain=(a,b,lbl)=>{if(b>a) parts.push(tl(`${lbl} +${a} (+${b} z dojściem pieszo)`,`${lbl} +${a} (+${b} walking in)`)); else if(a>0) parts.push(`${lbl} +${a}`);};
   gain(p.uberiGain||0,p.uberiWalk||0,'Über');
   gain(p.yardGain||0,p.yardiWalk||0,'Yardinho');
-  if(p.walk?.length) parts.push(`${p.walk.length} do dojścia pieszo (żółte kółka)`);
-  parts.push(`${p.newSQI} nowych SQI`);
+  if(p.walk?.length) parts.push(tl(`${p.walk.length} do dojścia pieszo (żółte kółka)`,`${p.walk.length} to reach on foot (yellow circles)`));
+  parts.push(tl(`${p.newSQI} nowych SQI`,`${p.newSQI} new SQI`));
   toast('✅ '+parts.join(' · '));
 }
 
@@ -1740,7 +1752,7 @@ async function loadReachStats(){
   try{
     const d=await (await fetch(`/api/tiles/reach-stats?lat=${c.lat}&lng=${c.lng}&r=50`)).json();
     if(!d.available){el.textContent='Brak indeksu dróg (tools/update-pois.sh).';return;}
-    const f=n=>n.toLocaleString('pl-PL');
+    const f=n=>n.toLocaleString(locale());
     el.innerHTML=`W promieniu <b>50 km</b> od ${home?'domu':'środka mapy'} masz <b style="color:var(--green);font-size:14px">${String(d.pct).replace('.',',')}%</b> zdobywalnych SQI<br>`+
       `<span style="color:var(--tx3)">${f(d.owned)} z ${f(d.collectable)} · bez dróg: ${f(d.noRoad)} · oznaczone: ${f(d.blocked)}</span>`;
   }catch(e){el.textContent='Nie udało się policzyć zasięgu';}
@@ -2440,7 +2452,7 @@ function openSaveRoute(){
   const loop=document.querySelector('input[name="loop"]:checked').value==='loop';
   const start=wpts.find(w=>w.type==='start');
   const d=new Date();
-  g('rc-save-name').value=`${loop?'Pętla':'Trasa'} ${Math.round(_planKm)} km${start?.label?' · '+start.label:''} · ${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`;
+  g('rc-save-name').value=`${loop?tl('Pętla','Loop'):tl('Trasa','Route')} ${Math.round(_planKm)} km${start?.label?' · '+start.label:''} · ${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`;
   g('rc-save-form').hidden=false;
   g('rc-save-name').focus(); g('rc-save-name').select();
 }
@@ -2475,7 +2487,7 @@ async function loadSavedRoutes(){
       const row=document.createElement('div');
       row.className='sv-item';
       row.innerHTML=`<div class="sv-main" title="Wczytaj trasę"><b>${esc(r.name)}</b>
-        <span>${d.toLocaleDateString('pl-PL')} · ${fmtKm(r.distance_km)} km · +${r.new_sqi} SQI${r.new_sq?` · +${r.new_sq} SQ`:''}</span></div>
+        <span>${d.toLocaleDateString(locale())} · ${fmtKm(r.distance_km)} km · +${r.new_sqi} SQI${r.new_sq?` · +${r.new_sq} SQ`:''}</span></div>
         <button class="sv-del" type="button" title="Usuń trasę"><i class="ti ti-trash"></i></button>`;
       row.querySelector('.sv-main').onclick=()=>openSavedRoute(r.id);
       const del=row.querySelector('.sv-del');
@@ -2595,12 +2607,12 @@ async function refreshSyncStatus(){
     const el=g('autosync-status');
     if(!st.connected){el.textContent='Połącz Stravę w profilu, a nowe jazdy będą synchronizowane automatycznie.';return;}
     const l=st.last;
-    let line=`<i class="ti ti-refresh-dot"></i> Automatycznie co ${st.everyMin} min`;
+    let line=`<i class="ti ti-refresh-dot"></i> ${tl('Automatycznie co','Automatically every')} ${st.everyMin} min`;
     if(l){
-      const t=new Date(l.at).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});
-      const day=new Date(l.at).toDateString()===new Date().toDateString()?'':` ${new Date(l.at).toLocaleDateString('pl-PL')}`;
-      line+=` · ostatnio ${t}${day}${l.source==='manual'?' (ręcznie)':''}`;
-      line+=l.error?` · błąd: ${esc(l.error)}`:` · +${l.result?.newSQ??0} SQ, +${l.result?.newSQI??0} SQI`;
+      const t=new Date(l.at).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});
+      const day=new Date(l.at).toDateString()===new Date().toDateString()?'':` ${new Date(l.at).toLocaleDateString(locale())}`;
+      line+=` · ${tl('ostatnio','last')} ${t}${day}${l.source==='manual'?tl(' (ręcznie)',' (manual)'):''}`;
+      line+=l.error?` · ${tl('błąd','error')}: ${esc(l.error)}`:` · +${l.result?.newSQ??0} SQ, +${l.result?.newSQI??0} SQI`;
     }
     el.innerHTML=line;
     if(l&&_syncSeenAt&&l.at!==_syncSeenAt&&l.source==='auto'&&!l.error&&(l.result?.newSQ||l.result?.newSQI)){
@@ -2771,7 +2783,7 @@ function syncAddrFields(){
     const w=wpts.find(x=>x.type===type);
     if(!w){inp.value='';continue;}
     const ll=w.marker.getLatLng();
-    inp.value=w.label==='Dom'?'Dom'+(_homeAddr?' · '+_homeAddr:''):(w.label||`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`);
+    inp.value=w.label==='Dom'?t('Dom')+(_homeAddr?' · '+_homeAddr:''):(w.label||`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`);
   }
 }
 function renderWL(){
@@ -3322,7 +3334,7 @@ async function deleteAccount(pw){
   const r=await fetch('/api/profile',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify(pw?{password:v}:{confirm:v})});
   const d=await r.json().catch(()=>({}));
   if(!r.ok){ g('prof-del-err').textContent=d.error||'Nie udało się usunąć konta'; return; }
-  alert('Konto i wszystkie dane zostały usunięte.');
+  alert(t('Konto i wszystkie dane zostały usunięte.'));
   location.reload();
 }
 
@@ -3462,13 +3474,13 @@ function renderAdminUsers(users){
 }
 
 async function adminToggleRole(id,newRole){
-  if(!confirm(`Zmienić rolę na "${newRole}"?`))return;
+  if(!confirm(t(`Zmienić rolę na "${newRole}"?`)))return;
   const r=await fetch(`/api/admin/users/${id}/role`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:newRole})});
   if(r.ok){toast(`Rola zmieniona → ${newRole}`);openAdmin();}
   else toast('Błąd: '+(await r.json()).error);
 }
 async function adminDeleteUser(id,username){
-  if(!confirm(`Usunąć użytkownika "${username}"?\nUsuwa też WSZYSTKIE jego dane (kwadraty, aktywności)!`))return;
+  if(!confirm(t(`Usunąć użytkownika "${username}"?\nUsuwa też WSZYSTKIE jego dane (kwadraty, aktywności)!`)))return;
   const r=await fetch(`/api/admin/users/${id}`,{method:'DELETE'});
   if(r.ok){toast(`Użytkownik ${username} usunięty`);openAdmin();}
   else toast('Błąd: '+(await r.json()).error);
@@ -4482,8 +4494,8 @@ const CUISINE_PL={pizza:'pizza',burger:'burgery',kebab:'kebab',asian:'azjatycka'
   ukrainian:'ukraińska',turkish:'turecka',greek:'grecka',mexican:'meksykańska',japanese:'japońska',french:'francuska',american:'amerykańska',
   coffee_shop:'kawa',chicken:'kurczak',sandwich:'kanapki',ice_cream:'lody',cake:'ciasta',pasta:'makarony',seafood:'ryby i owoce morza',
   fish:'ryby',vegetarian:'wegetariańska',vegan:'wegańska',steak_house:'steki',grill:'grill',breakfast:'śniadania',donut:'pączki'};
-const cuisinePL=(c)=>(c||'').split(';').map(x=>CUISINE_PL[x.trim()]||x.trim().replace(/_/g,' ')).filter(Boolean).join(', ');
-const hoursPL=(h)=>(h||'').replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,d=>({Mo:'Pn',Tu:'Wt',We:'Śr',Th:'Cz',Fr:'Pt',Sa:'So',Su:'Nd',PH:'Św.'}[d])).replace(/\boff\b/g,'nieczynne').replace(/24\/7/,'całą dobę');
+const cuisinePL=(c)=>(c||'').split(';').map(x=>(LANG!=='en'&&CUISINE_PL[x.trim()])||x.trim().replace(/_/g,' ')).filter(Boolean).join(', ');
+const hoursPL=(h)=>LANG==='en'?(h||'').replace(/\boff\b/g,'closed').replace(/24\/7/,'24 h'):(h||'').replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,d=>({Mo:'Pn',Tu:'Wt',We:'Śr',Th:'Cz',Fr:'Pt',Sa:'So',Su:'Nd',PH:'Św.'}[d])).replace(/\boff\b/g,'nieczynne').replace(/24\/7/,'całą dobę');
 const poiLabel=(t)=>{const v=(t.amenity||t.shop||t.tourism||t.historic||'');return POI_TYPE_PL[v]||(cuisinePL(t.cuisine)?cuisinePL(t.cuisine)[0].toUpperCase()+cuisinePL(t.cuisine).slice(1):v.replace(/_/g,' '));};
 
 function renderPOI(elements){

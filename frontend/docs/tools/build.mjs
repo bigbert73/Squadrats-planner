@@ -1,8 +1,8 @@
 // Builds the Squadrats user manual in two languages from one source:
 //   node frontend/docs/tools/build.mjs   →  frontend/docs/index.html (PL), frontend/docs/en.html (EN)
 // Every text is a [pl, en] pair, so both versions always share the same structure.
-// Screenshots live in frontend/docs/img (d-* computer, m-* phone); refresh them with
-// tools/docshots.mjs + tools/steps.mjs.
+// Screenshots live in frontend/docs/img (d-* computer, m-* phone; English UI in img/en);
+// refresh them with tools/docshots.mjs + tools/steps.mjs (DOCS_LANG=en for img/en).
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
@@ -21,9 +21,11 @@ const ICON = {
 function build(L) {
   const T = (pair) => (Array.isArray(pair) ? pair[L === 'pl' ? 0 : 1] : pair);
   const pl = L === 'pl';
+  // English pages show the English UI when that shot exists
+  const IMG = (name) => (!pl && fs.existsSync(path.join(DIR, 'img/en', name + '.webp')) ? `img/en/${name}.webp` : `img/${name}.webp`);
 
-  const desk = (name, cap) => `<figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · ${T(['komputer', 'computer'])}</span></div><img class="shot" src="img/${name}.webp" alt="${T(cap)}" loading="lazy" width="2160" height="1350"></div><figcaption><b>${T(['Komputer', 'Computer'])}</b>${T(cap)}</figcaption></figure>`;
-  const phone = (name, cap) => `<figure><div class="frame-phone"><img class="shot" src="img/${name}.webp" alt="${T(cap)}" loading="lazy" width="975" height="2110"></div><figcaption><b>${T(['Telefon', 'Phone'])}</b>${T(cap)}</figcaption></figure>`;
+  const desk = (name, cap) => `<figure><div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats · ${T(['komputer', 'computer'])}</span></div><img class="shot" src="${IMG(name)}" alt="${T(cap)}" loading="lazy" width="2160" height="1350"></div><figcaption><b>${T(['Komputer', 'Computer'])}</b>${T(cap)}</figcaption></figure>`;
+  const phone = (name, cap) => `<figure><div class="frame-phone"><img class="shot" src="${IMG(name)}" alt="${T(cap)}" loading="lazy" width="975" height="2110"></div><figcaption><b>${T(['Telefon', 'Phone'])}</b>${T(cap)}</figcaption></figure>`;
   const screens = (d, p) => `<div class="screens${p ? '' : ' solo'}">${d ? desk(...d) : ''}${p ? phone(...p) : ''}</div>`;
   const howto = (d, p) => `<div class="howto">
       <section><h4>${ICON.desk}${T(['Na komputerze', 'On a computer'])}</h4><ol>${d.map(x => `<li>${T(x)}</li>`).join('')}</ol></section>
@@ -277,6 +279,7 @@ function build(L) {
         [['Punkt startowy', 'Home point'], ['Adres albo punkt wskazany na mapie. Każda nowa trasa startuje z domu.', 'An address or a point picked on the map. Every new route starts from home.']],
         [['Usunięcie konta', 'Account deletion'], ['Jednym przyciskiem kasujesz aktywności, kwadraty, trasy i klucze, a aplikacja odłącza się od Stravy.', 'One button deletes activities, squares, routes and keys, and disconnects the app from Strava.']],
         [['Panel admina', 'Admin panel'], ['Administrator zarządza kontami użytkowników.', 'The administrator manages user accounts.']],
+        [['Polski lub angielski', 'Polish or English'], ['Przełącznik PL/EN jest w menu konta i na ekranie logowania. Zmienia język od razu, bez utraty trasy, i zostaje zapamiętany. Nowa osoba dostaje język swojej przeglądarki.', 'The PL/EN switch is in the account menu and on the sign-in screen. It changes the language at once, without losing your route, and is remembered. A new visitor gets their browser’s language.']],
       ])}`),
   ];
 
@@ -372,8 +375,8 @@ function build(L) {
       </div>
     </div>
     <div class="hero-shots">
-      <div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats</span></div><img class="shot" src="img/d-hero.webp" alt="${T(['Planer na komputerze: pętla 37 km z 52 nowymi squadratinhos', 'The planner on a computer: a 37 km loop with 52 new squadratinhos'])}" width="2160" height="1350"></div>
-      <div class="frame-phone"><img class="shot" src="img/m-route.webp" alt="${T(['Planer na telefonie', 'The planner on a phone'])}" width="975" height="2110"></div>
+      <div class="frame-desk"><div class="bar"><i></i><i></i><i></i><span>squadrats</span></div><img class="shot" src="${IMG('d-hero')}" alt="${T(['Planer na komputerze: pętla 37 km z 52 nowymi squadratinhos', 'The planner on a computer: a 37 km loop with 52 new squadratinhos'])}" width="2160" height="1350"></div>
+      <div class="frame-phone"><img class="shot" src="${IMG('m-route')}" alt="${T(['Planer na telefonie', 'The planner on a phone'])}" width="975" height="2110"></div>
     </div>
   </div>
 </section>
@@ -421,6 +424,6 @@ if (si > 0) {
   };
   fs.writeFileSync(path.join(out, 'index.html'), share(build('pl'), true));
   fs.writeFileSync(path.join(out, 'en.html'), share(build('en'), false));
-  for (const f of fs.readdirSync(path.join(DIR, 'img'))) fs.copyFileSync(path.join(DIR, 'img', f), path.join(out, 'img', f));
+  fs.cpSync(path.join(DIR, 'img'), path.join(out, 'img'), { recursive: true });
   console.log('share copy in', out);
 }
