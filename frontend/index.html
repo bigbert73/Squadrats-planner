@@ -505,6 +505,8 @@ body.riding #zlvl{display:none}
 .poi-name b{color:var(--tx);display:block;font-size:12px}
 .poi-name span{color:var(--tx3);font-size:11px}
 .poi-name .poi-km{display:block;color:var(--blue);font-family:'JetBrains Mono',monospace;font-size:10.5px;margin:1px 0}
+.gm-link{display:flex;width:max-content;align-items:center;gap:5px;margin-top:7px;padding:5px 10px;border-radius:14px;background:#1a73e8;color:#fff!important;font-size:11.5px;font-weight:600;text-decoration:none}
+.gm-link .ti{font-size:14px}
 .poi-cat{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:8px 0 3px}
 
 /* ── USER MENU ── */
@@ -4340,7 +4342,9 @@ function renderPOI(elements){
       const icon=L.divIcon({className:'',iconSize:[22,22],iconAnchor:[11,11],
         html:`<div style="width:22px;height:22px;border-radius:50%;background:${cat.color};border:2px solid rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.5)"><i class="ti ${cat.icon}" style="font-size:11px;color:#fff"></i></div>`});
       it._marker=L.marker([it.lat,it.lon],{icon,zIndexOffset:200})
-        .bindPopup(`<b>${esc(it.tags?.name||poiLabel(it.tags||{})||cat.label)}</b><br><span style="font-size:11px;color:#2563eb">${it._where}</span><br><span style="font-size:11px;color:#666">${esc(hoursPL(it.tags?.opening_hours))}</span>`)
+        .bindPopup(`<b>${esc(it.tags?.name||poiLabel(it.tags||{})||cat.label)}</b><br><span style="font-size:11px;color:#2563eb">${it._where}</span><br><span style="font-size:11px;color:#666">${esc(hoursPL(it.tags?.opening_hours))}</span>
+          <a class="gm-link" href="${esc(gmapsUrl(it.tags?.name,it.lat,it.lon))}" target="_blank" rel="noopener"><i class="ti ti-brand-google-maps"></i>Google Maps — opinie, zdjęcia</a>`)
+        .on('popupopen',e=>gmapsUpgrade(e.popup,it.tags?.name,it.lat,it.lon))
         .addTo(lg);
     });
     for(const box of [sideToggles,mapPanel]){
@@ -4394,6 +4398,27 @@ function renderPOI(elements){
   });
   if(!list.children.length) list.innerHTML='<div class="hint">Brak punktów blisko trasy</div>';
   applyPOIFilter();
+}
+
+// Google Maps link for a POI: a name search centred on the point works with no
+// API; once the server finds the Google place_id (Places API) the link opens
+// the place card directly (reviews, photos, hours).
+function gmapsUrl(name,lat,lng){
+  return name?`https://www.google.com/maps/search/${encodeURIComponent(name)}/@${lat.toFixed(6)},${lng.toFixed(6)},17z`
+    :`https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
+}
+const gPlaceIds=new Map();
+async function gmapsUpgrade(popup,name,lat,lng){
+  if(!name) return;
+  const k=`${name}|${lat},${lng}`;
+  if(!gPlaceIds.has(k)){
+    try{
+      const r=await fetch(`/api/poi/gplace?name=${encodeURIComponent(name)}&lat=${lat}&lng=${lng}`);
+      gPlaceIds.set(k,r.ok?(await r.json()).placeId:null);
+    }catch(_){return;}
+  }
+  const id=gPlaceIds.get(k), a=popup.getElement()?.querySelector('.gm-link');
+  if(id&&a) a.href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${encodeURIComponent(id)}`;
 }
 
 function showPOI(lat,lng){

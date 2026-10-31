@@ -956,6 +956,36 @@ app.post('/api/streetview/coverage', async (req, res) => {
   } catch { res.json({ coverage: null }); }
 });
 
+// ── Google place lookup for POI popups ────────────────────────────────────────
+// Places API (New) Text Search with an IDs-only field mask (free SKU) turns an
+// OSM name + position into a Google place_id, so the popup link opens the
+// place card (reviews, photos) instead of a search. Without the API enabled
+// the frontend keeps its plain name@position search link.
+const gPlaceCache = new Map();
+let gPlaceOffUntil = 0;
+app.get('/api/poi/gplace', requireAuth, async (req, res) => {
+  const key = process.env.GOOGLE_MAPS_KEY;
+  const name = String(req.query.name || '').trim().slice(0, 120);
+  const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
+  if (!key || !name || !Number.isFinite(lat) || !Number.isFinite(lng) || Date.now() < gPlaceOffUntil)
+    return res.json({ placeId: null });
+  const ck = `${name}|${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (gPlaceCache.has(ck)) return res.json({ placeId: gPlaceCache.get(ck) });
+  try {
+    const r = await axios.post('https://places.googleapis.com/v1/places:searchText', {
+      textQuery: name, languageCode: 'pl', maxResultCount: 1,
+      locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: 150 } },
+    }, { headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'places.id' }, timeout: 8000 });
+    const placeId = r.data?.places?.[0]?.id || null;
+    if (gPlaceCache.size > 5000) gPlaceCache.clear();
+    gPlaceCache.set(ck, placeId);
+    res.json({ placeId });
+  } catch (e) {
+    if (e.response?.status === 403) gPlaceOffUntil = Date.now() + 10 * 60 * 1000; // API not enabled
+    res.json({ placeId: null });
+  }
+});
+
 // ── Overpass API proxy ────────────────────────────────────────────────────────
 // Public Overpass mirrors are frequently "at capacity" (502/429/500) for a
 // few seconds to minutes; overpass-api.de itself asks clients to retry with
