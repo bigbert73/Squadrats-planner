@@ -399,3 +399,28 @@ function build(L) {
 fs.writeFileSync(path.join(DIR, 'index.html'), build('pl'));
 fs.writeFileSync(path.join(DIR, 'en.html'), build('en'));
 console.log('built', path.join(DIR, 'index.html'), path.join(DIR, 'en.html'), commit);
+
+// Self-contained copy for sharing outside the app (e.g. a hosted page):
+//   node frontend/docs/tools/build.mjs --share <outdir>
+// CSS/JS inlined, no link to the local app or its legal pages; the PL page
+// is written without the document skeleton (the host adds it), EN is a full page.
+const si = process.argv.indexOf('--share');
+if (si > 0) {
+  const out = path.resolve(process.argv[si + 1]);
+  fs.mkdirSync(path.join(out, 'img'), { recursive: true });
+  const css = fs.readFileSync(path.join(DIR, 'assets/docs.css'), 'utf8');
+  const js = fs.readFileSync(path.join(DIR, 'assets/docs.js'), 'utf8');
+  const share = (html, bare) => {
+    html = html.replace('<link rel="stylesheet" href="assets/docs.css">', `<style>${css}</style>`)
+      .replace('<script src="assets/docs.js"></script>', `<script>${js}</script>`)
+      .replace(/<a class="pill-link cta" href="\/">[^<]*<\/a>/, '')
+      .replace(/ · <a href="\/privacy\.html">[^<]*<\/a> · <a href="\/terms\.html">[^<]*<\/a>/, '');
+    if (bare) html = html.replace(/^<!doctype html>\n<html lang="\w+">\n<head>\n<meta charset="utf-8">\n<meta name="viewport"[^>]*>\n/, '')
+      .replace('</head>\n<body>\n', '').replace(/<\/body>\n<\/html>\n$/, '');
+    return html;
+  };
+  fs.writeFileSync(path.join(out, 'index.html'), share(build('pl'), true));
+  fs.writeFileSync(path.join(out, 'en.html'), share(build('en'), false));
+  for (const f of fs.readdirSync(path.join(DIR, 'img'))) fs.copyFileSync(path.join(DIR, 'img', f), path.join(out, 'img', f));
+  console.log('share copy in', out);
+}
