@@ -43,6 +43,7 @@ const planner = require('./planner');
 const popular = require('./popular');
 const reach   = require('./reach');
 const priority = require('./priority');
+const photos = require('./photos');
 const oauth  = require('./oauth');
 const axios  = require('axios');
 const crypto = require('crypto');
@@ -1181,6 +1182,67 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
     console.error('Wiki POI error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Commons photo cache (see photos.js) ───────────────────────────────────────
+// route: which of the route's grid cells are cached, plus the cached files in
+// the corridor; cell / info: what the browser fetched from Commons.
+const PHOTO_CORRIDOR_KM = 0.3;
+const photoSamples = (arr) => (Array.isArray(arr) ? arr : [])
+  .filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).slice(0, 2000);
+app.post('/api/photos/route', requireAuth, (req, res) => {
+  const cells = (Array.isArray(req.body?.cells) ? req.body.cells : []).slice(0, 2000);
+  res.json({ done: photos.doneCells(cells), files: photos.filesNear(photoSamples(req.body?.samples), PHOTO_CORRIDOR_KM) });
+});
+app.post('/api/photos/cell', requireAuth, (req, res) => {
+  res.json({ saved: photos.saveCell(req.body?.cell, req.body?.hits) });
+});
+app.post('/api/photos/info', requireAuth, (req, res) => {
+  res.json({ saved: photos.saveInfo(req.body?.items) });
+});
+
+// ── Mapillary photos along the route ──────────────────────────────────────────
+// Street-level images people uploaded (often from bikes), with MAPILLARY_TOKEN
+// set. Wikimedia Commons photos are fetched by the browser instead: Wikimedia
+// allows unidentified server clients only 10 req/min, browsers 200.
+const PHOTO_CELL_DEG = 0.0015;     // ~150 m: keep about one image per cell
+
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length) { const k = i++; try { out[k] = await fn(items[k]); } catch { out[k] = []; } }
+  }));
+  return out;
+}
+
+// Not cached: Mapillary thumbnail URLs are signed and expire.
+async function mapillaryNear(pt, token) {
+  const d = 0.0015;
+  const r = await axios.get('https://graph.mapillary.com/images', { timeout: 10000, params: {
+    access_token: token, fields: 'id,geometry,thumb_256_url,thumb_1024_url,captured_at,creator',
+    bbox: [pt.lng - d, pt.lat - d, pt.lng + d, pt.lat + d].join(','), limit: 20 } });
+  return r.data?.data || [];
+}
+
+app.post('/api/route/photos', requireAuth, async (req, res) => {
+  const token = process.env.MAPILLARY_TOKEN;
+  if (!token) return res.json({ photos: [], mapillary: false });
+  const all = (req.body?.samples || []).filter(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng));
+  const samples = all.filter((_, i) => i % Math.ceil(all.length / 300) === 0);
+  const seen = new Set(), photos = [];
+  for (const list of await mapLimit(samples, 6, (p) => mapillaryNear(p, token)))
+    for (const im of list || []) {
+      const [lng, lat] = im.geometry?.coordinates || [];
+      if (!Number.isFinite(lat) || !im.thumb_256_url) continue;
+      const k = `${Math.floor(lat / PHOTO_CELL_DEG)},${Math.floor(lng / PHOTO_CELL_DEG)}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      photos.push({ src: 'mapillary', id: im.id, lat, lng, thumb: im.thumb_1024_url || im.thumb_256_url,
+        page: `https://www.mapillary.com/app/?pKey=${im.id}`, author: im.creator?.username || '',
+        date: im.captured_at ? new Date(im.captured_at).toISOString().slice(0, 10) : '' });
+    }
+  res.json({ photos, mapillary: true });
 });
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────

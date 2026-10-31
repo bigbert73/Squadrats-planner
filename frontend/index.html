@@ -495,6 +495,12 @@ body.riding #zlvl{display:none}
 .wiki-popup p{font-size:11px;color:#555;margin:0 0 6px;line-height:1.5}
 .wiki-popup a{font-size:11px;color:#1a73e8;text-decoration:none}
 .wiki-popup a:hover{text-decoration:underline}
+.photo-popup{width:260px}
+.photo-popup img{width:100%;max-height:200px;object-fit:cover;border-radius:6px;display:block;margin-bottom:6px;cursor:zoom-in;background:#ddd}
+.photo-popup b{font-size:12px;color:#111;line-height:1.3;display:block}
+.photo-popup .ph-meta{font-size:10.5px;color:#666;margin:3px 0 5px;line-height:1.4}
+.photo-popup .ph-km{font-size:11px;color:#2563eb}
+.photo-popup a{font-size:11px;color:#1a73e8;text-decoration:none}
 .coll-body{overflow:hidden}
 .coll-body.shut{max-height:0!important}
 .poi-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
@@ -906,6 +912,7 @@ body.riding #zlvl{display:none}
         <button class="mtb" id="mtb-elev" onclick="toggleElev()"><i class="ti ti-chart-area-line"></i>Profil wysokości</button>
         <button class="mtb" id="mtb-poi"  onclick="togglePOIPanel()" style="display:none"><i class="ti ti-map-pin"></i>Punkty na trasie</button>
         <button class="mtb" id="mtb-wiki" onclick="toggleWikiLayer()" style="display:none"><i class="ti ti-book"></i>Ciekawe miejsca (Wikipedia)</button>
+        <button class="mtb" id="mtb-photos" onclick="togglePhotoLayer()" style="display:none"><i class="ti ti-camera"></i>Zdjęcia z trasy</button>
         <div class="mtp-sec">Mapa bazowa</div>
         <button class="mtb on" data-base="osm"       onclick="chBase('osm')"><i class="ti ti-map"></i>OpenStreetMap</button>
         <button class="mtb"    data-base="cycle"     onclick="chBase('cycle')"><i class="ti ti-bike"></i>Rowerowa (CyclOSM)</button>
@@ -2137,6 +2144,7 @@ async function showRoute(route,{loop,pop=null}){
   fetchSVCoverage();
   fetchPOI();
   fetchWikiPOI();
+  fetchRoutePhotos();
   _routeMeta={coords:routeCoords,elevProfile:route.elevProfile||null,surfaceProfile:route.surfaceProfile||null,loop};
   if(!loop) outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
   return dist;
@@ -2272,7 +2280,7 @@ function resetRoute(){
   if(g('elev-svg')) g('elev-svg').innerHTML='';
   routeCoords=[]; newSQ.clear(); newSQI.clear(); svCovData=null;
   clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue'); clearLyr('rt-click');
-  clearPOI(); clearWikiPOI();
+  clearPOI(); clearWikiPOI(); clearRoutePhotos();
   if(g('route-summary')) g('route-summary').style.display='none';
   if(g('poi-panel')) g('poi-panel').style.display='none';
   renderWL(); previewRoute(); setPlanDist(0);
@@ -4196,6 +4204,161 @@ async function fetchWikiPOI(){
   }catch(e){
     console.warn('Wiki POI error:',e.message);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PEOPLE'S PHOTOS ALONG THE ROUTE (Wikimedia Commons, Mapillary)
+// ═══════════════════════════════════════════════════════════════════════
+const PHOTO_SRC={
+  commons:{label:'Wikimedia Commons',color:'#3b82f6'},
+  mapillary:{label:'Mapillary',color:'#05cb63'},
+};
+const PHOTO_NEAR_KM=0.3;
+let photoLayer=null, photoVisible=true;
+function clearRoutePhotos(){
+  if(photoLayer){map.removeLayer(photoLayer);photoLayer=null;}
+  g('mtb-photos').style.display='none';
+  g('mtb-photos').classList.remove('on');
+}
+function togglePhotoLayer(){
+  if(!photoLayer) return;
+  photoVisible=!photoVisible;
+  if(photoVisible) map.addLayer(photoLayer); else map.removeLayer(photoLayer);
+  g('mtb-photos').classList.toggle('on',photoVisible);
+}
+// Commons is queried from the browser (Wikimedia gives browsers 200 req/min,
+// unidentified servers 10) and cached on our server per grid cell (photos.js):
+// a route first gets everything cached along it, then only cells nobody has
+// searched yet go to Commons, one at a time (its geosearch is slow, ~3 s, and
+// answers "too busy" to quick repeats), each shown and stored as it comes in.
+const COMMONS_API='https://commons.wikimedia.org/w/api.php';
+const PHOTO_CELL={lat:0.02,lng:0.03};   // must match photos.js
+async function commonsGet(params){
+  const q=new URLSearchParams({...params,format:'json',origin:'*'});
+  for(let attempt=0;;attempt++){
+    const r=await fetch(`${COMMONS_API}?${q}`);
+    const d=r.ok?await r.json():null;
+    if(d&&!d.error) return d;
+    if(attempt>=4) throw new Error(d?.error?.code||`Commons HTTP ${r.status}`);
+    await new Promise(ok=>setTimeout(ok,r.status===429?5000*(attempt+1):1500));
+  }
+}
+const postJSON=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.ok?r.json():null).catch(()=>null);
+// All files in a grid cell; a cell hitting the 500 limit is split in four.
+async function commonsCellHits(lat0,lng0,dLat,dLng,depth=0){
+  const c={lat:lat0+dLat/2,lng:lng0+dLng/2};
+  const radius=Math.min(10000,Math.ceil(Math.hypot(dLat*110.57,dLng*111.32*Math.cos(c.lat*Math.PI/180))*500)+30);
+  const d=await commonsGet({action:'query',list:'geosearch',gscoord:`${c.lat.toFixed(6)}|${c.lng.toFixed(6)}`,gsradius:radius,gsnamespace:6,gslimit:500});
+  const hits=d.query?.geosearch||[];
+  if(hits.length<500||depth>=2) return hits;
+  const out=new Map();
+  for(const[i,j] of [[0,0],[0,1],[1,0],[1,1]])
+    for(const h of await commonsCellHits(lat0+i*dLat/2,lng0+j*dLng/2,dLat/2,dLng/2,depth+1)) out.set(h.pageid,h);
+  return [...out.values()];
+}
+async function commonsRoutePhotos(cum,stillCurrent,onBatch){
+  const total=cum[cum.length-1], spacing=Math.max(0.2,total/2000), samples=[]; let next=0;
+  routeCoords.forEach((p,i)=>{ if(cum[i]>=next||i===routeCoords.length-1){samples.push({lat:+p.lat.toFixed(5),lng:+p.lng.toFixed(5)});next=cum[i]+spacing;} });
+  // grid cells the corridor touches, in route order
+  const cells=[], pad={lat:0.004,lng:0.0065};
+  for(const p of samples) for(const dy of [-1,0,1]) for(const dx of [-1,0,1]){
+    const k=`${Math.floor((p.lat+dy*pad.lat)/PHOTO_CELL.lat)},${Math.floor((p.lng+dx*pad.lng)/PHOTO_CELL.lng)}`;
+    if(!cells.includes(k)) cells.push(k);
+  }
+  const shown=new Set(), seen=new Set();
+  const keep=(f)=>{ // corridor + about one photo per ~150 m
+    if(seen.has(f.pageid)) return null;
+    seen.add(f.pageid);
+    const passes=routePasses(f.lat,f.lng,PHOTO_NEAR_KM);
+    if(!passes.length) return null;
+    const k=`${Math.floor(f.lat/0.0015)},${Math.floor(f.lng/0.0015)}`;
+    if(shown.has(k)) return null;
+    shown.add(k);
+    return {...f,_passes:passes};
+  };
+  const toPhoto=f=>({src:'commons',lat:f.lat,lng:f.lng,_passes:f._passes,thumb:f.thumb,page:f.page,
+    title:f.title.replace(/^File:/,'').replace(/\.[^.]+$/,''),author:f.author,date:f.date,license:f.license});
+  const withInfo=async(files)=>{ // fetch + store details for files that lack them, then show
+    for(let i=0;i<files.length;i+=50){
+      if(!stillCurrent()) return;
+      const part=files.slice(i,i+50);
+      const d=await commonsGet({action:'query',pageids:part.map(f=>f.pageid).join('|'),prop:'imageinfo',
+        iiprop:'url|extmetadata',iiurlwidth:640,iiextmetadatafilter:'Artist|DateTimeOriginal|LicenseShortName'}).catch(()=>null);
+      const pages=d?.query?.pages||{}, items=[];
+      const txt=v=>(v||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+      for(const f of part){
+        const ii=pages[f.pageid]?.imageinfo?.[0];
+        if(!ii?.thumburl) continue;
+        const m=ii.extmetadata||{};
+        Object.assign(f,{thumb:ii.thumburl,page:ii.descriptionurl,author:txt(m.Artist?.value).slice(0,80),
+          date:txt(m.DateTimeOriginal?.value).slice(0,10),license:(m.LicenseShortName?.value||'').slice(0,40)});
+        items.push({pageid:f.pageid,thumb:f.thumb,page:f.page,author:f.author,date:f.date,license:f.license});
+      }
+      if(items.length) postJSON('/api/photos/info',{items});
+      if(stillCurrent()) onBatch(part.filter(f=>f.thumb).map(toPhoto));
+    }
+  };
+
+  const cached=await postJSON('/api/photos/route',{samples,cells});
+  if(!stillCurrent()) return;
+  const done=new Set(cached?.done||[]), ready=[], noInfo=[];
+  // with details first, so a cell's slot goes to a photo we can show now
+  for(const f of (cached?.files||[]).sort((a,b)=>!!b.thumb-!!a.thumb)){
+    const k=keep(f); if(!k) continue;
+    (k.thumb?ready:noInfo).push(k);
+  }
+  onBatch(ready.map(toPhoto));
+  await withInfo(noInfo);
+  for(const cell of cells){
+    if(done.has(cell)) continue;
+    if(!stillCurrent()) return;
+    const [i,j]=cell.split(',').map(Number);
+    let hits;
+    try{ hits=(await commonsCellHits(i*PHOTO_CELL.lat,j*PHOTO_CELL.lng,PHOTO_CELL.lat,PHOTO_CELL.lng)).filter(h=>/\.(jpe?g|webp)$/i.test(h.title)); }
+    catch(e){ console.warn('Commons cell',cell,e.message); continue; }
+    await postJSON('/api/photos/cell',{cell,hits:hits.map(h=>({pageid:h.pageid,lat:h.lat,lng:h.lon,title:h.title}))});
+    await withInfo(hits.map(h=>keep({pageid:h.pageid,lat:h.lat,lng:h.lon,title:h.title})).filter(Boolean));
+  }
+}
+async function mapillaryRoutePhotos(cum){
+  const spacing=Math.max(0.3,cum[cum.length-1]/300), samples=[]; let next=0;
+  routeCoords.forEach((p,i)=>{ if(cum[i]>=next){samples.push({lat:+p.lat.toFixed(5),lng:+p.lng.toFixed(5)});next=cum[i]+spacing;} });
+  const r=await fetch('/api/route/photos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({samples})});
+  if(!r.ok) return [];
+  return ((await r.json()).photos||[]).map(p=>({...p,_passes:routePasses(p.lat,p.lng,PHOTO_NEAR_KM)})).filter(p=>p._passes.length);
+}
+function addRoutePhotos(list){
+  if(!list.length) return;
+  if(!photoLayer){
+    photoLayer=L.layerGroup().addTo(map); photoVisible=true;
+    g('mtb-photos').style.display='flex'; g('mtb-photos').classList.add('on');
+  }
+  list.forEach(p=>{
+    const src=PHOTO_SRC[p.src]||PHOTO_SRC.commons;
+    const icon=L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],
+      html:`<div style="width:20px;height:20px;border-radius:50%;background:${src.color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px rgba(0,0,0,.5)"><i class="ti ti-camera" style="font-size:11px;color:#fff"></i></div>`});
+    const meta=[p.author,p.date,p.license].filter(Boolean).map(esc).join(' · ');
+    const popup=`<div class="photo-popup">
+      <a href="${esc(p.page)}" target="_blank" rel="noopener"><img src="${esc(p.thumb)}" alt="" loading="lazy"></a>
+      ${p.title?`<b>${esc(p.title)}</b>`:''}
+      <div class="ph-km">${fmtPasses(p._passes)}</div>
+      <div class="ph-meta">${meta}</div>
+      <a href="${esc(p.page)}" target="_blank" rel="noopener">Zobacz w ${src.label} →</a>
+    </div>`;
+    L.marker([p.lat,p.lng],{icon,zIndexOffset:150}).bindPopup(popup,{maxWidth:280,minWidth:260}).addTo(photoLayer);
+  });
+}
+async function fetchRoutePhotos(){
+  clearRoutePhotos();
+  if(routeCoords.length<2) return;
+  const forRoute=routeCoords, cum=routeCum(), stillCurrent=()=>routeCoords===forRoute;
+  // each source appears as soon as it is ready; Mapillary is fast, Commons paced
+  const show=async(job,name)=>{
+    try{ const list=await job; if(stillCurrent()) addRoutePhotos(list); }
+    catch(e){ console.warn(`Route photos (${name}):`,e.message); }
+  };
+  await Promise.all([show(mapillaryRoutePhotos(cum),'mapillary'),
+    commonsRoutePhotos(cum,stillCurrent,addRoutePhotos).catch(e=>console.warn('Route photos (commons):',e.message))]);
 }
 
 async function fetchPOI(){
