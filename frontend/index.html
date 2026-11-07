@@ -308,6 +308,13 @@ body.riding #zlvl{display:none}
 .mtb2 i{font-size:15px}
 .mtb2:hover{background:var(--hover);color:var(--tx)}
 .mtb2.on{background:rgba(0,230,118,.15);color:var(--green)}
+#draw-bar{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:4px;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:12px;padding:4px 4px 4px 12px;box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:nowrap}
+#draw-bar .db-km{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--tx);min-width:62px;display:flex;align-items:center;gap:6px}
+#draw-bar .db-km .db-spin{width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
+#draw-bar button{display:flex;align-items:center;gap:5px;height:34px;padding:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer}
+#draw-bar button:hover:not(:disabled){color:var(--tx);border-color:var(--border2)}
+#draw-bar button:disabled{opacity:.4;cursor:default}
+#draw-bar button.db-ok{background:var(--green);border-color:var(--green);color:#051a10;font-weight:700}
 
 #mind{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:500;color:var(--tx2);display:flex;align-items:center;gap:5px;pointer-events:none;white-space:nowrap}
 
@@ -473,6 +480,9 @@ body.riding #zlvl{display:none}
 @media(max-width:768px){
   #mode-toolbar{top:8px}
   #mode-toolbar .mtb2{padding:4px 8px;font-size:9px}
+  #draw-bar{top:54px;padding-left:10px;max-width:calc(100vw - 24px)}
+  #draw-bar button{height:38px;padding:0 9px}
+  #draw-bar .db-lbl{display:none}
 }
 
 /* ── SV ROUTE TOOLTIP ── */
@@ -891,7 +901,7 @@ a.udrop-btn{text-decoration:none}
     </div>
     <div class="sl mt8">Skróty</div>
     <div style="font-size:12px;color:var(--tx3);line-height:2">
-      <code>S</code> Start · <code>E</code> Meta · <code>W</code> Punkt · <code>Esc</code> Widok<br>
+      <code>S</code> Start · <code>E</code> Meta · <code>W</code> Punkt · <code>D</code> Rysuj · <code>Esc</code> Widok<br>
       <code>Enter</code> Oblicz · <code>Del</code> Wyczyść trasę
     </div>
    </div>
@@ -907,6 +917,13 @@ a.udrop-btn{text-decoration:none}
       <button class="mtb2 mode-btn"    id="mb-start"    onclick="setMode('start')"><i class="ti ti-map-pin"></i><span>Start</span></button>
       <button class="mtb2 mode-btn"    id="mb-end"      onclick="setMode('end')"><i class="ti ti-flag"></i><span>Meta</span></button>
       <button class="mtb2 mode-btn"    id="mb-waypoint" onclick="setMode('waypoint')"><i class="ti ti-point"></i><span>Punkt</span></button>
+      <button class="mtb2 mode-btn"    id="mb-draw"     onclick="setMode(mode==='draw'?'view':'draw')" title="Rysuj trasę: stukaj kolejne punkty, odcinki wyznaczą się po drogach"><i class="ti ti-pencil"></i><span>Rysuj</span></button>
+    </div>
+    <div id="draw-bar" hidden>
+      <span class="db-km"><span id="db-km">0.0 km</span><span class="db-spin" id="db-spin" hidden></span></span>
+      <button id="db-undo" onclick="drawUndo()" title="Cofnij ostatni punkt (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i><span class="db-lbl">Cofnij</span></button>
+      <button id="db-loop" onclick="drawToStart()" title="Wróć do startu inną drogą"><i class="ti ti-refresh"></i><span class="db-lbl">Do startu</span></button>
+      <button class="db-ok" onclick="setMode('view')" title="Zakończ rysowanie"><i class="ti ti-check"></i>Gotowe</button>
     </div>
     <div id="mind"><i class="ti ti-hand" id="m-icon"></i><span id="m-txt">Tryb widoku</span></div>
     <div id="zlvl">z12</div>
@@ -1142,7 +1159,7 @@ a.udrop-btn{text-decoration:none}
         </div>
         <label>Adres</label>
         <div style="display:flex;gap:6px">
-          <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Przykładowa 1" style="flex:1" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();searchHomeAddr()}">
+          <input id="prof-home-addr" type="text" placeholder="np. Warszawa, Marszałkowska 10" style="flex:1" enterkeyhint="done" onkeydown="if(event.key==='Enter'){event.preventDefault();searchHomeAddr()}">
           <button class="btn btn-g" style="width:auto;padding:7px 12px;flex-shrink:0" onclick="searchHomeAddr()"><i class="ti ti-device-floppy"></i>Zapisz</button>
         </div>
         <div id="prof-home-coords" style="font-size:11px;color:var(--tx3);margin-top:4px;min-height:16px"></div>
@@ -1312,8 +1329,9 @@ async function initMap(){
     if(e.key==='s'||e.key==='S') setMode('start');
     if(e.key==='e'||e.key==='E') setMode('end');
     if(e.key==='w'||e.key==='W') setMode('waypoint');
+    if(e.key==='d'||e.key==='D') setMode(mode==='draw'?'view':'draw');
     if(e.key==='Escape') setMode('view');
-    if(e.key==='Enter') calcRoute();
+    if(e.key==='Enter'){ if(mode==='draw') setMode('view'); else calcRoute(); }
     if(e.key==='Delete') clearRoute();
   });
 
@@ -2304,6 +2322,7 @@ function resetRoute(){
 function clearRoute(){
   resetRoute();
   toast('Trasa wyczyszczona');
+  if(mode==='draw'){drawRefresh();return;} // drawing restarts from a tapped start
   applyHomePoint();
 }
 
@@ -2693,9 +2712,190 @@ async function toggleBlockedAt(ll){
 function onMapClick(e){
   if(svMode){openSV(e.latlng.lat,e.latlng.lng);return;}
   if(mode==='view') return;
+  if(mode==='draw'){drawTap(e.latlng);return;}
   addWpt(e.latlng, mode==='waypoint'?'mid':mode);
   if(mode==='start'||mode==='end') setMode('view');
   renderWL(); previewRoute();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DRAW MODE — tap a start, then each next point; every leg is routed on
+//  roads at once (bike profile, no squares), like Strava's route builder.
+//  wpts[i]→wpts[i+1] is routeSegments[i]; taps queue up while a leg routes.
+// ═══════════════════════════════════════════════════════════════════════
+let _drawBusy=false, _drawFinish=false, _drawLast=null, drawPend=null;
+function segKm(seg){
+  if(seg.distance) return seg.distance/1000;
+  let d=0; for(let i=1;i<seg.coords.length;i++) d+=haversine(seg.coords[i-1],seg.coords[i]);
+  return d;
+}
+function drawTypes(){
+  wpts.forEach((w,i)=>{w.type=i===0?'start':i===wpts.length-1?'end':'mid';});
+  relabelWpts(); renderWL();
+}
+function drawEnter(){
+  // A planned loop/return leg isn't made of tap-to-tap legs: start afresh.
+  // An A→B route (or bare points) is kept and extended from its end.
+  // With no route yet, the first tap is the start (not the home pin).
+  if(!routeCoords.length||hasReturnLeg||routeSegments.length!==wpts.length-1) resetRoute();
+  const ab=document.querySelector('input[name="loop"][value="ab"]');
+  if(ab&&!ab.checked){ab.checked=true;g('end-addr-line').style.display='flex';}
+  g('return-leg-btn').style.display='none';
+  _drawFinish=false; _drawLast=null;
+  g('draw-bar').hidden=false;
+  if(window.innerWidth<=768&&g('sb').classList.contains('mob-open')) closeMobileMenu();
+  toast(wpts.length?'Stukaj kolejne punkty — trasa wydłuża się po drogach':'Stuknij punkt startu, potem kolejne punkty');
+  drawSync(); drawRefresh();
+}
+function drawExit(){
+  g('draw-bar').hidden=true;
+  if(drawPend){map.removeLayer(drawPend);drawPend=null;}
+  if(routeSegments.length<wpts.length-1){_drawFinish=true;toast('Chwila — liczę ostatni odcinek…');return;}
+  drawFinish();
+}
+function drawTap(ll){
+  const now=Date.now(), p=map.latLngToContainerPoint(ll);
+  // The second tap of a double-tap zooms; don't also drop a point there.
+  if(_drawLast&&now-_drawLast.t<600&&p.distanceTo(map.latLngToContainerPoint(_drawLast.ll))<30) return;
+  _drawLast={t:now,ll};
+  const last=wpts[wpts.length-1];
+  if(last&&p.distanceTo(map.latLngToContainerPoint(last.marker.getLatLng()))<12) return; // same spot again
+  drawAdd(ll);
+}
+function drawAdd(ll,avoid=null){
+  wpts.forEach(w=>{if(w.type==='end')w.type='mid';}); // addWpt('end') would replace it
+  addWpt(ll,wpts.length?'end':'start');
+  if(avoid) wpts[wpts.length-1].avoid=avoid;
+  drawTypes(); drawRefresh(); drawSync();
+}
+function drawToStart(){
+  if(wpts.length<2) return;
+  const s=wpts[0].marker.getLatLng();
+  // Way back on other roads where possible (BRouter avoid on what's drawn).
+  const avoid=routeCoords.filter((_,i,a)=>i%Math.ceil(a.length/1500)===0||i===a.length-1).map(p=>({lat:p.lat,lng:p.lng}));
+  drawAdd(L.latLng(s.lat,s.lng),avoid);
+}
+function drawUndo(){
+  if(!wpts.length) return;
+  map.removeLayer(wpts.pop().marker);
+  if(routeSegments.length>Math.max(0,wpts.length-1)) routeSegments.length=Math.max(0,wpts.length-1);
+  svCovData=null;
+  drawTypes(); drawRefresh();
+}
+async function drawLeg(a,b,avoid){
+  const r=await fetch('/api/route/leg',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({from:{lat:a.lat,lng:a.lng},to:{lat:b.lat,lng:b.lng},bikeProfile,avoid:avoid||undefined})});
+  if(r.status===401) throw new Error('SESSION_EXPIRED');
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||!d.routes?.length) throw new Error(d.error||'routing error');
+  const rt=d.routes[0];
+  return {coords:rt.geometry.coordinates.map(([lng,lat,elev])=>({lat,lng,elev:elev??0})),distance:rt.distance,route:rt,engine:d.engine};
+}
+async function drawSync(){
+  if(_drawBusy) return;
+  _drawBusy=true; drawRefresh();
+  try{
+    while(routeSegments.length<wpts.length-1){
+      const i=routeSegments.length, a=wpts[i], b=wpts[i+1];
+      let leg;
+      try{ leg=await drawLeg(a.marker.getLatLng(),b.marker.getLatLng(),b.avoid); }
+      catch(e){
+        if(e.message==='SESSION_EXPIRED'){toast('Sesja wygasła — zaloguj się ponownie');break;}
+        if(wpts[i+1]===b){map.removeLayer(b.marker);wpts.splice(i+1,1);drawTypes();}
+        toast('Nie da się tu dojechać — punkt usunięty');
+        drawRefresh(); continue;
+      }
+      if(wpts[i]!==a||wpts[i+1]!==b||routeSegments.length!==i) continue; // undone meanwhile
+      routeSegments.push(leg);
+      // Pins sit where the route really goes (snapped to the road).
+      if(i===0) a.marker.setLatLng(leg.coords[0]);
+      b.marker.setLatLng(leg.coords[leg.coords.length-1]);
+      svCovData=null;
+      drawRefresh();
+    }
+  }finally{
+    _drawBusy=false; drawRefresh();
+    if(_drawFinish&&mode!=='draw'){_drawFinish=false;drawFinish();}
+  }
+}
+// A dragged pin re-routes just its two legs (once those legs exist).
+async function drawRedrag(marker){
+  const i=wpts.findIndex(w=>w.marker===marker); if(i<0) return;
+  const legs=[i-1,i].filter(k=>k>=0&&k<routeSegments.length);
+  if(!legs.length){drawRefresh();return;}
+  showLoad('Przeliczam odcinek…');
+  try{
+    const res=await Promise.all(legs.map(k=>drawLeg(wpts[k].marker.getLatLng(),wpts[k+1].marker.getLatLng(),wpts[k+1].avoid)));
+    legs.forEach((k,j)=>{if(k<routeSegments.length) routeSegments[k]=res[j];});
+    svCovData=null;
+  }catch(e){toast(e.message==='SESSION_EXPIRED'?'Sesja wygasła — zaloguj się ponownie':'Nie da się tu dojechać');}
+  finally{hideLoad();drawRefresh();}
+}
+let _drawPrvT=null;
+function drawRefresh(){
+  if(rLine&&!routeSegments.length){map.removeLayer(rLine);rLine=null;}
+  routeCoords=[];
+  routeSegments.forEach((seg,si)=>routeCoords.push(...(si?seg.coords.slice(1):seg.coords)));
+  // Straight dashed line to the taps still being routed.
+  if(drawPend){map.removeLayer(drawPend);drawPend=null;}
+  if(wpts.length-1>routeSegments.length){
+    const pts=wpts.slice(routeSegments.length).map(w=>w.marker.getLatLng());
+    drawPend=L.polyline(pts,{color:'#ff4d4d',weight:3,opacity:.7,dashArray:'6 6',interactive:false,pane:'routePane'}).addTo(map);
+  }
+  const km=routeSegments.reduce((s,seg)=>s+segKm(seg),0);
+  if(routeCoords.length){
+    drawSVColoredRoute(); addKmMarkers(routeCoords);
+    buildElevData(routeCoords,null); updElevSummary();
+    if(g('elev-panel').classList.contains('open')) drawElevChart();
+    clearTimeout(_drawPrvT);
+    _drawPrvT=setTimeout(()=>{
+      const c=routeCoords;
+      fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:c})})
+        .then(r=>r.json()).then(prv=>{if(c===routeCoords) applyNewTiles(prv);}).catch(()=>{});
+    },400);
+  }else{
+    clearKmMarkers(); elevData=[]; clearElevCursor();
+    if(g('elev-svg')) g('elev-svg').innerHTML='';
+    clearLyr('sq-new'); clearLyr('sqi-new'); clearLyr('sv-cov'); clearLyr('rt-red'); clearLyr('rt-blue'); clearLyr('rt-click');
+    newSQ.clear(); newSQI.clear();
+  }
+  setPlanDist(km);
+  const bar=g('draw-bar'); if(!bar) return;
+  g('db-km').textContent=km.toFixed(1)+' km';
+  g('db-spin').hidden=!(_drawBusy&&routeSegments.length<wpts.length-1);
+  g('db-undo').disabled=!wpts.length;
+  g('db-loop').disabled=wpts.length<2;
+}
+// Join the legs into one route and hand it to showRoute, so it gets the full
+// treatment: elevation, surfaces, POI, photos, Street View, save, GPX.
+async function drawFinish(){
+  if(!routeSegments.length) return;
+  const segs=routeSegments.slice(), legs=segs.map(s=>s.route);
+  const coords=[], elev=[], surf=[]; let dist=0, off=0;
+  segs.forEach((s,i)=>{
+    const r=s.route||{};
+    for(const p of r.elevProfile||[]) elev.push({...p,dist:Math.round((p.dist+off)*100)/100});
+    for(const p of r.surfaceProfile||[]) surf.push({...p,dist:Math.round((p.dist+off)*100)/100});
+    coords.push(...(i?s.coords.slice(1):s.coords).map(p=>[p.lng,p.lat,p.elev]));
+    const km=segKm(s); dist+=km*1000; off+=km;
+  });
+  const route={distance:dist,geometry:{type:'LineString',coordinates:coords},
+    // a few-metre leg has no profile rows; it mustn't void the whole profile
+    elevProfile:legs.every(l=>l?.elevProfile?.length||(l?.distance??1e9)<50)?elev:null,
+    surfaceProfile:legs.every(l=>l?.surfaceProfile?.length||(l?.distance??1e9)<50)?surf:null};
+  const a=wpts[0].marker.getLatLng(), b=wpts[wpts.length-1].marker.getLatLng();
+  const closed=wpts.length>2&&a.distanceTo(b)<60;
+  const r=document.querySelector(`input[name="loop"][value="${closed?'loop':'ab'}"]`);
+  if(r){r.checked=true;g('end-addr-line').style.display=closed?'none':'flex';}
+  showLoad('Przygotowuję trasę…');
+  try{
+    const km=await showRoute(route,{loop:closed});
+    routeSegments=segs; addRouteClickOverlay();
+    const btn=g('return-leg-btn');
+    if(!closed){btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';btn.onclick=addReturnLeg;btn.style.display='flex';}
+    else btn.style.display='none';
+    toast(`✅ ${km.toFixed(1)}km · ${newSQ.size} nowych SQ · ${newSQI.size} nowych SQI`);
+  }catch(e){hideLoad();toast('Błąd: '+e.message);}
 }
 
 // Human-readable waypoint names: "Dom" for the saved home point, otherwise a
@@ -2741,7 +2941,8 @@ function addWpt(ll,type,label){
     const dw=wpts.find(w=>w.marker===marker); if(dw){dw.label=null;labelWpt(dw);}
     renderWL();
     const i=wpts.findIndex(w=>w.marker===marker);
-    if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
+    if(mode==='draw'){drawRedrag(marker);}
+    else if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
     else{previewRoute();}
   });
   marker.on('contextmenu',()=>{const i=wpts.findIndex(w=>w.marker===marker);if(i>=0){map.removeLayer(marker);wpts.splice(i,1);renderWL();previewRoute();}});
@@ -2815,6 +3016,7 @@ function relabelWpts(){
 }
 
 function undoLastWpt(){
+  if(mode==='draw') return drawUndo();
   if(!wpts.length) return;
   const last=wpts.pop();
   map.removeLayer(last.marker);
@@ -2888,7 +3090,8 @@ async function addViaPoint(latlng,segIdx){
     const dw=wpts.find(w=>w.marker===marker); if(dw){dw.label=null;labelWpt(dw);}
     renderWL();
     const i=wpts.findIndex(w=>w.marker===marker);
-    if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
+    if(mode==='draw'){drawRedrag(marker);}
+    else if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
     else previewRoute();
   });
   marker.on('contextmenu',async()=>{
@@ -2921,6 +3124,7 @@ function addRouteClickOverlay(){
   poly.on('click',e=>{
     L.DomEvent.stopPropagation(e);
     if(svMode){openSV(e.latlng.lat,e.latlng.lng);return;}
+    if(mode==='draw'){drawTap(e.latlng);return;}
     addViaPoint(e.latlng,findSegmentForClick(e.latlng));
   });
   LAYERS['rt-click']=poly;
@@ -3490,12 +3694,15 @@ async function adminDeleteUser(id,username){
 //  UI HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 function setMode(m){
+  if(mode==='draw'&&m!=='draw') drawExit();
+  const entering=m==='draw'&&mode!=='draw';
   mode=m;
+  if(entering) drawEnter();
   if(svMode){svMode=false;g('mtb-sv').classList.remove('on');g('mc').classList.remove('sv-active');clearLyr('sv-cov');setTimeout(()=>map.invalidateSize(),50);}
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('on'));
   const b=g('mb-'+m); if(b) b.classList.add('on');
-  const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku'};
-  const ics={start:'ti-map-pin',end:'ti-flag',waypoint:'ti-point',view:'ti-hand'};
+  const labs={start:'Kliknij — punkt startu',end:'Kliknij — punkt mety',waypoint:'Kliknij — punkt pośredni',view:'Tryb widoku',draw:'Rysowanie — stukaj kolejne punkty'};
+  const ics={start:'ti-map-pin',end:'ti-flag',waypoint:'ti-point',view:'ti-hand',draw:'ti-pencil'};
   g('m-txt').textContent=labs[m]||m;
   g('m-icon').className='ti '+(ics[m]||'ti-hand');
   map.getContainer().style.cursor=m==='view'?'':'crosshair';

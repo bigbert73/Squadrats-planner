@@ -792,6 +792,24 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   return res.json(best.data);
 });
 
+// One leg between two tapped points (draw mode, like Strava's route builder):
+// plain routing on roads with the chosen bike profile, no squares, no loop
+// planner (/detour treats two points <400 m apart as a loop request).
+// `avoid` (closing the loop back to start) steers it off the road already drawn.
+const LEG_PROFILES = new Set(['standard', 'fastbike', 'gravel', 'rowery-pl', 'safety', 'mtb', 'trekking']);
+app.post('/api/route/leg', requireAuth, async (req, res) => {
+  const { from, to, avoid } = req.body || {};
+  const okPt = p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
+  if (!okPt(from) || !okPt(to)) return res.status(400).json({ error: 'from/to required' });
+  if (tiles.haversineDistance(from, to) > 300) return res.status(400).json({ error: 'Punkty są za daleko od siebie (maks. 300 km)' });
+  const bikeProfile = LEG_PROFILES.has(req.body.bikeProfile) ? req.body.bikeProfile : 'standard';
+  const av = Array.isArray(avoid) ? avoid.filter(okPt).slice(0, 3000) : null;
+  try {
+    if (av && av.length > 1) return res.json(await fetchRoute([from, to], routing.brouterProfile(bikeProfile), 0, av));
+    return res.json(await fetchRoute([from, to], bikeProfile));
+  } catch (e) { return res.status(502).json({ error: 'Routing error: ' + e.message }); }
+});
+
 // ── GPX import ────────────────────────────────────────────────────────────────
 
 app.post('/api/gpx/import', requireAuth, (req, res) => {
