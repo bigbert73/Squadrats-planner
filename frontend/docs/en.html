@@ -249,7 +249,7 @@
   </section>
 
   <section class="chapter" id="technika" style="--accent:var(--route)">
-    <header><span class="eyebrow">Under the hood</span><h2>Architecture: containers, databases and connections</h2><p class="lead">Squadrats is three Docker containers and a few SQLite files. No cloud and no external database: it all runs on one computer, and on OpenShift in production. This chapter is for people who run, develop or review the app.</p></header>
+    <header><span class="eyebrow">Under the hood</span><h2>Architecture: containers, databases and connections</h2><p class="lead">Squadrats is three Docker containers and a few SQLite files. No cloud and no external database: it all runs on one Linux computer, with OpenShift as the planned production target. This chapter is for people who run, develop or review the app.</p></header>
     <div class="arch-wrap"><svg class="arch" viewBox="0 0 1100 700" role="img" aria-label="Squadrats architecture diagram">
       <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ahp"/></marker></defs>
       <text class="col" x="20" y="40">DEVICES</text>
@@ -329,8 +329,8 @@
 
     <h3>Running and updating</h3>
     <div class="table-wrap"><table><tbody>
-      <tr><td>Locally</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
-      <tr><td>Production</td><td>OpenShift manifests in <code>ocp/manifests</code>: secret, backend, frontend, route and BRouter.</td></tr>
+      <tr><td>Linux</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
+      <tr><td>OpenShift (planned)</td><td>OpenShift manifests in <code>ocp/manifests</code>: secret, backend, frontend, route, BRouter and a weekly OSM data refresh.</td></tr>
       <tr><td>OSM data</td><td><code>tools/update-pois.sh</code> · downloads a newer Poland extract and rebuilds pois, popular and reach.db without stopping the app</td></tr>
       <tr><td>Garmin</td><td><code>garmin/build.sh</code> · builds the Connect IQ data field</td></tr>
       <tr><td>Manual</td><td><code>node frontend/docs/tools/build.mjs</code> · screenshots: <code>tools/docshots.mjs</code></td></tr>
@@ -350,7 +350,7 @@
 </div>
 
 <footer class="foot"><div class="wrap">
-  <span>Squadrats Route Planner · manual current as of 8 November 2026 · version <code>0fa96ea</code></span>
+  <span>Squadrats Route Planner · manual current as of 8 November 2026 · version <code>f9b688b</code></span>
   <span><a href="index.html">Wersja polska</a> · <a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a></span>
 </div></footer>
 <script src="assets/docs.js"></script>

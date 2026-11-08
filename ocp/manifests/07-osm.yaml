@@ -1,0 +1,95 @@
+# ── ImageStream — stores built OSM updater images ──────────────────────────
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: squadrats-osm
+  namespace: squadrats
+spec:
+  lookupPolicy:
+    local: false
+---
+# ── BuildConfig — builds the updater from ocp/osm/Dockerfile ───────────────
+# No contextDir → build context = repo root
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: squadrats-osm
+  namespace: squadrats
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/bigbert73/Squadrats-planner.git
+      ref: main
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: ocp/osm/Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: squadrats-osm:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+---
+# ── CronJob — weekly refresh of the OpenStreetMap databases ────────────────
+# First run: oc create job --from=cronjob/squadrats-osm squadrats-osm-first -n squadrats
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: squadrats-osm
+  namespace: squadrats
+spec:
+  schedule: "0 4 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: squadrats-osm
+        spec:
+          restartPolicy: Never
+          # squadrats-data is ReadWriteOnce, so the job must share the backend's node.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - topologyKey: kubernetes.io/hostname
+                  labelSelector:
+                    matchLabels:
+                      app: squadrats-backend
+          containers:
+            - name: osm
+              image: image-registry.openshift-image-registry.svc:5000/squadrats/squadrats-osm:latest
+              command: ["bash", "/app/tools/update-pois.sh"]
+              env:
+                - name: SQUADRATS_OSM_NATIVE
+                  value: "1"
+                - name: OSM_DIR
+                  value: /work/osm
+                - name: DATA_DIR
+                  value: /app/data
+              volumeMounts:
+                - name: data
+                  mountPath: /app/data
+                - name: work
+                  mountPath: /work
+              resources:
+                requests:
+                  memory: 1Gi
+                  cpu: 500m
+                limits:
+                  memory: 4Gi
+                  cpu: "2"
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: squadrats-data
+            # The Poland extract is about 2 GB and is downloaded on each run.
+            - name: work
+              emptyDir:
+                sizeLimit: 6Gi

@@ -21,6 +21,8 @@ data:
   DB_PATH: /app/data/squadrats.db
   PORT: "3000"
   BROUTER_URL: "http://squadrats-brouter:17777"
+  # Proxies in front of the backend: OpenShift router and nginx
+  TRUST_PROXY: "2"
 ---
 # ── ImageStream — stores built backend images ──────────────────────────────
 apiVersion: image.openshift.io/v1

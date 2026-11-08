@@ -249,7 +249,7 @@
   </section>
 
   <section class="chapter" id="technika" style="--accent:var(--route)">
-    <header><span class="eyebrow">Technika</span><h2>Architektura: kontenery, bazy i połączenia</h2><p class="lead">Squadrats to trzy kontenery Dockera i kilka plików SQLite. Bez chmury i bez zewnętrznej bazy danych: całość działa na jednym komputerze, a w produkcji w OpenShift. Ten rozdział jest dla osób, które aplikację uruchamiają, rozwijają albo oceniają jej bezpieczeństwo.</p></header>
+    <header><span class="eyebrow">Technika</span><h2>Architektura: kontenery, bazy i połączenia</h2><p class="lead">Squadrats to trzy kontenery Dockera i kilka plików SQLite. Bez chmury i bez zewnętrznej bazy danych: całość działa na jednym komputerze z Linuksem, a docelowo w OpenShift. Ten rozdział jest dla osób, które aplikację uruchamiają, rozwijają albo oceniają jej bezpieczeństwo.</p></header>
     <div class="arch-wrap"><svg class="arch" viewBox="0 0 1100 700" role="img" aria-label="Diagram architektury Squadrats">
       <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="ahp"/></marker></defs>
       <text class="col" x="20" y="40">URZĄDZENIA</text>
@@ -329,8 +329,8 @@
 
     <h3>Uruchomienie i aktualizacja</h3>
     <div class="table-wrap"><table><tbody>
-      <tr><td>Lokalnie</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
-      <tr><td>Produkcja</td><td>Manifesty OpenShift w <code>ocp/manifests</code>: sekret, backend, frontend, route i BRouter.</td></tr>
+      <tr><td>Linux</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
+      <tr><td>OpenShift (docelowo)</td><td>Manifesty OpenShift w <code>ocp/manifests</code>: sekret, backend, frontend, route, BRouter i cotygodniowe odświeżanie danych OSM.</td></tr>
       <tr><td>Dane OSM</td><td><code>tools/update-pois.sh</code> · pobiera nowszy wyciąg Polski i przebudowuje pois, popular i reach.db bez zatrzymywania aplikacji</td></tr>
       <tr><td>Garmin</td><td><code>garmin/build.sh</code> · buduje pole danych Connect IQ</td></tr>
       <tr><td>Podręcznik</td><td><code>node frontend/docs/tools/build.mjs</code> · zrzuty: <code>tools/docshots.mjs</code></td></tr>
@@ -350,7 +350,7 @@
 </div>
 
 <footer class="foot"><div class="wrap">
-  <span>Squadrats Route Planner · podręcznik aktualny na 8 listopada 2026 · wersja <code>0fa96ea</code></span>
+  <span>Squadrats Route Planner · podręcznik aktualny na 8 listopada 2026 · wersja <code>f9b688b</code></span>
   <span><a href="en.html">English version</a> · <a href="/privacy.html">Prywatność</a> · <a href="/terms.html">Regulamin</a></span>
 </div></footer>
 <script src="assets/docs.js"></script>

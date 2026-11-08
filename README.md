@@ -4,10 +4,10 @@ A self-hosted cycling route planner for [Squadrats](https://squadrats.com) playe
 
 Squadrats Planner is an independent project and is not affiliated with squadrats.com.
 
-It is supported on two platforms:
+It runs on two platforms:
 
 - **Linux** with Docker Compose
-- **OpenShift** with the manifests in `ocp/`
+- **OpenShift** with the manifests in `ocp/`. The images are tested locally, but the manifests have not yet been applied to a live cluster.
 
 ## Features
 
@@ -114,10 +114,12 @@ oc apply -f ocp/manifests/03-frontend.yaml
 oc apply -f ocp/manifests/04-route.yaml
 oc apply -f ocp/manifests/05-brouter.yaml
 oc apply -f ocp/manifests/06-brouter-build.yaml
+oc apply -f ocp/manifests/07-osm.yaml
 
 oc start-build squadrats-backend -n squadrats
 oc start-build squadrats-frontend -n squadrats
 oc start-build squadrats-brouter -n squadrats
+oc start-build squadrats-osm -n squadrats
 ```
 
 Copy the routing segments to the BRouter volume:
@@ -134,7 +136,11 @@ oc get route squadrats -n squadrats -o jsonpath='{.spec.host}'
 oc rollout restart deployment/squadrats-backend -n squadrats
 ```
 
-**Known limitation:** `ocp/frontend/Dockerfile` copies only `frontend/index.html`, so the OpenShift image does not yet include the translations, manual or legal pages.
+Build the OpenStreetMap databases once. After that, the `squadrats-osm` CronJob refreshes them every Sunday at 04:00:
+
+```bash
+oc create job --from=cronjob/squadrats-osm squadrats-osm-first -n squadrats
+```
 
 ## Documentation
 

@@ -399,8 +399,8 @@ function build(L) {
   const flow = (title, steps) => `<section class="flow"><h4>${T(title)}</h4><ol>${steps.map(s => `<li>${T(s)}</li>`).join('')}</ol></section>`;
 
   chapters.push(chapter('technika', '--route', ['Technika', 'Under the hood'], ['Architektura: kontenery, bazy i połączenia', 'Architecture: containers, databases and connections'],
-    ['Squadrats to trzy kontenery Dockera i kilka plików SQLite. Bez chmury i bez zewnętrznej bazy danych: całość działa na jednym komputerze, a w produkcji w OpenShift. Ten rozdział jest dla osób, które aplikację uruchamiają, rozwijają albo oceniają jej bezpieczeństwo.',
-     'Squadrats is three Docker containers and a few SQLite files. No cloud and no external database: it all runs on one computer, and on OpenShift in production. This chapter is for people who run, develop or review the app.'],
+    ['Squadrats to trzy kontenery Dockera i kilka plików SQLite. Bez chmury i bez zewnętrznej bazy danych: całość działa na jednym komputerze z Linuksem, a docelowo w OpenShift. Ten rozdział jest dla osób, które aplikację uruchamiają, rozwijają albo oceniają jej bezpieczeństwo.',
+     'Squadrats is three Docker containers and a few SQLite files. No cloud and no external database: it all runs on one Linux computer, with OpenShift as the planned production target. This chapter is for people who run, develop or review the app.'],
     `<div class="arch-wrap">${archSvg()}</div><p class="swipe-hint">${T(['← przesuń diagram w bok →', '← swipe the diagram sideways →'])}</p>
     <p class="note">${T(['<b>Jak czytać diagram:</b> ciągłe strzałki to ruch przez serwer, przerywana to zapytania, które przeglądarka wysyła sama. Klucze płatnych usług (Google, Mapy.com, Mapillary, Strava) są tylko w backendzie, w pliku <code>.env</code>.', '<b>Reading the diagram:</b> solid arrows go through the server, the dashed one is requests the browser makes itself. Keys for paid services (Google, Mapy.com, Mapillary, Strava) live only in the backend, in <code>.env</code>.'])}</p>
 
@@ -471,8 +471,8 @@ function build(L) {
 
     <h3>${T(['Uruchomienie i aktualizacja', 'Running and updating'])}</h3>
     <div class="table-wrap"><table><tbody>
-      <tr><td>${T(['Lokalnie', 'Locally'])}</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
-      <tr><td>${T(['Produkcja', 'Production'])}</td><td>${T(['Manifesty OpenShift w <code>ocp/manifests</code>: sekret, backend, frontend, route i BRouter.', 'OpenShift manifests in <code>ocp/manifests</code>: secret, backend, frontend, route and BRouter.'])}</td></tr>
+      <tr><td>${T(['Linux', 'Linux'])}</td><td><code>docker compose up -d</code> → <code>http://localhost:8081</code></td></tr>
+      <tr><td>${T(['OpenShift (docelowo)', 'OpenShift (planned)'])}</td><td>${T(['Manifesty OpenShift w <code>ocp/manifests</code>: sekret, backend, frontend, route, BRouter i cotygodniowe odświeżanie danych OSM.', 'OpenShift manifests in <code>ocp/manifests</code>: secret, backend, frontend, route, BRouter and a weekly OSM data refresh.'])}</td></tr>
       <tr><td>${T(['Dane OSM', 'OSM data'])}</td><td><code>tools/update-pois.sh</code> · ${T(['pobiera nowszy wyciąg Polski i przebudowuje pois, popular i reach.db bez zatrzymywania aplikacji', 'downloads a newer Poland extract and rebuilds pois, popular and reach.db without stopping the app'])}</td></tr>
       <tr><td>Garmin</td><td><code>garmin/build.sh</code> · ${T(['buduje pole danych Connect IQ', 'builds the Connect IQ data field'])}</td></tr>
       <tr><td>${T(['Podręcznik', 'Manual'])}</td><td><code>node frontend/docs/tools/build.mjs</code> · ${T(['zrzuty:', 'screenshots:'])} <code>tools/docshots.mjs</code></td></tr>

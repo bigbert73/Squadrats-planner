@@ -12,6 +12,8 @@ const bcrypt       = require('bcryptjs');
 const { rateLimit } = require('express-rate-limit');
 
 const app  = express();
+// Behind a reverse proxy: how many proxies sit in front of the backend (OpenShift: router + nginx).
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
 const PORT = process.env.PORT || 3000;
 
 app.use(compression());
