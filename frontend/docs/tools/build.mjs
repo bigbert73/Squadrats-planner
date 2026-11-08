@@ -247,7 +247,7 @@ function build(L) {
         [['GPX dla Garmina', 'GPX for Garmin'], ['Plik z wysokościami gotowy do importu jako kurs w Garmin Connect.', 'A file with elevations, ready to import as a course in Garmin Connect.']],
         [['Wyślij', 'Send'], ['Systemowe udostępnianie pliku, np. do aplikacji Wahoo ELEMNT.', 'The system share sheet, e.g. to the Wahoo ELEMNT app.']],
         [['Jadę', 'Riding'], ['Pozycja GPS na trasie: przejechany kilometr, ile zostało, ostrzeżenie o zjechaniu z trasy.', 'Your GPS position on the route: kilometre ridden, distance left, a warning when you leave the route.']],
-        [['Moje trasy', 'My routes'], ['Zapisuj trasy pod nazwą i wracaj do nich jednym kliknięciem.', 'Save routes by name and reopen them in one click.']],
+        [['Moje trasy', 'My routes'], ['Zapisane trasy z podglądem, długością i przewyższeniem. Z telefonu wysyłasz je jednym stuknięciem do Garmin Connect.', 'Saved routes with a preview, distance and climb. From a phone you send them to Garmin Connect in one tap.']],
       ])}
       <div class="duo">
         <div>
@@ -257,10 +257,24 @@ function build(L) {
         </div>
         <div class="edge"><canvas id="edge-field" aria-label="${T(['Schemat pola danych Squadrats na Garmin Edge', 'Sketch of the Squadrats data field on a Garmin Edge'])}"></canvas></div>
       </div>
+      <h3>${T(['Moje trasy i wysyłka do Garmin Connect', 'My routes and sending to Garmin Connect'])}</h3>
+      <p>${T(['Każdą trasę, wyznaczoną albo narysowaną, zapiszesz przyciskiem <b>Zapisz</b> w jej karcie. Przycisk <b>Moje trasy</b> w nagłówku otwiera listę wszystkich zapisanych tras. Każda ma miniaturę przebiegu (zielona kropka to start, czerwona to meta trasy A → B), długość, przewyższenie, liczbę nowych kwadratów, datę i profil roweru. Listę przeszukasz po nazwie i posortujesz od najnowszych, najdłuższych, najkrótszych albo z największą liczbą SQI.', 'Any route, planned or drawn, can be kept with <b>Save</b> in its card. The <b>My routes</b> button in the header opens a list of all saved routes. Each shows an outline (the green dot is the start, the red one the finish of an A → B ride), distance, climb, new squares, date and bike profile. Search it by name and sort by newest, longest, shortest or most SQI.'])}</p>
+      <p>${T(['<b>Garmin Connect</b> na telefonie otwiera systemowe udostępnianie z plikiem GPX trasy. Wybierz w nim aplikację <b>Connect</b>: trasa zapisze się jako kurs pod swoją nazwą i przy najbliższej synchronizacji trafi na licznik. Na komputerze ten sam przycisk pobiera plik i otwiera stronę kursów Garmin Connect, gdzie klikasz <b>Importuj</b>.', 'On a phone, <b>Garmin Connect</b> opens the system share sheet with the route’s GPX file. Pick the <b>Connect</b> app: the route is saved as a course under its own name and reaches your device at the next sync. On a computer the same button downloads the file and opens the Garmin Connect courses page, where you click <b>Import</b>.'])}</p>
+      <p class="note">${T(['<b>Nie widać Connect w menu udostępniania?</b> Przewiń rząd aplikacji do końca i stuknij <b>Więcej</b>. Jeśli i tam go nie ma, zaimportuj pobrany plik przez connect.garmin.com → Kursy → Importuj.', '<b>No Connect in the share sheet?</b> Scroll the app row to the end and tap <b>More</b>. If it is not there either, import the downloaded file at connect.garmin.com → Courses → Import.'])}</p>
+      ${screens(['d-saved', ['Moje trasy: miniatury, długość, przewyższenie i nowe kwadraty, z wyszukiwaniem i sortowaniem.', 'My routes: outlines, distance, climb and new squares, with search and sorting.']], ['m-saved', ['Na telefonie lista zajmuje cały ekran, a Garmin Connect wysyła trasę jednym stuknięciem.', 'On a phone the list fills the screen and Garmin Connect sends a route in one tap.']])}
+      ${howto([
+        ['Kliknij <b>Moje trasy</b> w nagłówku albo <b>Wszystkie trasy</b> pod listą w zakładce Trasa.', 'Click <b>My routes</b> in the header or <b>All routes</b> under the list in the Route tab.'],
+        ['Miniatura, nazwa lub <b>Na mapie</b> wczytuje trasę z pełną kartą. Ołówek zmienia nazwę, kosz usuwa (drugie kliknięcie potwierdza).', 'The outline, the name or <b>On map</b> loads the route with its full card. The pencil renames it, the bin deletes it (a second click confirms).'],
+        ['<b>Garmin Connect</b> pobiera GPX i otwiera kursy Garmin Connect: kliknij <b>Importuj</b> i wskaż plik.', '<b>Garmin Connect</b> downloads the GPX and opens Garmin Connect courses: click <b>Import</b> and pick the file.'],
+      ], [
+        ['Stuknij ikonę trasy w nagłówku, obok konta.', 'Tap the route icon in the header, next to your account.'],
+        ['Przy trasie stuknij <b>Garmin Connect</b> i w menu udostępniania wybierz <b>Connect</b>.', 'On a route, tap <b>Garmin Connect</b> and pick <b>Connect</b> in the share sheet.'],
+        ['W Garmin Connect wybierz typ kursu (np. kolarstwo szosowe lub gravel) i zapisz. Kurs zsynchronizuje się z licznikiem.', 'In Garmin Connect choose the course type (e.g. road cycling or gravel) and save. The course syncs to your device.'],
+      ])}
       ${screens(null, ['m-ride', ['Tryb Jadę: Twoja pozycja i postęp na zaplanowanej trasie.', 'Riding mode: your position and progress on the planned route.']])}
       ${howto([
         ['Na karcie trasy kliknij <b>Pobierz GPX dla Garmina</b>, a w Garmin Connect wybierz <b>Kursy → Importuj</b>.', 'On the route card, press <b>Download GPX for Garmin</b>; in Garmin Connect choose <b>Courses → Import</b>.'],
-        ['<b>Zapisz</b> dodaje trasę do listy <b>Moje trasy</b> w zakładce Trasa.', '<b>Save</b> adds the route to <b>My routes</b> in the Route tab.'],
+        ['<b>Zapisz</b> dodaje trasę do <b>Moje trasy</b> (przycisk w nagłówku, obok konta).', '<b>Save</b> adds the route to <b>My routes</b> (the button in the header, next to your account).'],
         ['<b>GPX</b> pobiera zwykły plik dla innych aplikacji.', '<b>GPX</b> downloads a plain file for other apps.'],
       ], [
         ['<b>Wyślij</b> otwiera udostępnianie: wybierz Wahoo, Garmin Connect lub pliki.', '<b>Send</b> opens sharing: pick Wahoo, Garmin Connect or Files.'],
@@ -439,7 +453,7 @@ function build(L) {
     ${tbl([['Obszar', 'Area'], ['Endpointy', 'Endpoints'], ['Dostęp', 'Access']], [
       [['Konto', 'Account'], '<code>/api/auth/*</code> · <code>/api/profile/*</code> · <code>/auth/google</code> · <code>/auth/strava</code>', ['publiczne / zalogowany', 'public / signed in']],
       [['Kwadraty', 'Squares'], '<code>/api/tiles/sq|sqi|yard|uber|yardinho|uberinho|priority|noroad|reach-stats</code> · <code>/api/tiles/blocked/*</code>', ['zalogowany', 'signed in']],
-      [['Trasy', 'Routes'], '<code>/api/route/detour</code> · <code>/api/route/preview-tiles</code> · <code>/api/routes</code> (CRUD)', ['zalogowany', 'signed in']],
+      [['Trasy', 'Routes'], '<code>/api/route/detour</code> · <code>/api/route/preview-tiles</code> · <code>/api/routes</code> (CRUD) · <code>/api/routes/:id/gpx</code> · <code>/api/route/leg</code>', ['zalogowany', 'signed in']],
       [['Dane', 'Data'], '<code>/api/sync</code> · <code>/api/sync/status</code> · <code>/api/gpx/import</code> · <code>/api/squadrats/import-kml</code>', ['zalogowany', 'signed in']],
       [['Na trasie', 'Along the route'], '<code>/api/route/pois|overpass|wiki-poi|photos</code> · <code>/api/photos/*</code> · <code>/api/poi/gplace</code> · <code>/api/mapillary/image/:id</code>', ['zalogowany', 'signed in']],
       [['Mapy', 'Maps'], '<code>/api/mapy/tile/:set/:z/:x/:y</code> · <code>/api/streetview/*</code>', ['zalogowany', 'signed in']],

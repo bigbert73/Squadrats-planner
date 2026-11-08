@@ -277,6 +277,58 @@ body.elev-open #toast{bottom:calc(32% + 16px)}
 .sv-main span{font-size:11px;color:var(--tx3);font-family:'JetBrains Mono',monospace}
 .sv-del{flex-shrink:0;height:28px;padding:0 8px;background:none;border:1px solid var(--border);border-radius:6px;color:var(--tx3);cursor:pointer;font-size:11px}
 .sv-del.armed{border-color:var(--red);color:var(--red)}
+.sv-all{margin-top:6px;width:100%;height:30px;background:none;border:1px dashed var(--border2);border-radius:8px;color:var(--tx2);cursor:pointer;font-size:11.5px;display:flex;align-items:center;justify-content:center;gap:6px}
+.sv-all:hover{border-color:var(--green);color:var(--green)}
+#routes-btn{margin-left:auto;flex-shrink:0;display:flex;align-items:center;gap:6px;height:30px;padding:0 11px;background:var(--card);border:1px solid var(--border2);border-radius:20px;color:var(--tx);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:500}
+#routes-btn:hover{border-color:var(--bhi);background:var(--hover)}
+#routes-btn i{font-size:15px;color:var(--green)}
+#routes-btn+#user-menu-wrap{margin-left:0}
+#routes-modal{position:fixed;inset:0;z-index:9800;background:rgba(7,9,15,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center}
+#routes-modal[hidden]{display:none}
+#routes-modal .modal-box{width:640px;max-width:calc(100vw - 24px);height:min(760px,92vh)}
+.rt-tools{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.rt-tools input,.rt-tools select{height:34px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--tx);padding:0 10px;font-family:'Space Grotesk',sans-serif;font-size:12px;min-width:0}
+.rt-tools input{flex:1}
+.rt-sum{font-size:11px;color:var(--tx3);font-family:'JetBrains Mono',monospace;padding:8px 16px 0}
+.rt-list{display:grid;gap:10px}
+.rt-card{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.rt-card:hover{border-color:var(--border2)}
+.rt-thumb{width:92px;height:92px;border-radius:9px;background:var(--panel);border:1px solid var(--border);cursor:pointer;display:block}
+.rt-thumb polyline{fill:none;stroke:var(--green);stroke-width:2.6;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.rt-thumb .rt-s{fill:var(--green);stroke:var(--panel);stroke-width:1.5}
+.rt-thumb .rt-e{fill:var(--red);stroke:var(--panel);stroke-width:1.5}
+.rt-info{min-width:0;display:flex;flex-direction:column;gap:5px}
+.rt-name{display:flex;align-items:center;gap:6px;min-width:0}
+.rt-name b{flex:1;min-width:0;font-size:13.5px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.rt-name input{flex:1;min-width:0;height:28px;background:var(--panel);border:1px solid var(--green);border-radius:6px;color:var(--tx);padding:0 8px;font-family:'Space Grotesk',sans-serif;font-size:13px}
+.rt-ren{background:none;border:none;color:var(--tx3);cursor:pointer;padding:2px;font-size:14px;flex-shrink:0}
+.rt-ren:hover{color:var(--tx)}
+.rt-stats{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:11.5px;color:var(--tx2);font-family:'JetBrains Mono',monospace}
+.rt-stats span{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.rt-stats i{font-size:13px;color:var(--tx3)}
+.rt-stats .km{color:var(--tx);font-weight:600}
+.rt-stats .sqi{color:var(--purple,#b388ff)}
+.rt-meta{font-size:11px;color:var(--tx3)}
+.rt-acts{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.rt-acts button{height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 10px;background:var(--panel);border:1px solid var(--border2);border-radius:8px;color:var(--tx);cursor:pointer;font-size:11.5px;font-family:'Space Grotesk',sans-serif}
+.rt-acts button:hover{border-color:var(--bhi)}
+.rt-acts .gc{background:#0a6ebd;border-color:#0a6ebd;color:#fff}
+.rt-acts .gc.ready{background:var(--green);border-color:var(--green);color:#06210f}
+.rt-acts .del{margin-left:auto;color:var(--tx3)}
+.rt-acts .del.armed{border-color:var(--red);color:var(--red)}
+.rt-empty{text-align:center;padding:40px 10px;color:var(--tx3);font-size:12.5px;line-height:1.6}
+.rt-empty i{font-size:34px;display:block;margin-bottom:8px;color:var(--border2)}
+.rt-help{font-size:11px;color:var(--tx3);line-height:1.5;padding:10px 16px;border-top:1px solid var(--border);flex-shrink:0}
+@media(max-width:768px){
+  #routes-btn{padding:0 9px}
+  #routes-btn span{display:none}
+  #routes-modal{align-items:stretch}
+  #routes-modal .modal-box{width:100%;max-width:100%;height:100%;max-height:none;border-radius:0;border:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .rt-card{grid-template-columns:76px 1fr;gap:10px}
+  .rt-thumb{width:76px;height:76px}
+  .rt-acts button{height:34px}
+  .rt-acts .lbl-d{display:none}
+}
 #ride-bar{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;z-index:1200;display:flex;align-items:center;gap:8px;max-width:calc(100% - 24px);background:rgba(13,17,23,.94);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:22px;padding:6px 6px 6px 14px;font-size:12.5px;color:var(--tx);box-shadow:0 6px 20px rgba(0,0,0,.5)}
 #ride-bar[hidden]{display:none}
 #mtools-pop .mtb[hidden]{display:none}
@@ -596,6 +648,7 @@ a.udrop-btn{text-decoration:none}
     <div class="hp"><span class="d dy"></span><span id="h-uber">0</span>×<span id="h-uber2">0</span>&thinsp;Über</div>
     <div class="hp"><span class="d dp"></span><span id="h-sqi">0</span>&thinsp;SQI</div>
   </div>
+  <button id="routes-btn" onclick="openRoutes()" title="Moje trasy: zapisane trasy, podgląd, wysyłka do Garmin Connect"><i class="ti ti-route"></i><span>Moje trasy</span></button>
   <!-- User menu -->
   <div id="user-menu-wrap">
     <button id="user-menu-btn" onclick="toggleUserMenu()">
@@ -608,6 +661,7 @@ a.udrop-btn{text-decoration:none}
         <div class="udrop-name" id="user-dropdown-name"></div>
         <div class="udrop-role" id="user-dropdown-role"></div>
       </div>
+      <button class="udrop-btn" onclick="openRoutes();closeUserMenu()"><i class="ti ti-route"></i>Moje trasy</button>
       <button class="udrop-btn" onclick="openProfile();closeUserMenu()"><i class="ti ti-user"></i>Profil i Strava</button>
       <button class="udrop-btn" id="admin-menu-btn" style="display:none" onclick="openAdmin();closeUserMenu()"><i class="ti ti-shield"></i>Panel admina</button>
       <a class="udrop-btn" id="manual-link" href="/docs/" target="_blank" rel="noopener"><i class="ti ti-book"></i>Podręcznik</a>
@@ -754,7 +808,8 @@ a.udrop-btn{text-decoration:none}
         <div class="sl" style="flex:1;margin-bottom:0;border-bottom:none">Moje trasy <span id="saved-count"></span></div>
         <i class="ti ti-chevron-down" id="saved-chev" style="font-size:13px;color:var(--tx3);transition:transform .2s"></i>
       </div>
-      <div class="coll-body" id="saved-body"><div id="saved-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div></div>
+      <div class="coll-body" id="saved-body"><div id="saved-list" style="margin-top:6px"><div class="hint">Ładowanie…</div></div>
+        <button class="sv-all" type="button" onclick="openRoutes()"><i class="ti ti-layout-list"></i>Wszystkie trasy, podgląd i Garmin Connect</button></div>
     </div>
 
     <!-- ROUTE SUMMARY -->
@@ -1130,6 +1185,28 @@ a.udrop-btn{text-decoration:none}
 </div>
 
 <!-- PROFILE MODAL -->
+<div id="routes-modal" hidden onclick="if(event.target===this)closeRoutes()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <i class="ti ti-route" style="color:var(--green)"></i> Moje trasy <span id="rt-count" style="color:var(--tx3);font-weight:400"></span>
+      <button class="modal-close" onclick="closeRoutes()" title="Zamknij"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="rt-tools">
+      <input id="rt-q" type="search" placeholder="Szukaj po nazwie…" oninput="renderRoutes()">
+      <select id="rt-sort" onchange="renderRoutes()" title="Sortowanie">
+        <option value="new">Najnowsze</option>
+        <option value="km">Najdłuższe</option>
+        <option value="kmAsc">Najkrótsze</option>
+        <option value="sqi">Najwięcej SQI</option>
+        <option value="name">Nazwa A–Z</option>
+      </select>
+    </div>
+    <div class="rt-sum" id="rt-sum"></div>
+    <div class="modal-body"><div class="rt-list" id="rt-list"></div></div>
+    <div class="rt-help" id="rt-help"></div>
+  </div>
+</div>
+
 <div id="profile-modal" style="display:none" onclick="if(event.target===this)closeProfile()">
   <div class="modal-box" style="width:460px">
     <div class="modal-head">
@@ -1324,7 +1401,8 @@ async function initMap(){
 
   // Keyboard
   document.addEventListener('keydown',e=>{
-    if(e.target.tagName==='INPUT') return;
+    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+    if(!g('routes-modal').hidden){ if(e.key==='Escape') closeRoutes(); return; }
     if(e.ctrlKey&&e.key==='z'){e.preventDefault();undoLastWpt();return;}
     if(e.key==='s'||e.key==='S') setMode('start');
     if(e.key==='e'||e.key==='E') setMode('end');
@@ -2498,10 +2576,12 @@ async function loadSavedRoutes(){
   const list=g('saved-list');
   try{
     const routes=await (await fetch('/api/routes')).json();
+    _routes=routes;
+    if(!g('routes-modal').hidden) renderRoutes();
     g('saved-count').textContent=routes.length?`(${routes.length})`:'';
     if(!routes.length){list.innerHTML='<div class="hint">Brak zapisanych tras. Wyznacz trasę i kliknij „Zapisz” w jej karcie.</div>';return;}
     list.innerHTML='';
-    routes.forEach(r=>{
+    routes.slice(0,5).forEach(r=>{
       const d=new Date(r.created_at.replace(' ','T')+'Z');
       const row=document.createElement('div');
       row.className='sv-item';
@@ -2542,6 +2622,159 @@ async function openSavedRoute(id){
     if(!loop){const btn=g('return-leg-btn');btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';btn.onclick=addReturnLeg;btn.style.display='flex';}
     toast(`Wczytano: ${d.name} · teraz +${newSQI.size} nowych SQI`);
   }catch(e){hideLoad();toast('Nie udało się wczytać trasy: '+e.message);}
+}
+
+// ── "Moje trasy" menu: all saved routes with an outline preview, stats,
+// rename/delete, and "Garmin Connect": the course GPX handed to the phone's
+// share sheet, where the Garmin Connect app imports it as a course.
+let _routes=[];
+const _gpxCache=new Map(); // route id → File (built ahead, so the share keeps the tap's user activation)
+const PROF_NAMES={standard:'Ogólny',fastbike:'Szosowy',gravel:'Gravel','rowery-pl':'Spokojny',safety:'Bezpieczny',mtb:'MTB',trekking:'Trekking'};
+function canShareGPX(){
+  try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['<gpx/>'],'t.gpx',{type:'application/gpx+xml'})]}));}catch(e){return false;}
+}
+function openRoutes(){
+  closeMobileMenu?.();
+  g('routes-modal').hidden=false;
+  g('rt-help').innerHTML=canShareGPX()
+    ?tl('<b>Garmin Connect</b> otwiera menu udostępniania telefonu — wybierz <b>Connect</b> (Garmin Connect), a trasa zapisze się jako kurs i zsynchronizuje z licznikiem.',
+        '<b>Garmin Connect</b> opens the phone\'s share sheet — pick <b>Connect</b> (Garmin Connect) and the route is saved as a course and synced to your device.')
+    :tl('Na tym urządzeniu <b>Garmin Connect</b> pobiera plik GPX i otwiera connect.garmin.com → Kursy → <b>Importuj</b>. Z telefonu trasa trafia od razu do aplikacji Garmin Connect.',
+        'On this device <b>Garmin Connect</b> downloads the GPX and opens connect.garmin.com → Courses → <b>Import</b>. On a phone the route goes straight to the Garmin Connect app.');
+  renderRoutes();
+  loadSavedRoutes();
+}
+function closeRoutes(){g('routes-modal').hidden=true;}
+function routeFile(id){return _gpxCache.get(id);}
+async function fetchRouteGPX(id){
+  if(_gpxCache.has(id)) return _gpxCache.get(id);
+  const r=await fetch(`/api/routes/${id}/gpx`);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const name=(r.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)?.[1]||`trasa_${id}.gpx`;
+  const f=new File([await r.blob()],name,{type:'application/gpx+xml'});
+  _gpxCache.set(id,f);
+  return f;
+}
+let _gpxPrefetch=null;
+function prefetchGPX(ids){ // one at a time, quietly; only where the share sheet will use it
+  if(!canShareGPX()||_gpxPrefetch) return;
+  _gpxPrefetch=(async()=>{for(const id of ids.slice(0,30)){if(g('routes-modal').hidden)break;try{await fetchRouteGPX(id);}catch(e){}}})()
+    .finally(()=>{_gpxPrefetch=null;});
+}
+async function sendToGarmin(id,btn){
+  if(!canShareGPX()){ // desktop: file + Garmin Connect's course import page
+    try{
+      const f=await fetchRouteGPX(id);
+      const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+      window.open('https://connect.garmin.com/modern/courses','_blank','noopener');
+      toast(tl(`Pobrano ${f.name} — w Garmin Connect kliknij „Importuj” i wskaż ten plik`,`Downloaded ${f.name} — in Garmin Connect click "Import" and pick this file`));
+    }catch(e){toast('Nie udało się pobrać GPX: '+e.message);}
+    return;
+  }
+  let f=routeFile(id);
+  if(!f){
+    btn.disabled=true;
+    try{f=await fetchRouteGPX(id);}catch(e){btn.disabled=false;toast('Nie udało się pobrać GPX: '+e.message);return;}
+    btn.disabled=false;
+  }
+  try{
+    await navigator.share({files:[f],title:f.name.replace(/\.gpx$/,'')});
+    btn.classList.remove('ready');
+  }catch(e){
+    if(e.name==='NotAllowedError'){ // the download outlived the tap; the file is ready now
+      btn.classList.add('ready');
+      btn.innerHTML=`<i class="ti ti-send"></i>${tl('Gotowe — stuknij, by wysłać','Ready — tap to send')}`;
+    }else if(e.name!=='AbortError') toast('Nie udało się udostępnić: '+e.message);
+  }
+}
+function routeThumb(r){
+  if(!r.thumb) return `<svg class="rt-thumb" viewBox="0 0 100 100"></svg>`;
+  const pts=r.thumb.split(' '), [sx,sy]=pts[0].split(','), [ex,ey]=pts[pts.length-1].split(',');
+  const end=r.is_loop?'':`<circle class="rt-e" cx="${ex}" cy="${ey}" r="4.5"/>`;
+  return `<svg class="rt-thumb" viewBox="0 0 100 100" role="img" aria-label="${esc(r.name)}"><polyline points="${r.thumb}"/>${end}<circle class="rt-s" cx="${sx}" cy="${sy}" r="4.5"/></svg>`;
+}
+function renderRoutes(){
+  const list=g('rt-list'); if(!list) return;
+  const q=(g('rt-q').value||'').trim().toLowerCase();
+  const sort=g('rt-sort').value;
+  let rs=_routes.filter(r=>!q||r.name.toLowerCase().includes(q));
+  const cmp={new:(a,b)=>b.created_at.localeCompare(a.created_at)||b.id-a.id,km:(a,b)=>b.distance_km-a.distance_km,
+    kmAsc:(a,b)=>a.distance_km-b.distance_km,sqi:(a,b)=>b.new_sqi-a.new_sqi||b.new_sq-a.new_sq,name:(a,b)=>a.name.localeCompare(b.name,locale())}[sort];
+  rs=[...rs].sort(cmp);
+  g('rt-count').textContent=_routes.length?`(${_routes.length})`:'';
+  const tot=_routes.reduce((a,r)=>a+r.distance_km,0);
+  g('rt-sum').textContent=_routes.length?tl(`${_routes.length} tras · razem ${fmtKm(tot)} km`,`${_routes.length} routes · ${fmtKm(tot)} km in total`):'';
+  if(!_routes.length){
+    list.innerHTML=`<div class="rt-empty"><i class="ti ti-route"></i>${tl('Nie masz jeszcze zapisanych tras.<br>Wyznacz albo narysuj trasę i kliknij <b>Zapisz</b> w jej karcie.','No saved routes yet.<br>Plan or draw a route and click <b>Save</b> in its card.')}</div>`;
+    return;
+  }
+  if(!rs.length){list.innerHTML=`<div class="rt-empty">${tl('Brak tras pasujących do wyszukiwania','No routes match the search')}</div>`;return;}
+  list.innerHTML='';
+  rs.forEach(r=>{
+    const d=new Date(r.created_at.replace(' ','T')+'Z');
+    const card=document.createElement('div');
+    card.className='rt-card';
+    card.innerHTML=`${routeThumb(r)}
+      <div class="rt-info">
+        <div class="rt-name"><b title="${esc(tl('Pokaż na mapie','Show on map'))}">${esc(r.name)}</b><button class="rt-ren" type="button" title="Zmień nazwę"><i class="ti ti-pencil"></i></button></div>
+        <div class="rt-stats">
+          <span class="km"><i class="ti ti-ruler-2"></i>${fmtKm(r.distance_km)} km</span>
+          ${r.ascent_m?`<span><i class="ti ti-trending-up"></i>${r.ascent_m} m</span>`:''}
+          <span class="sqi">+${r.new_sqi} SQI</span>${r.new_sq?`<span>+${r.new_sq} SQ</span>`:''}
+        </div>
+        <div class="rt-meta">${d.toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})} · ${r.is_loop?tl('pętla','loop'):tl('A → B','A → B')}${r.profile?' · '+esc(t(PROF_NAMES[r.profile]||r.profile)):''}</div>
+        <div class="rt-acts">
+          <button class="gc" type="button"><i class="ti ti-device-watch-share"></i>Garmin Connect</button>
+          <button class="op" type="button" title="Pokaż na mapie"><i class="ti ti-map-2"></i><span class="lbl-d">Na mapie</span></button>
+          <button class="gpx" type="button" title="Pobierz GPX"><i class="ti ti-download"></i><span class="lbl-d">GPX</span></button>
+          <button class="del" type="button" title="Usuń trasę"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>`;
+    const open=()=>{closeRoutes();openSavedRoute(r.id);};
+    card.querySelector('.rt-thumb').onclick=open;
+    card.querySelector('.rt-name b').onclick=open;
+    card.querySelector('.op').onclick=open;
+    card.querySelector('.gc').onclick=e=>sendToGarmin(r.id,e.currentTarget);
+    card.querySelector('.gpx').onclick=async()=>{
+      try{const f=await fetchRouteGPX(r.id);const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000);}
+      catch(e){toast('Nie udało się pobrać GPX: '+e.message);}
+    };
+    card.querySelector('.rt-ren').onclick=()=>{
+      const nm=card.querySelector('.rt-name');
+      nm.innerHTML=`<input type="text" maxlength="80" value="${esc(r.name)}"><button class="rt-ren" type="button" title="Zapisz nazwę"><i class="ti ti-check"></i></button>`;
+      const inp=nm.querySelector('input'); inp.focus(); inp.select();
+      let done=false;
+      const commit=async()=>{
+        if(done) return; done=true;
+        const name=inp.value.trim();
+        if(!name||name===r.name){renderRoutes();return;}
+        try{
+          const res=await fetch('/api/routes/'+r.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+          const dd=await res.json().catch(()=>({}));
+          if(!res.ok) throw new Error(dd.error||`HTTP ${res.status}`);
+          r.name=dd.name; _gpxCache.delete(r.id); toast(tl('Zmieniono nazwę','Renamed'));
+          loadSavedRoutes();
+        }catch(e){toast('Nie udało się zmienić nazwy: '+e.message);}
+        renderRoutes();
+      };
+      inp.onkeydown=e=>{if(e.key==='Enter')commit(); if(e.key==='Escape'){done=true;renderRoutes();} e.stopPropagation();};
+      nm.querySelector('.rt-ren').onclick=commit;
+      inp.onblur=()=>setTimeout(()=>{if(!done)commit();},150);
+    };
+    const del=card.querySelector('.del');
+    del.onclick=async()=>{
+      if(!del.classList.contains('armed')){
+        del.classList.add('armed'); del.textContent=tl('Usuń?','Delete?');
+        setTimeout(()=>{if(del.isConnected){del.classList.remove('armed');del.innerHTML='<i class="ti ti-trash"></i>';}},3000);
+        return;
+      }
+      const res=await fetch('/api/routes/'+r.id,{method:'DELETE'});
+      if(res.ok){toast('Usunięto: '+r.name);_gpxCache.delete(r.id);loadSavedRoutes();} else toast('Nie udało się usunąć trasy');
+    };
+    list.appendChild(card);
+  });
+  prefetchGPX(rs.map(r=>r.id));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

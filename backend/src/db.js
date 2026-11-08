@@ -321,6 +321,8 @@ const q = {
   insertRoute:      db.prepare(`INSERT INTO saved_routes (user_id,name,distance_km,new_sq,new_sqi,mode,profile,is_loop,waypoints,coords,elev_profile,surface_profile)
                                 VALUES (@user_id,@name,@distance_km,@new_sq,@new_sqi,@mode,@profile,@is_loop,@waypoints,@coords,@elev_profile,@surface_profile)`),
   deleteRoute:      db.prepare("DELETE FROM saved_routes WHERE user_id = ? AND id = ?"),
+  renameRoute:      db.prepare("UPDATE saved_routes SET name = ? WHERE user_id = ? AND id = ?"),
+  routeCoords:      db.prepare("SELECT coords FROM saved_routes WHERE user_id = ? AND id = ?"),
 
   usersWithStrava:  db.prepare("SELECT t.user_id, s.at AS last_at FROM strava_tokens t LEFT JOIN sync_status s ON s.user_id = t.user_id"),
   getSyncStatus:    db.prepare("SELECT * FROM sync_status WHERE user_id = ?"),
@@ -403,6 +405,8 @@ module.exports = {
   getRoute(userId, id)       { return q.getRoute.get(userId, id); },
   insertRoute(userId, r)     { return q.insertRoute.run({ user_id: userId, ...r }).lastInsertRowid; },
   deleteRoute(userId, id)    { return q.deleteRoute.run(userId, id).changes > 0; },
+  renameRoute(userId, id, n) { return q.renameRoute.run(n, userId, id).changes > 0; },
+  routeCoords(userId, id)    { const r = q.routeCoords.get(userId, id); return r ? JSON.parse(r.coords) : null; },
 
   // Strava sync status
   usersWithStrava()          { return q.usersWithStrava.all(); },

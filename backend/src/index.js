@@ -487,7 +487,74 @@ setInterval(autoSyncTick, 5 * 60 * 1000);
 
 // ── Saved routes ──────────────────────────────────────────────────────────────
 
-app.get('/api/routes', requireAuth, (req, res) => res.json(db.listRoutes(req.userId)));
+// List entries carry a tiny outline (SVG points in a 100×100 box, start first)
+// and the climb, both derived from the stored coords once and memoised: a
+// saved route's geometry never changes.
+const routeSummaryCache = new Map();
+function routeSummary(userId, id) {
+  const key = `${userId}:${id}`;
+  if (routeSummaryCache.has(key)) return routeSummaryCache.get(key);
+  const c = db.routeCoords(userId, id) || [];
+  let sum = { thumb: '', ascent_m: 0 };
+  if (c.length >= 2) {
+    const midLat = c.reduce((a, p) => a + p[0], 0) / c.length;
+    const kx = Math.cos(midLat * Math.PI / 180);
+    const xs = c.map(p => p[1] * kx), ys = c.map(p => -p[0]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const span = Math.max(x1 - x0, y1 - y0) || 1e-9;
+    const ox = (100 - (x1 - x0) / span * 92) / 2, oy = (100 - (y1 - y0) / span * 92) / 2;
+    const step = Math.max(1, Math.floor(c.length / 120));
+    const pts = [];
+    for (let i = 0; i < c.length; i += step) pts.push(i);
+    if (pts[pts.length - 1] !== c.length - 1) pts.push(c.length - 1);
+    sum.thumb = pts.map(i => `${(ox + (xs[i] - x0) / span * 92).toFixed(1)},${(oy + (ys[i] - y0) / span * 92).toFixed(1)}`).join(' ');
+    // climb with a 3 m hysteresis so DEM noise doesn't add up
+    let ref = c[0][2] || 0, up = 0;
+    for (const p of c) { const e = p[2] || 0; if (e > ref + 3) { up += e - ref; ref = e; } else if (e < ref - 3) ref = e; }
+    sum.ascent_m = Math.round(up);
+  }
+  routeSummaryCache.set(key, sum);
+  return sum;
+}
+
+app.get('/api/routes', requireAuth, (req, res) =>
+  res.json(db.listRoutes(req.userId).map(r => ({ ...r, ...routeSummary(req.userId, r.id) }))));
+
+// Course GPX of a saved route, named after it (Garmin Connect uses the <name>
+// as the course title when the file is imported or shared to the app).
+const xmlEsc = s => String(s).replace(/[<>&"']/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[ch]));
+app.get('/api/routes/:id/gpx', requireAuth, (req, res) => {
+  const r = db.getRoute(req.userId, +req.params.id);
+  if (!r) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  const c = JSON.parse(r.coords);
+  const hasElev = c.some(p => p[2] > 0);
+  const name = xmlEsc(r.name);
+  const pts = c.map(p => `      <trkpt lat="${(+p[0]).toFixed(6)}" lon="${(+p[1]).toFixed(6)}">${hasElev ? `<ele>${(+p[2] || 0).toFixed(1)}</ele>` : ''}</trkpt>`).join('\n');
+  const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="SquadratsPlanner" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${name}</name><time>${new Date(r.created_at.replace(' ', 'T') + 'Z').toISOString()}</time></metadata>
+  <trk>
+    <name>${name}</name>
+    <type>cycling</type>
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>
+`;
+  const file = (r.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L')
+    .replace(/[^A-Za-z0-9 _.-]+/g, ' ').trim().replace(/\s+/g, '_').slice(0, 60) || `trasa_${r.id}`) + '.gpx';
+  res.set('Content-Type', 'application/gpx+xml; charset=utf-8');
+  res.set('Content-Disposition', `attachment; filename="${file}"`);
+  res.send(gpx);
+});
+
+app.patch('/api/routes/:id', requireAuth, (req, res) => {
+  const name = String(req.body?.name || '').trim().slice(0, 80);
+  if (!name) return res.status(400).json({ error: 'Podaj nazwę trasy' });
+  if (!db.renameRoute(req.userId, +req.params.id, name)) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  res.json({ ok: true, name });
+});
 
 app.get('/api/routes/:id', requireAuth, (req, res) => {
   const r = db.getRoute(req.userId, +req.params.id);
@@ -520,6 +587,7 @@ app.post('/api/routes', requireAuth, (req, res) => {
 });
 
 app.delete('/api/routes/:id', requireAuth, (req, res) => {
+  routeSummaryCache.delete(`${req.userId}:${+req.params.id}`);
   if (!db.deleteRoute(req.userId, +req.params.id)) return res.status(404).json({ error: 'Nie ma takiej trasy' });
   res.json({ ok: true });
 });

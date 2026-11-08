@@ -56,6 +56,7 @@ window.D=window.D||{
 `;
 
 const DRAWPTS = '[[52.16095,21.21185],[52.1500,21.2250],[52.1400,21.2450],[52.1280,21.2350],[52.1330,21.2100]]';
+const DRAWO = '[[52.1180,21.2500],[52.1060,21.2700],[52.0950,21.2550],[52.1030,21.2330]]';
 const DRAW4 = '[[52.16095,21.21185],[52.1500,21.2250],[52.1400,21.2450],[52.1280,21.2350]]';
 const route40 = `await D.route({start:[${S}],km:40,opt:'sqi',prof:'safety'});`;
 
@@ -84,6 +85,14 @@ export const steps = [
   { name: 'd-login', device: 'desktop', wait: 1500, js: `closeProfile(); g('auth-gate').style.display='flex'; return 1;` },
 
   { name: 'd-draw', device: 'desktop', reload: true, wait: 2500, js: `D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new','grid17']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,14); await D.draw(${DRAWPTS}); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[40,130],paddingBottomRight:[40,50],animate:false}); return _planKm.toFixed(1);` },
+  { name: 'd-saved', device: 'desktop', reload: true, wait: 2500, js: `D.quiet(true); D.toasts(false); setBikeProf('safety',g('bp-safety'));
+    const have=(await (await fetch('/api/routes')).json()).map(r=>r.name);
+    const demo=[['Falenica → Józefów',${DRAW4},false],['Otwock wieczorem',${DRAWO},true],['Pętla przez Józefów',${DRAWPTS},true]];
+    for(const [nm,pts,back] of demo){ if(have.includes(nm)) continue;
+      clearRoute(); D.view(52.14,21.23,13); setMode('draw'); await D.draw(pts,back); setMode('view');
+      await D.until(()=>g('loading').classList.contains('h')&&_routeMeta,60000); await D.sleep(500);
+      openSaveRoute(); g('rc-save-name').value=nm; await saveRoute(); await D.sleep(300); }
+    clearRoute(); setMode('view'); openRoutes(); await D.until(()=>g('rt-list').querySelectorAll('.rt-card').length>=3); await D.sleep(600); return g('rt-list').children.length;` },
   // ── phone ──
   { name: 'm-map', device: 'mobile', reload: true, wait: 3500, js: `g('auth-gate').style.display='none'; D.layers(['sq-own','sqi-own','sq-uber','grid14']); D.view(52.185,21.2,12); return 1;` },
   { name: 'm-sheet', device: 'mobile', wait: 2000, js: `openPlanSheet(); return 1;` },
@@ -95,6 +104,7 @@ export const steps = [
   { name: 'm-elev', device: 'mobile', wait: 2500, js: `map.closePopup(); D.quiet(true); toggleElev(); await D.sleep(800); D.fit(330); return 1;` },
   { name: 'm-ride', device: 'mobile', wait: 3500, js: `if(g('elev-panel').style.display==='flex')toggleElev(); map.closePopup(); const p=routeCoords[Math.floor(routeCoords.length*0.3)]; navigator.geolocation.watchPosition=(ok)=>{setTimeout(()=>ok({coords:{latitude:p.lat,longitude:p.lng,accuracy:6,heading:null,speed:5},timestamp:Date.now()}),300);return 7;}; navigator.geolocation.clearWatch=()=>{}; toggleRide(); await D.sleep(2500); map.setZoom(16,{animate:false}); return g('ride-txt').textContent;` },
   { name: 'm-draw', device: 'mobile', reload: true, wait: 2500, js: `g('auth-gate').style.display='none'; D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,13); await D.draw(${DRAW4}); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,170],paddingBottomRight:[30,120],animate:false}); return _planKm.toFixed(1);` },
+  { name: 'm-saved', device: 'mobile', reload: true, wait: 2500, js: `g('auth-gate').style.display='none'; D.quiet(true); D.toasts(false); window.canShareGPX=()=>true; window.prefetchGPX=()=>{}; openRoutes(); await D.until(()=>g('rt-list').querySelector('.rt-card')); await D.sleep(600); return g('rt-list').children.length;` },
   { name: 'm-prio', device: 'mobile', reload: true, wait: 4000, js: `D.layers(['sqi-own','sqi-prio']); await D.until(()=>prioData,60000); D.view(52.19,21.22,13); return 1;` },
   { name: 'm-lidar', device: 'mobile', wait: 6000, js: `D.layers(['grid17']); togGeo('lidar',true,true); D.view(52.1475,21.2410,16); return 1;` },
   { name: 'm-squares', device: 'mobile', wait: 2500, js: `togGeo('lidar',false,true); D.layers(['sq-own','sq-yard','sq-uber']); D.view(52.215,21.13,10); openPlanSheet(); swTab('sq',document.querySelector('[onclick*="swTab(\\'sq\\'"]')); return 1;` },
