@@ -1,189 +1,163 @@
-# Squadrats Route Planner v2
+# Squadrats Planner
 
-Aplikacja rowerowa łącząca Strava API z systemem kwadratów Squadrats.com.
-Lokalna baza SQLite — kwadraty zapisane raz, synchronizacja tylko nowych aktywności.
+A self-hosted cycling route planner for [Squadrats](https://squadrats.com) players. It builds loops through squares you have not collected yet and avoids riding home on the road you came out on.
 
-## Architektura
+Squadrats Planner is an independent project and is not affiliated with squadrats.com.
 
-```
-docker-compose
-├── backend   (Node.js + Express + SQLite)  :3000
-└── frontend  (nginx + HTML/JS)             :8080
-         ↓ proxy /api/* i /auth/*
-         ↓
-    backend:3000
+It is supported on two platforms:
 
-Dane: ./data/squadrats.db  (SQLite, persystuje między restartami)
-```
+- **Linux** with Docker Compose
+- **OpenShift** with the manifests in `ocp/`
 
-## Wymagania
+## Features
 
-- **Docker Desktop** (Windows 11) — https://www.docker.com/products/docker-desktop
-- **VS Code** — https://code.visualstudio.com
-- **Konto Strava** z subskrypcją
+- Loops and A→B routes that maximise new squadrats (zoom 14) or squadratinhos (zoom 17), or grow your Yard and Yardinho
+- Six bike profiles, seven optimisation goals, and point-by-point route drawing
+- Priority layer that ranks missing squares near your home
+- Surface breakdown, elevation profile, points of interest, photos and Street View along the route
+- Strava sync, plus KML and GPX import
+- Saved routes with GPX export and hand-off to Garmin Connect
+- A Connect IQ data field for Garmin Edge 1040 and 1050
+- Polish and English interface; desktop and phone layouts
 
----
+Routing and points of interest currently cover Poland.
 
-## Instalacja krok po kroku
-
-### 1. Docker Desktop
-
-1. Pobierz i zainstaluj Docker Desktop: https://www.docker.com/products/docker-desktop
-2. Uruchom Docker Desktop — poczekaj aż ikona w zasobniku przestanie się kręcić
-3. Sprawdź w PowerShell: `docker --version` (powinno pokazać wersję)
-
-### 2. Pobierz projekt
-
-Wypakuj archiwum do folderu, np. `C:\Users\TwojeImie\squadrats-planner\`
-
-### 3. Skonfiguruj Strava API
-
-Edytuj plik `.env` w głównym folderze projektu:
+## Architecture
 
 ```
-STRAVA_CLIENT_ID=123456
-STRAVA_CLIENT_SECRET=abcdef...
+browser ──> frontend (nginx) :8081 ──> backend (Node 20, Express, SQLite) :3000 ──> BRouter :17777
 ```
 
-(Instrukcja uzyskania kluczy: patrz instrukcja Strava API)
+| Path | Contents |
+|---|---|
+| `backend/src/` | API, route planner, Strava sync, map and photo proxies |
+| `frontend/` | Single-page app (`index.html`, Leaflet, no build step) and `docs/` |
+| `brouter/` | BRouter image and custom bike profiles |
+| `garmin/` | Connect IQ data field |
+| `tools/` | Rebuilds the OpenStreetMap databases |
+| `ocp/` | OpenShift manifests |
+| `data/` | Databases and routing segments (not in git) |
 
-> **Ważne:** W ustawieniach aplikacji Strava ustaw:
-> - Authorization Callback Domain: `localhost`
-> - Website: `http://localhost:3000`
+## Linux with Docker Compose
 
-### 4. Otwórz w VS Code
+You need Docker Engine with the Compose plugin, and about 1 GB of free disk space.
 
-1. Otwórz VS Code
-2. Zainstaluj rozszerzenia (VS Code zaproponuje je automatycznie):
-   - **Docker** (ms-azuretools.vscode-docker)
-   - **SQLite Viewer** (alexcvzz.vscode-sqlite)
-3. W VS Code: File → Open Workspace from File → wybierz `squadrats.code-workspace`
+### 1. Clone the repository
 
-### 5. Uruchom
-
-Opcja A — terminal VS Code (`Ctrl+~`):
-```powershell
-docker compose up --build
+```bash
+git clone https://github.com/bigbert73/squadrats-planner.git
+cd squadrats-planner
 ```
 
-Opcja B — Task Runner: `Ctrl+Shift+P` → "Tasks: Run Task" → "Docker: Start"
+### 2. Create `.env`
 
-Opcja C — kliknij dwukrotnie `START.bat`
+| Variable | Required | Purpose |
+|---|---|---|
+| `JWT_SECRET` | yes | Signs login sessions. Without it the app uses an insecure default. Generate one with `openssl rand -hex 32` |
+| `STRAVA_REDIRECT_URI` | for Strava and Google sign-in | `<base-url>/auth/callback` |
+| `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` | for Strava | From <https://www.strava.com/settings/api> |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | for Google sign-in | Authorized redirect URI: `<base-url>/auth/google/callback` |
+| `GOOGLE_MAPS_KEY` | optional | Street View and Places |
+| `MAPY_API_KEY` | optional | Mapy.com base maps |
+| `MAPILLARY_TOKEN` | optional | Mapillary photos |
+| `COOKIE_SECURE` | behind HTTPS | Set to `true` |
 
-### 6. Otwórz aplikację
+Never commit `.env`.
 
-Przeglądarka: **http://localhost:8080**
+### 3. Download the routing segments
 
----
-
-## Dokumentacja użytkownika
-
-Podręcznik (PL + EN) ze zrzutami z komputera i telefonu: **http://localhost:8081/docs/** (`frontend/docs/`).
-
-- treść obu wersji: `frontend/docs/tools/build.mjs` → `node frontend/docs/tools/build.mjs` generuje `index.html` (PL) i `en.html` (EN)
-- zrzuty: `frontend/docs/tools/docshots.mjs` + sceny w `steps.mjs` (`d-*` komputer, `m-*` telefon) → `frontend/docs/img/`
-- po każdej zmianie funkcji aktualizuj tekst i zrzuty tej funkcji
-
-## Pierwsze użycie
-
-1. Kliknij **"Zaloguj Strava"** → zaakceptuj uprawnienia
-2. Zakładka **Kwadraty** → kliknij **"Synchronizuj z Strava"**
-   - Pierwsza synchronizacja pobiera wszystkie aktywności (może potrwać kilka minut)
-   - Postęp widoczny w pasku
-3. Kwadraty pojawią się na mapie
-4. Kolejne synchronizacje dodają tylko nowe aktywności
-
-## Planowanie trasy
-
-1. Zakładka **Trasa** → wybierz tryb Start/Meta
-2. Kliknij punkt startu i mety na mapie
-3. Wybierz optymalizację (np. "Maks. nowe Squadrats")
-4. Kliknij **Oblicz trasę**
-5. Pomarańczowe kwadraty = nowe, które zdobędziesz
-
----
-
-## Struktura projektu
-
-```
-squadrats-planner/
-├── backend/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       ├── index.js     ← Express API + routing
-│       ├── db.js        ← SQLite schema + queries
-│       ├── tiles.js     ← OSM tile math + algorytmy
-│       └── strava.js    ← OAuth + sync
-├── frontend/
-│   ├── index.html       ← Cała aplikacja SPA
-│   └── nginx.conf       ← Proxy /api → backend
-├── data/                ← SQLite DB (tworzy się automatycznie)
-├── .env                 ← Twoje klucze API (NIE commituj!)
-├── docker-compose.yml
-└── squadrats.code-workspace
+```bash
+mkdir -p data/brouter-segments
+for tile in E10_N45 E10_N50 E15_N45 E15_N50 E20_N45 E20_N50; do
+  curl -fL -o "data/brouter-segments/$tile.rd5" "https://brouter.de/brouter/segments4/$tile.rd5"
+done
 ```
 
-## Baza danych
+### 4. Start the app
 
-Plik `data/squadrats.db` — możesz go otworzyć w VS Code z rozszerzeniem SQLite Viewer.
-
-Tabele:
-- `tiles_sq`   — zoom-14 Squadrats (tx, ty)
-- `tiles_sqi`  — zoom-17 Squadratinhos (tx, ty)
-- `activities` — przetworzone aktywności Strava
-- `tokens`     — tokeny OAuth (nie usuwaj!)
-
-## Przydatne komendy
-
-```powershell
-# Sprawdź logi backendu
-docker compose logs -f backend
-
-# Restart bez przebudowy
-docker compose restart backend
-
-# Całkowity reset (zachowuje bazę!)
-docker compose down && docker compose up --build
-
-# Backup bazy
-copy data\squadrats.db data\squadrats_backup.db
+```bash
+docker compose up -d --build
 ```
 
-## Street View — podgląd trasy
+Open <http://localhost:8081>.
 
-Przycisk z ikoną osoby (prawy górny róg mapy) włącza tryb Street View:
-- ekran dzieli się 50/50 — lewa strona mapa, prawa Street View
-- kliknięcie w dowolne miejsce mapy otwiera widok ulicy w prawym panelu
+### 5. Build the OpenStreetMap databases
 
-### Kolorowanie trasy wg pokrycia Street View
-
-Wymaga klucza Google Maps API. Gdy klucz jest skonfigurowany:
-- backend sprawdza pokrycie Street View dla ~120 punktów na trasie (API metadanych = bezpłatne w Google)
-- odcinki pokryte Street View pokazują **cyan podkreślenie** pod czerwoną trasą
-
-**Uzyskanie klucza:**
-
-1. [console.cloud.google.com](https://console.cloud.google.com) → utwórz nowy projekt
-2. APIs & Services → Library → **Street View Static API** → Włącz
-3. APIs & Services → Credentials → **Create API Key** → ogranicz do Street View Static API
-4. Dodaj klucz do OCP secret (`squadrats-strava` lub osobny):
-
-```yaml
-GOOGLE_MAPS_KEY: "AIza..."
+```bash
+tools/update-pois.sh
 ```
 
-Po zapisaniu sekretu zrestartuj pod backendu:
-**Workloads → Deployments → squadrats-backend → Actions → Restart Rollout**
+This downloads the Geofabrik extract of Poland and builds `pois.db`, `popular.db` and `reach.db`. It is safe to run while the app is up, so it also works as a scheduled refresh.
 
----
+### Everyday commands
 
-## Rozwiązywanie problemów
+```bash
+docker compose logs -f backend      # follow backend logs
+docker compose restart backend      # restart the backend
+docker compose up -d --build        # rebuild and restart
+```
 
-| Problem | Rozwiązanie |
-|---------|-------------|
-| Port 3000/8080 zajęty | Zmień port w docker-compose.yml |
-| Docker nie startuje | Upewnij się że WSL2 jest włączony |
-| Błąd logowania Strava | Sprawdź .env i callback URL |
-| Kwadraty nie widoczne | Kliknij "Dopasuj widok" lub odsuń mapę |
-| Sync się zatrzymuje | Limit API Strava (200/15min) — poczekaj |
+To back up user data, stop the backend and copy `data/squadrats.db`.
+
+## OpenShift
+
+The manifests create everything in the `squadrats` namespace. Images are built from this repository.
+
+```bash
+oc new-project squadrats
+
+# Secrets: fill in ocp/manifests/01-secret.yaml, or create them from your .env
+oc create secret generic squadrats-strava --from-env-file=.env -n squadrats
+
+oc apply -f ocp/manifests/02-backend.yaml
+oc apply -f ocp/manifests/03-frontend.yaml
+oc apply -f ocp/manifests/04-route.yaml
+oc apply -f ocp/manifests/05-brouter.yaml
+oc apply -f ocp/manifests/06-brouter-build.yaml
+
+oc start-build squadrats-backend -n squadrats
+oc start-build squadrats-frontend -n squadrats
+oc start-build squadrats-brouter -n squadrats
+```
+
+Copy the routing segments to the BRouter volume:
+
+```bash
+oc get pods -n squadrats
+oc cp data/brouter-segments/. <brouter-pod>:/brouter-data/segments4 -n squadrats
+```
+
+Find the public host, then set `STRAVA_REDIRECT_URI` to `https://<host>/auth/callback` in the secret and in your Strava app:
+
+```bash
+oc get route squadrats -n squadrats -o jsonpath='{.spec.host}'
+oc rollout restart deployment/squadrats-backend -n squadrats
+```
+
+**Known limitation:** `ocp/frontend/Dockerfile` copies only `frontend/index.html`, so the OpenShift image does not yet include the translations, manual or legal pages.
+
+## Documentation
+
+The user manual has English and Polish versions, with desktop and phone screenshots. Once the app is running, open `/docs/en.html` for English or `/docs/` for Polish.
+
+The source is in `frontend/docs/tools/`:
+
+```bash
+node frontend/docs/tools/build.mjs    # regenerates index.html (PL) and en.html (EN)
+```
+
+`docshots.mjs` and `steps.mjs` produce the screenshots.
+
+## Garmin data field
+
+The Connect IQ SDK is required. Generate a personal key in your profile, then:
+
+```bash
+SQUADRATS_URL=https://your-server GARMIN_KEY=<key> garmin/build.sh edge1040
+```
+
+`garmin/resources-local/` holds the private settings. Never commit it.
+
+## Data sources
+
+Map data © OpenStreetMap contributors. Routing by [BRouter](https://github.com/abrensch/brouter). Activity sync through the Strava API.
