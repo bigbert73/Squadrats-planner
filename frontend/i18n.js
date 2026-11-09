@@ -103,7 +103,7 @@ const EN={
   'Mapa bazowa':'Base map','🛰️ Satelita (ESRI)':'🛰️ Satellite (ESRI)','🥾 Turystyczna (Mapy.com)':'🥾 Outdoor (Mapy.com)','✈️ Lotnicza (Mapy.com)':'✈️ Aerial (Mapy.com)',
   'Squadrats — specyfikacja':'Squadrats — specification',': każdy tile ma 4 sąsiadów (N,E,S,W)':': every tile has 4 neighbours (N,E,S,W)',
   ': największy kwadrat N×N':': the largest N×N square','Kafelki: OSM Slippy Map (Mercator)':'Tiles: OSM Slippy Map (Mercator)','Baza: SQLite →':'Database: SQLite →',
-  'Rysuj':'Draw','Rysuj ·':'Draw ·','Gotowe':'Done','Do startu':'Back to start','Zakończ rysowanie':'Finish drawing',
+  'Ponów':'Redo','Przywróć cofnięty punkt (Ctrl+Y)':'Restore the undone point (Ctrl+Y)','Nazwa punktu':'Point name','np. Kawa':'e.g. Coffee','Trafi do pliku GPX dla Garmina. Żeby przesunąć punkt, przeciągnij pinezkę.':'Goes into the GPX file for Garmin. To move the point, drag its pin.','Nie da się tu dojechać — punkt wrócił na miejsce':'No route to this spot — the point went back','Rysuj':'Draw','Rysuj ·':'Draw ·','Gotowe':'Done','Do startu':'Back to start','Zakończ rysowanie':'Finish drawing',
   'Rysuj trasę: stukaj kolejne punkty, odcinki wyznaczą się po drogach':'Draw a route: tap point after point, each leg follows the roads',
   'Wróć do startu inną drogą':'Back to the start on other roads','Rysowanie — stukaj kolejne punkty':'Drawing — tap point after point',
   'Stukaj kolejne punkty — trasa wydłuża się po drogach':'Keep tapping — the route grows along the roads',

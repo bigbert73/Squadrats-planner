@@ -91,6 +91,7 @@ function safeUser(user) {
     strava_athlete:    tok ? JSON.parse(tok.athlete_json || '{}') : null,
     home_lat:          user.home_lat ?? null,
     home_lng:          user.home_lng ?? null,
+    layers:            user.map_layers ? JSON.parse(user.map_layers) : null,
   };
 }
 
@@ -184,6 +185,14 @@ app.put('/api/profile/password', requireAuth, async (req, res) => {
   if (!await bcrypt.compare(current_password, user.password_hash))
     return res.status(401).json({ error: 'Nieprawidłowe obecne hasło' });
   db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
+  res.json({ ok: true });
+});
+
+app.put('/api/profile/layers', requireAuth, (req, res) => {
+  const l = req.body?.layers;
+  if (!l || typeof l !== 'object' || Array.isArray(l)) return res.status(400).json({ error: 'Nieprawidłowe warstwy' });
+  const clean = Object.fromEntries(Object.entries(l).filter(([k, v]) => /^[a-z0-9-]{1,20}$/.test(k) && typeof v === 'boolean').slice(0, 30));
+  db.setMapLayers(req.userId, JSON.stringify(clean));
   res.json({ ok: true });
 });
 
@@ -532,10 +541,12 @@ app.get('/api/routes/:id/gpx', requireAuth, (req, res) => {
   const hasElev = c.some(p => p[2] > 0);
   const name = xmlEsc(r.name);
   const pts = c.map(p => `      <trkpt lat="${(+p[0]).toFixed(6)}" lon="${(+p[1]).toFixed(6)}">${hasElev ? `<ele>${(+p[2] || 0).toFixed(1)}</ele>` : ''}</trkpt>`).join('\n');
+  const named = JSON.parse(r.waypoints).filter(w => w.name)
+    .map(w => `  <wpt lat="${(+w.lat).toFixed(6)}" lon="${(+w.lng).toFixed(6)}"><name>${xmlEsc(w.name)}</name></wpt>\n`).join('');
   const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx creator="SquadratsPlanner" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>${name}</name><time>${new Date(r.created_at.replace(' ', 'T') + 'Z').toISOString()}</time></metadata>
-  <trk>
+${named}  <trk>
     <name>${name}</name>
     <type>cycling</type>
     <trkseg>

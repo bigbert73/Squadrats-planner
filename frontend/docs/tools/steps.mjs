@@ -11,6 +11,7 @@ window.D=window.D||{
     // keep the user's home out of the pictures: no home start, no "Dom" label
     currentUser.home_lat=null; currentUser.home_lng=null;
     window.labelWpt=async()=>{}; // no reverse-geocoded street names in the pictures
+    window.saveLayerPrefs=()=>{}; applyLayerPrefs({'sqi-prio':false}); // pictures start from fixed layers and never touch the account's
     resetRoute();
     const st=document.createElement('style');st.id='doc-css';st.textContent='#toast{opacity:0!important}';document.head.appendChild(st);
     return g('h-sq').textContent;
@@ -84,7 +85,7 @@ export const steps = [
   { name: 'd-profile', device: 'desktop', reload: true, wait: 1500, js: `openProfile(); await D.sleep(1200); g('prof-email').textContent='rider@example.com'; g('prof-home-addr').value='Warszawa, stacja Falenica'; const c=g('prof-home-coords'); if(c) c.textContent='52.16095, 21.21185'; const sid=g('prof-strava-id'); if(sid) sid.value='123456'; return 1;` },
   { name: 'd-login', device: 'desktop', wait: 1500, js: `closeProfile(); g('auth-gate').style.display='flex'; return 1;` },
 
-  { name: 'd-draw', device: 'desktop', reload: true, wait: 2500, js: `D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new','grid17']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,14); await D.draw(${DRAWPTS}); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[40,130],paddingBottomRight:[40,50],animate:false}); return _planKm.toFixed(1);` },
+  { name: 'd-draw', device: 'desktop', reload: true, wait: 2500, js: `D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new','grid17']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,14); await D.draw(${DRAWPTS}); setWptName(wpts[1],'Cafe'); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[40,130],paddingBottomRight:[40,50],animate:false}); return _planKm.toFixed(1);` },
   { name: 'd-saved', device: 'desktop', reload: true, wait: 2500, js: `D.quiet(true); D.toasts(false); setBikeProf('safety',g('bp-safety'));
     const have=(await (await fetch('/api/routes')).json()).map(r=>r.name);
     const demo=[['Falenica → Józefów',${DRAW4},false],['Otwock wieczorem',${DRAWO},true],['Pętla przez Józefów',${DRAWPTS},true]];
@@ -103,7 +104,7 @@ export const steps = [
   { name: 'm-photo', device: 'mobile', wait: 4000, js: `await D.photos(); const ls=photoLayer.getLayers(); const m=ls.filter(l=>{const c=l.getPopup().getContent();return /Mapillary/.test(typeof c==='function'?c():c)})[5]||ls[0]; map.setView(m.getLatLng(),16,{animate:false}); map.panBy([0,-190],{animate:false}); m.openPopup(); return 1;` },
   { name: 'm-elev', device: 'mobile', wait: 2500, js: `map.closePopup(); D.quiet(true); toggleElev(); await D.sleep(800); D.fit(330); return 1;` },
   { name: 'm-ride', device: 'mobile', wait: 3500, js: `if(g('elev-panel').style.display==='flex')toggleElev(); map.closePopup(); const p=routeCoords[Math.floor(routeCoords.length*0.3)]; navigator.geolocation.watchPosition=(ok)=>{setTimeout(()=>ok({coords:{latitude:p.lat,longitude:p.lng,accuracy:6,heading:null,speed:5},timestamp:Date.now()}),300);return 7;}; navigator.geolocation.clearWatch=()=>{}; toggleRide(); await D.sleep(2500); map.setZoom(16,{animate:false}); return g('ride-txt').textContent;` },
-  { name: 'm-draw', device: 'mobile', reload: true, wait: 2500, js: `g('auth-gate').style.display='none'; D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,13); await D.draw(${DRAW4}); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,170],paddingBottomRight:[30,120],animate:false}); return _planKm.toFixed(1);` },
+  { name: 'm-draw', device: 'mobile', reload: true, wait: 2500, js: `g('auth-gate').style.display='none'; D.quiet(true); D.toasts(false); D.layers(['sqi-own','sqi-new','sq-new']); setBikeProf('safety',g('bp-safety')); D.view(52.145,21.228,13); await D.draw(${DRAW4}); setWptName(wpts[1],'Cafe'); map.invalidateSize(); map.fitBounds(L.latLngBounds(routeCoords.map(p=>[p.lat,p.lng])),{paddingTopLeft:[30,170],paddingBottomRight:[30,120],animate:false}); return _planKm.toFixed(1);` },
   { name: 'm-saved', device: 'mobile', reload: true, wait: 2500, js: `g('auth-gate').style.display='none'; D.quiet(true); D.toasts(false); window.canShareGPX=()=>true; window.prefetchGPX=()=>{}; openRoutes(); await D.until(()=>g('rt-list').querySelector('.rt-card')); await D.sleep(600); return g('rt-list').children.length;` },
   { name: 'm-prio', device: 'mobile', reload: true, wait: 4000, js: `D.layers(['sqi-own','sqi-prio']); await D.until(()=>prioData,60000); D.view(52.19,21.22,13); return 1;` },
   { name: 'm-lidar', device: 'mobile', wait: 6000, js: `D.layers(['grid17']); togGeo('lidar',true,true); D.view(52.1475,21.2410,16); return 1;` },

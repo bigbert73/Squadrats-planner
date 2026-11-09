@@ -98,6 +98,9 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .wc{flex:1;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wdel{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:1px 2px;border-radius:2px;line-height:1}
 .wdel:hover{color:var(--red);background:rgba(248,113,113,.1)}
+.wren{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:4px;border-radius:2px;line-height:1}
+.wren:hover{color:var(--tx)}
+.wc input{width:100%;height:28px;padding:0 6px;font:16px 'Space Grotesk',sans-serif;background:var(--bg,#0d1117);color:var(--tx);border:1px solid var(--green);border-radius:6px;outline:none}
 .hint{font-size:12px;color:var(--tx3);text-align:center;padding:12px 0}
 
 /* ── TOGGLE ROW ── */
@@ -367,6 +370,16 @@ body.riding #zlvl{display:none}
 #draw-bar button:hover:not(:disabled){color:var(--tx);border-color:var(--border2)}
 #draw-bar button:disabled{opacity:.4;cursor:default}
 #draw-bar button.db-ok{background:var(--green);border-color:var(--green);color:#051a10;font-weight:700}
+.wp-pin{position:relative}
+.wp-pin::after{content:'';position:absolute;inset:-10px;border-radius:50%} /* finger-sized grab area */
+.wn-tip{background:#0d1117;border:1px solid var(--border2);border-radius:6px;color:var(--tx);font:600 11px 'Space Grotesk',sans-serif;padding:1px 6px;box-shadow:none}
+.wn-tip::before{display:none}
+.wn-box{display:flex;flex-direction:column;gap:6px;width:210px}
+.wn-t{font-weight:700;font-size:13px}
+.wn-row{display:flex;gap:6px}
+.wn-row input{flex:1;min-width:0;height:36px;padding:0 8px;font-size:16px;background:var(--card);color:var(--tx);border:1px solid var(--border2);border-radius:8px}
+.wn-row button{height:36px;padding:0 12px;background:var(--green);border:0;border-radius:8px;color:#051a10;font-weight:700}
+.wn-h{font-size:11px;line-height:1.35;color:var(--tx3)}
 
 #mind{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:999;background:rgba(13,17,23,.88);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:500;color:var(--tx2);display:flex;align-items:center;gap:5px;pointer-events:none;white-space:nowrap}
 
@@ -872,7 +885,7 @@ a.udrop-btn{text-decoration:none}
       <button class="lb" id="lb-sqi-uber" onclick="togLyr('sqi-uber',this,'y')" title="Największy pełny kwadrat ze zdobytych squadratinhos"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-border-style-2"></i>Über SQI</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid14"  onclick="togLyr('grid14',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-dots"></i>Siatka zoom 14</span><span class="lb-sw"></span></button>
       <button class="lb on-p" id="lb-grid17"  onclick="togLyr('grid17',this,'p')"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-grid-3x3"></i>Siatka zoom 17</span><span class="lb-sw"></span></button>
-      <button class="lb" id="lb-sqi-prio" onclick="togLyr('sqi-prio',this,'o')" title="Niezdobyte squadratinhos, które najbardziej powiększą Übersquadratinho i Yardinho — blisko domu i z drogą"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-target-arrow"></i>Priorytety</span><span class="lb-sw"></span></button>
+      <button class="lb on-o" id="lb-sqi-prio" onclick="togLyr('sqi-prio',this,'o')" title="Niezdobyte squadratinhos, które najbardziej powiększą Übersquadratinho i Yardinho — blisko domu i z drogą"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-target-arrow"></i>Priorytety</span><span class="lb-sw"></span></button>
       <button class="lb on-r" id="lb-sqi-noroad" onclick="togLyr('sqi-noroad',this,'r')" title="Squadratinhos, przez które w OpenStreetMap nie biegnie żadna droga ani ścieżka — prawdopodobnie niezdobywalne (woda, tereny zamknięte, pola bez dróg)"><span class="lb-left"><span class="lb-dot"></span><i class="ti ti-slash"></i>Bez dróg (sugestie)</span><span class="lb-sw"></span></button>
     </div>
     <div id="prio-panel" style="display:none;margin:-4px 0 12px"></div>
@@ -977,6 +990,7 @@ a.udrop-btn{text-decoration:none}
     <div id="draw-bar" hidden>
       <span class="db-km"><span id="db-km">0.0 km</span><span class="db-spin" id="db-spin" hidden></span></span>
       <button id="db-undo" onclick="drawUndo()" title="Cofnij ostatni punkt (Ctrl+Z)"><i class="ti ti-arrow-back-up"></i><span class="db-lbl">Cofnij</span></button>
+      <button id="db-redo" onclick="drawRedo()" title="Przywróć cofnięty punkt (Ctrl+Y)" disabled><i class="ti ti-arrow-forward-up"></i><span class="db-lbl">Ponów</span></button>
       <button id="db-loop" onclick="drawToStart()" title="Wróć do startu inną drogą"><i class="ti ti-refresh"></i><span class="db-lbl">Do startu</span></button>
       <button class="db-ok" onclick="setMode('view')" title="Zakończ rysowanie"><i class="ti ti-check"></i>Gotowe</button>
     </div>
@@ -1351,8 +1365,10 @@ const LAYERS={};
 const VIS={
   'sq-own':false,'sq-new':true,'sq-yard':false,'sq-uber':false,
   'sqi-own':false,'sqi-new':true,'sqi-yard':false,'sqi-uber':false,
-  'grid14':true,'grid17':true,'sqi-noroad':true,'sqi-prio':false
+  'grid14':true,'grid17':true,'sqi-noroad':true,'sqi-prio':true
 };
+const LYR_DEFAULT={...VIS};
+const LYR_COLOR={'sq-own':'g','sq-new':'o','sq-yard':'b','sq-uber':'y','sqi-own':'g','sqi-new':'o','sqi-yard':'b','sqi-uber':'y','grid14':'p','grid17':'p','sqi-noroad':'r','sqi-prio':'o'};
 
 let statsData={}, toastTm=null;
 let currentUser=null;
@@ -1404,6 +1420,7 @@ async function initMap(){
     if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
     if(!g('routes-modal').hidden){ if(e.key==='Escape') closeRoutes(); return; }
     if(e.ctrlKey&&e.key==='z'){e.preventDefault();undoLastWpt();return;}
+    if(mode==='draw'&&e.ctrlKey&&(e.key==='y'||e.key==='Z')){e.preventDefault();drawRedo();return;}
     if(e.key==='s'||e.key==='S') setMode('start');
     if(e.key==='e'||e.key==='E') setMode('end');
     if(e.key==='w'||e.key==='W') setMode('waypoint');
@@ -1860,8 +1877,23 @@ function redrawGrid(){
   if(VIS['grid17']){LAYERS['grid17']=new CanvasGridLayer(Z_SQI,'rgba(144,80,192,0.4)',13).addTo(map);}
 }
 
-function togLyr(name,btn,c){
+// The square layers follow the account: saved on every switch, restored at login.
+let _lyrSaveT=null;
+function saveLayerPrefs(){
+  clearTimeout(_lyrSaveT);
+  _lyrSaveT=setTimeout(()=>{
+    fetch('/api/profile/layers',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({layers:VIS})}).catch(()=>{});
+  },400);
+}
+function applyLayerPrefs(saved){
+  for(const name in LYR_COLOR){
+    const want=saved?.[name]??LYR_DEFAULT[name];
+    if(VIS[name]!==want) togLyr(name,g('lb-'+name),LYR_COLOR[name],true);
+  }
+}
+function togLyr(name,btn,c,restoring){
   VIS[name]=!VIS[name];
+  if(!restoring) saveLayerPrefs();
   if(VIS[name]){
     btn.className=`lb on-${c}`;
     // Render only what's needed
@@ -2380,7 +2412,7 @@ async function recalcDraggedWpt(wptIdx){
 }
 
 function resetRoute(){
-  wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[];
+  wpts.forEach(w=>map.removeLayer(w.marker)); wpts=[]; _drawRedo=[];
   if(rLine){map.removeLayer(rLine);rLine=null;}
   clearKmMarkers();
   prioWalk.clearLayers();
@@ -2474,7 +2506,7 @@ function removeReturnLeg(){
 function exportGPX(){
   const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng}));
   if(!pts.length){toast('Brak trasy');return;}
-  let gpx=`<?xml version="1.0"?>\n<gpx version="1.1" creator="SquadratsPlanner">\n  <trk><trkseg>\n`;
+  let gpx=`<?xml version="1.0"?>\n<gpx version="1.1" creator="SquadratsPlanner">\n${gpxWptXml()}  <trk><trkseg>\n`;
   pts.forEach(p=>{gpx+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trkpt>\n`;});
   gpx+=`  </trkseg></trk>\n</gpx>`;
   const a=document.createElement('a');
@@ -2486,6 +2518,10 @@ function exportGPX(){
 
 // GPX with elevation, importable as a Garmin Connect course (or by Wahoo,
 // Hammerhead, Bryton apps). null when there is nothing to export.
+function gpxWptXml(){
+  return wpts.filter(w=>w.name).map(w=>{const ll=w.marker.getLatLng();
+    return `  <wpt lat="${ll.lat.toFixed(6)}" lon="${ll.lng.toFixed(6)}"><name>${esc(w.name)}</name></wpt>\n`;}).join('');
+}
 function buildCourseGPX(){
   const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng,elev:0}));
   if(!pts.length) return null;
@@ -2501,7 +2537,7 @@ function buildCourseGPX(){
     <name>${name}</name>
     <time>${now.toISOString()}</time>
   </metadata>
-  <trk>
+${gpxWptXml()}  <trk>
     <name>${name}</name>
     <trkseg>\n`;
   pts.forEach(p=>{
@@ -2560,7 +2596,7 @@ async function saveRoute(){
   const sameGeom=_routeMeta&&_routeMeta.coords===routeCoords; // profiles only match an unedited route
   const body={name,distanceKm:_planKm,newSQ:newSQ.size,newSQI:newSQI.size,loop,
     mode:document.querySelector('input[name="opt"]:checked')?.value,profile:bikeProfile,
-    waypoints:wpts.map(w=>{const ll=w.marker.getLatLng();return{type:w.type,lat:ll.lat,lng:ll.lng,label:w.label||null};}),
+    waypoints:wpts.map(w=>{const ll=w.marker.getLatLng();return{type:w.type,lat:ll.lat,lng:ll.lng,label:w.label||null,name:w.name||null};}),
     coords:routeCoords.map(p=>[p.lat,p.lng,p.elev||0]),
     elevProfile:sameGeom?_routeMeta.elevProfile:null,surfaceProfile:sameGeom?_routeMeta.surfaceProfile:null};
   try{
@@ -2615,7 +2651,7 @@ async function openSavedRoute(id){
     if(radio&&!radio.checked){radio.checked=true;radio.onchange?.();}
     if(d.mode){const o=document.querySelector(`input[name="opt"][value="${d.mode}"]`);if(o)o.checked=true;}
     if(d.profile){const b=document.querySelector(`.bp-btn[onclick*="'${d.profile}'"]`);if(b)setBikeProf(d.profile,b);}
-    d.waypoints.forEach(w=>addWpt(L.latLng(w.lat,w.lng),w.type,w.label||undefined));
+    d.waypoints.forEach(w=>setWptName(addWpt(L.latLng(w.lat,w.lng),w.type,w.label||undefined),w.name));
     relabelWpts(); renderWL(); if(rLine){map.removeLayer(rLine);rLine=null;}
     await showRoute({geometry:{coordinates:d.coords.map(([la,ln,el])=>[ln,la,el])},distance:d.distance_km*1000,
       elevProfile:d.elev_profile,surfaceProfile:d.surface_profile},{loop});
@@ -2633,12 +2669,17 @@ const PROF_NAMES={standard:'Ogólny',fastbike:'Szosowy',gravel:'Gravel','rowery-
 function canShareGPX(){
   try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['<gpx/>'],'t.gpx',{type:'application/gpx+xml'})]}));}catch(e){return false;}
 }
+// Phones hand a file to another app only from an https page.
+function phoneOnHttp(){return !window.isSecureContext&&window.innerWidth<=768;}
 function openRoutes(){
   closeMobileMenu?.();
   g('routes-modal').hidden=false;
-  g('rt-help').innerHTML=canShareGPX()
-    ?tl('<b>Garmin Connect</b> otwiera menu udostępniania telefonu — wybierz <b>Connect</b> (Garmin Connect), a trasa zapisze się jako kurs i zsynchronizuje z licznikiem.',
-        '<b>Garmin Connect</b> opens the phone\'s share sheet — pick <b>Connect</b> (Garmin Connect) and the route is saved as a course and synced to your device.')
+  g('rt-help').innerHTML=phoneOnHttp()
+    ?tl('Ta strona jest otwarta przez <b>http</b>, a telefon przekazuje plik do aplikacji tylko przez <b>https</b>. Otwórz planer adresem https i tam wyślij trasę do <b>Garmin Connect</b>.',
+        'This page is open over <b>http</b>, and a phone can hand a file to an app only over <b>https</b>. Open the planner at its https address and send the route to <b>Garmin Connect</b> from there.')
+    :canShareGPX()
+    ?tl('<b>Garmin Connect</b> otwiera menu udostępniania. Na iPhonie stuknij <b>Zachowaj w Plikach</b>, otwórz plik w aplikacji <b>Pliki</b>, stuknij udostępnianie i wybierz <b>Connect</b>. Trasa zapisze się jako kurs i zsynchronizuje z licznikiem. Nazwy punktów widać dopiero po zapisaniu kursu i ponownym otwarciu.',
+        '<b>Garmin Connect</b> opens the share sheet. On an iPhone tap <b>Save to Files</b>, open the file in the <b>Files</b> app, tap share and pick <b>Connect</b>. The route is saved as a course and synced to your device. Point names appear only after you save the course and open it again.')
     :tl('Na tym urządzeniu <b>Garmin Connect</b> pobiera plik GPX i otwiera connect.garmin.com → Kursy → <b>Importuj</b>. Z telefonu trasa trafia od razu do aplikacji Garmin Connect.',
         'On this device <b>Garmin Connect</b> downloads the GPX and opens connect.garmin.com → Courses → <b>Import</b>. On a phone the route goes straight to the Garmin Connect app.');
   renderRoutes();
@@ -2662,6 +2703,7 @@ function prefetchGPX(ids){ // one at a time, quietly; only where the share sheet
     .finally(()=>{_gpxPrefetch=null;});
 }
 async function sendToGarmin(id,btn){
+  if(phoneOnHttp()){toast(tl('Wysyłka do Garmin Connect działa tylko przez adres https','Sending to Garmin Connect only works over https'));return;}
   if(!canShareGPX()){ // desktop: file + Garmin Connect's course import page
     try{
       const f=await fetchRouteGPX(id);
@@ -2956,7 +2998,7 @@ function onMapClick(e){
 //  roads at once (bike profile, no squares), like Strava's route builder.
 //  wpts[i]→wpts[i+1] is routeSegments[i]; taps queue up while a leg routes.
 // ═══════════════════════════════════════════════════════════════════════
-let _drawBusy=false, _drawFinish=false, _drawLast=null, drawPend=null;
+let _drawBusy=false, _drawFinish=false, _drawLast=null, drawPend=null, _drawRedo=[], _drawGuide=null, _wptPopT=0;
 function segKm(seg){
   if(seg.distance) return seg.distance/1000;
   let d=0; for(let i=1;i<seg.coords.length;i++) d+=haversine(seg.coords[i-1],seg.coords[i]);
@@ -2987,12 +3029,14 @@ function drawExit(){
   drawFinish();
 }
 function drawTap(ll){
+  if(Date.now()-_wptPopT<350) return; // this tap only closed the name popup
   const now=Date.now(), p=map.latLngToContainerPoint(ll);
   // The second tap of a double-tap zooms; don't also drop a point there.
   if(_drawLast&&now-_drawLast.t<600&&p.distanceTo(map.latLngToContainerPoint(_drawLast.ll))<30) return;
   _drawLast={t:now,ll};
   const last=wpts[wpts.length-1];
   if(last&&p.distanceTo(map.latLngToContainerPoint(last.marker.getLatLng()))<12) return; // same spot again
+  _drawRedo=[];
   drawAdd(ll);
 }
 function drawAdd(ll,avoid=null){
@@ -3006,14 +3050,31 @@ function drawToStart(){
   const s=wpts[0].marker.getLatLng();
   // Way back on other roads where possible (BRouter avoid on what's drawn).
   const avoid=routeCoords.filter((_,i,a)=>i%Math.ceil(a.length/1500)===0||i===a.length-1).map(p=>({lat:p.lat,lng:p.lng}));
+  _drawRedo=[];
   drawAdd(L.latLng(s.lat,s.lng),avoid);
 }
 function drawUndo(){
   if(!wpts.length) return;
-  map.removeLayer(wpts.pop().marker);
+  map.closePopup();
+  const w=wpts.pop(), ll=w.marker.getLatLng();
+  map.removeLayer(w.marker);
+  _drawRedo.push({lat:ll.lat,lng:ll.lng,name:w.name,label:w.label,avoid:w.avoid,seg:wpts.length?routeSegments[wpts.length-1]:null});
   if(routeSegments.length>Math.max(0,wpts.length-1)) routeSegments.length=Math.max(0,wpts.length-1);
   svCovData=null;
   drawTypes(); drawRefresh();
+}
+// Puts back the last undone point; its leg is reused unless the point before it has moved.
+function drawRedo(){
+  const r=_drawRedo.pop(); if(!r) return;
+  map.closePopup();
+  wpts.forEach(w=>{if(w.type==='end')w.type='mid';});
+  const w=addWpt(L.latLng(r.lat,r.lng),wpts.length?'end':'start',r.label||undefined);
+  if(r.avoid) w.avoid=r.avoid;
+  setWptName(w,r.name);
+  const prev=wpts[wpts.length-2];
+  if(r.seg&&prev&&routeSegments.length===wpts.length-2&&prev.marker.getLatLng().distanceTo(r.seg.coords[0])<2) routeSegments.push(r.seg);
+  svCovData=null;
+  drawTypes(); drawRefresh(); drawSync();
 }
 async function drawLeg(a,b,avoid){
   const r=await fetch('/api/route/leg',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -3030,8 +3091,9 @@ async function drawSync(){
   try{
     while(routeSegments.length<wpts.length-1){
       const i=routeSegments.length, a=wpts[i], b=wpts[i+1];
+      const from=a.marker.getLatLng(), to=b.marker.getLatLng();
       let leg;
-      try{ leg=await drawLeg(a.marker.getLatLng(),b.marker.getLatLng(),b.avoid); }
+      try{ leg=await drawLeg(from,to,b.avoid); }
       catch(e){
         if(e.message==='SESSION_EXPIRED'){toast('Sesja wygasła — zaloguj się ponownie');break;}
         if(wpts[i+1]===b){map.removeLayer(b.marker);wpts.splice(i+1,1);drawTypes();}
@@ -3039,6 +3101,7 @@ async function drawSync(){
         drawRefresh(); continue;
       }
       if(wpts[i]!==a||wpts[i+1]!==b||routeSegments.length!==i) continue; // undone meanwhile
+      if(!a.marker.getLatLng().equals(from)||!b.marker.getLatLng().equals(to)) continue; // dragged meanwhile
       routeSegments.push(leg);
       // Pins sit where the route really goes (snapped to the road).
       if(i===0) a.marker.setLatLng(leg.coords[0]);
@@ -3051,17 +3114,37 @@ async function drawSync(){
     if(_drawFinish&&mode!=='draw'){_drawFinish=false;drawFinish();}
   }
 }
+// Dashed guide to the neighbours while a pin is dragged; the rest of the route stays put.
+function drawGuide(marker){
+  const i=wpts.findIndex(w=>w.marker===marker); if(i<0) return;
+  const pts=wpts.slice(Math.max(0,i-1),i+2).map(w=>w.marker.getLatLng());
+  if(_drawGuide) _drawGuide.setLatLngs(pts);
+  else _drawGuide=L.polyline(pts,{color:'#ff4d4d',weight:3,opacity:.8,dashArray:'6 6',interactive:false,pane:'routePane'}).addTo(map);
+}
 // A dragged pin re-routes just its two legs (once those legs exist).
 async function drawRedrag(marker){
+  if(_drawGuide){map.removeLayer(_drawGuide);_drawGuide=null;}
   const i=wpts.findIndex(w=>w.marker===marker); if(i<0) return;
-  const legs=[i-1,i].filter(k=>k>=0&&k<routeSegments.length);
-  if(!legs.length){drawRefresh();return;}
+  const w=wpts[i];
+  const jobs=[i-1,i].filter(k=>k>=0&&k<routeSegments.length).map(k=>({a:wpts[k],b:wpts[k+1],from:wpts[k].marker.getLatLng(),to:wpts[k+1].marker.getLatLng()}));
+  if(!jobs.length){drawRefresh();return;}
   showLoad('Przeliczam odcinek…');
   try{
-    const res=await Promise.all(legs.map(k=>drawLeg(wpts[k].marker.getLatLng(),wpts[k+1].marker.getLatLng(),wpts[k+1].avoid)));
-    legs.forEach((k,j)=>{if(k<routeSegments.length) routeSegments[k]=res[j];});
+    const res=await Promise.all(jobs.map(j=>drawLeg(j.from,j.to,j.b.avoid)));
+    let snap=null;
+    jobs.forEach((j,n)=>{
+      const k=wpts.indexOf(j.a);
+      // Skip a leg whose ends moved meanwhile: that later drag re-routes it.
+      if(k<0||wpts[k+1]!==j.b||k>=routeSegments.length||!j.a.marker.getLatLng().equals(j.from)||!j.b.marker.getLatLng().equals(j.to)) return;
+      routeSegments[k]=res[n];
+      if(j.a===w) snap=res[n].coords[0]; else if(j.b===w) snap=res[n].coords[res[n].coords.length-1];
+    });
+    if(snap) marker.setLatLng(snap); // the pin sits on the road, like a tapped one
     svCovData=null;
-  }catch(e){toast(e.message==='SESSION_EXPIRED'?'Sesja wygasła — zaloguj się ponownie':'Nie da się tu dojechać');}
+  }catch(e){
+    if(marker._dragFrom){marker.setLatLng(marker._dragFrom);w.label=null;labelWpt(w);}
+    toast(e.message==='SESSION_EXPIRED'?'Sesja wygasła — zaloguj się ponownie':'Nie da się tu dojechać — punkt wrócił na miejsce');
+  }
   finally{hideLoad();drawRefresh();}
 }
 let _drawPrvT=null;
@@ -3097,6 +3180,7 @@ function drawRefresh(){
   g('db-km').textContent=km.toFixed(1)+' km';
   g('db-spin').hidden=!(_drawBusy&&routeSegments.length<wpts.length-1);
   g('db-undo').disabled=!wpts.length;
+  g('db-redo').disabled=!_drawRedo.length;
   g('db-loop').disabled=wpts.length<2;
 }
 // Join the legs into one route and hand it to showRoute, so it gets the full
@@ -3165,10 +3249,11 @@ function addWpt(ll,type,label){
   const mc2=wpts.filter(w=>w.type==='mid').length;
   const lbl=type==='start'?'S':type==='end'?'E':String(mc2+1);
   const clr=type==='start'?'#00e676':type==='end'?'#ff6b35':'#58a6ff';
-  const icon=L.divIcon({className:'',html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+  const icon=L.divIcon({className:'',html:`<div class="wp-pin" style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
   const marker=L.marker(ll,{icon,draggable:true}).addTo(map);
-  marker.on('dragstart',()=>{clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
-  marker.on('drag',()=>{previewRoute();});
+  marker.on('click',()=>{const w=wpts.find(x=>x.marker===marker);if(w&&!svMode)openWptName(w);});
+  marker.on('dragstart',()=>{map.closePopup();if(mode==='draw'){marker._dragFrom=marker.getLatLng();drawGuide(marker);return;}clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
+  marker.on('drag',()=>{if(mode==='draw')drawGuide(marker);else previewRoute();});
   marker.on('dragend',async()=>{
     if(rLine){map.removeLayer(rLine);rLine=null;}
     const dw=wpts.find(w=>w.marker===marker); if(dw){dw.label=null;labelWpt(dw);}
@@ -3178,12 +3263,42 @@ function addWpt(ll,type,label){
     else if(routeSegments.length>0&&wpts.length>=2){await recalcDraggedWpt(i);}
     else{previewRoute();}
   });
-  marker.on('contextmenu',()=>{const i=wpts.findIndex(w=>w.marker===marker);if(i>=0){map.removeLayer(marker);wpts.splice(i,1);renderWL();previewRoute();}});
+  marker.on('contextmenu',()=>{const i=wpts.findIndex(w=>w.marker===marker);if(i>=0&&mode==='draw'){openWptName(wpts[i]);return;}if(i>=0){map.removeLayer(marker);wpts.splice(i,1);renderWL();previewRoute();}});
   const wp={type,marker,label:label||null};
   if(!label) labelWpt(wp);
   if(type==='start') wpts.unshift(wp);
   else if(type==='end') wpts.push(wp);
   else{const ei=wpts.findIndex(w=>w.type==='end');if(ei>=0)wpts.splice(ei,0,wp);else wpts.push(wp);}
+  return wp;
+}
+
+const WPT_NAME_MAX=20;
+// The rider's own name for a point: goes into the GPX as <wpt>, unlike the
+// automatic street label, and survives moving the pin.
+function setWptName(w,name){
+  w.name=String(name||'').trim().slice(0,WPT_NAME_MAX)||null;
+  w.marker.unbindTooltip();
+  if(w.name) w.marker.bindTooltip(esc(w.name),{permanent:true,direction:'bottom',offset:[0,12],className:'wn-tip'});
+}
+function openWptName(w){
+  const box=L.DomUtil.create('div','wn-box');
+  box.innerHTML=`<div class="wn-t">Nazwa punktu</div>
+    <div class="wn-row"><input maxlength="${WPT_NAME_MAX}" enterkeyhint="done" placeholder="np. Kawa" value="${esc(w.name||'')}"><button type="button">OK</button></div>
+    <div class="wn-h">Trafi do pliku GPX dla Garmina. Żeby przesunąć punkt, przeciągnij pinezkę.</div>`;
+  const inp=box.querySelector('input');
+  let cancel=false;
+  const pop=L.popup({offset:[0,-10],maxWidth:240,minWidth:210}).setLatLng(w.marker.getLatLng()).setContent(box).openOn(map);
+  pop.on('remove',()=>{
+    _wptPopT=Date.now();
+    if(!cancel&&wpts.includes(w)){setWptName(w,inp.value);renderWL();}
+  });
+  box.querySelector('button').onclick=()=>map.closePopup(pop);
+  inp.onkeydown=e=>{
+    e.stopPropagation();
+    if(e.key==='Enter') map.closePopup(pop);
+    if(e.key==='Escape'){cancel=true;map.closePopup(pop);}
+  };
+  inp.focus({preventScroll:true});
 }
 
 async function searchAddress(type){
@@ -3220,10 +3335,35 @@ function syncAddrFields(){
     inp.value=w.label==='Dom'?t('Dom')+(_homeAddr?' · '+_homeAddr:''):(w.label||`${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}`);
   }
 }
+function wptRowText(w){
+  const ll=w.marker.getLatLng();
+  return w.name?`<b>${esc(w.name)}</b>`:w.label?esc(w.label):`<span style="color:var(--tx3)">${ll.lat.toFixed(4)}°N ${ll.lng.toFixed(4)}°E</span>`;
+}
+// Rename in place: only this row changes, so a tap on another row's button still lands.
+function renameWptI(i){
+  const w=wpts[i], box=g('wl').children[i]?.querySelector('.wc');
+  if(!w||!box||box.querySelector('input')) return;
+  const inp=document.createElement('input');
+  inp.maxLength=WPT_NAME_MAX; inp.enterKeyHint='done'; inp.placeholder='Nazwa punktu'; inp.value=w.name||'';
+  box.replaceChildren(inp);
+  let cancel=false;
+  inp.onkeydown=e=>{
+    if(e.key==='Enter') inp.blur();
+    if(e.key==='Escape'){cancel=true;inp.blur();}
+  };
+  inp.onblur=()=>{
+    if(!wpts.includes(w)) return;
+    if(!cancel) setWptName(w,inp.value);
+    box.innerHTML=wptRowText(w);
+  };
+  inp.focus({preventScroll:true});
+}
+window.renameWptI=renameWptI;
 function renderWL(){
   refreshMobPeek();
   syncAddrFields();
   const el=g('wl');
+  if(el.querySelector('input:focus')) return; // a rename is being typed
   if(!wpts.length){el.innerHTML='<div class="hint">Wybierz Start i kliknij mapę</div>';return;}
   let mc2=0;
   el.innerHTML=wpts.map((w,i)=>{
@@ -3231,8 +3371,7 @@ function renderWL(){
     let tc,tl;
     if(w.type==='start'){tc='ws';tl='S';}else if(w.type==='end'){tc='we';tl='E';}else{mc2++;tc='wm';tl=mc2;}
     const coords=`${ll.lat.toFixed(4)}°N ${ll.lng.toFixed(4)}°E`;
-    const txt=w.label?esc(w.label):`<span style="color:var(--tx3)">${coords}</span>`;
-    return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc" title="${coords}">${txt}</div><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
+    return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc" title="${coords}" onclick="renameWptI(${i})">${wptRowText(w)}</div><button class="wren" onclick="renameWptI(${i})" title="Zmień nazwę"><i class="ti ti-pencil"></i></button><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
   }).join('');
 }
 
@@ -3243,7 +3382,7 @@ function relabelWpts(){
     const lbl=t==='start'?'S':t==='end'?'E':String(++mc);
     const clr=t==='start'?'#00e676':t==='end'?'#ff6b35':'#58a6ff';
     w.marker.setIcon(L.divIcon({className:'',
-      html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
+      html:`<div class="wp-pin" style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
       iconSize:[24,24],iconAnchor:[12,12]}));
   });
 }
@@ -3313,11 +3452,12 @@ async function addViaPoint(latlng,segIdx){
   const lbl=String(mc2+1);
   const clr='#58a6ff';
   const icon=L.divIcon({className:'',
-    html:`<div style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
+    html:`<div class="wp-pin" style="width:24px;height:24px;background:${clr};border:2px solid #0d1117;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#0d1117;font-family:'Space Grotesk',sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.6);cursor:grab">${lbl}</div>`,
     iconSize:[24,24],iconAnchor:[12,12]});
   const marker=L.marker(latlng,{icon,draggable:true}).addTo(map);
-  marker.on('dragstart',()=>{clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
-  marker.on('drag',()=>{previewRoute();});
+  marker.on('click',()=>{const w=wpts.find(x=>x.marker===marker);if(w&&!svMode)openWptName(w);});
+  marker.on('dragstart',()=>{map.closePopup();if(mode==='draw'){marker._dragFrom=marker.getLatLng();drawGuide(marker);return;}clearLyr('rt-red');clearLyr('rt-blue');previewRoute();});
+  marker.on('drag',()=>{if(mode==='draw')drawGuide(marker);else previewRoute();});
   marker.on('dragend',async()=>{
     if(rLine){map.removeLayer(rLine);rLine=null;}
     const dw=wpts.find(w=>w.marker===marker); if(dw){dw.label=null;labelWpt(dw);}
@@ -3330,6 +3470,7 @@ async function addViaPoint(latlng,segIdx){
   marker.on('contextmenu',async()=>{
     const i=wpts.findIndex(w=>w.marker===marker);
     if(i<0) return;
+    if(mode==='draw'){openWptName(wpts[i]);return;} // a long press on iOS must not delete the pin
     map.removeLayer(marker);
     wpts.splice(i,1);
     const rmSeg=Math.max(0,i-1);
@@ -3551,6 +3692,7 @@ function onAuthSuccess(){
   g('strava-pills').style.display=stravaOk?'flex':'none';
   // Sync button: visible only when connected
   g('sync-btn').disabled=!currentUser.strava_connected;
+  applyLayerPrefs(currentUser.layers);
   loadTilesFromDB();
   loadSavedRoutes();
   startSyncWatch();

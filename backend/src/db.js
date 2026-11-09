@@ -262,6 +262,9 @@ db.exec(SCHEMA_SQL);
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_garmin_key ON users(garmin_key)"); } catch(_) {}
 })();
 
+// Which map layers the user keeps on (JSON {name: bool}; NULL = app defaults)
+try { db.exec("ALTER TABLE users ADD COLUMN map_layers TEXT"); } catch(_) {}
+
 // ── Strava heatmap session cookies (feature removed) ─────────────────────────
 // The heatmap proxy used to store a user's Strava session cookie; wipe any
 // that are left. The columns stay so old databases still open.
@@ -283,6 +286,7 @@ const q = {
   updateLastLogin:  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?"),
   updatePassHash:   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
   updateHome:       db.prepare("UPDATE users SET home_lat = ?, home_lng = ? WHERE id = ?"),
+  setMapLayers:     db.prepare("UPDATE users SET map_layers = ? WHERE id = ?"),
   setGarminKey:     db.prepare("UPDATE users SET garmin_key = ? WHERE id = ?"),
   userByGarminKey:  db.prepare("SELECT id FROM users WHERE garmin_key = ?"),
   deleteUser:       db.prepare("DELETE FROM users WHERE id = ?"),
@@ -358,6 +362,7 @@ module.exports = {
   updateLastLogin(id)      { q.updateLastLogin.run(id); },
   updatePasswordHash(id, h){ q.updatePassHash.run(h, id); },
   setHomePoint(id, lat, lng){ q.updateHome.run(lat, lng, id); },
+  setMapLayers(id, json)    { q.setMapLayers.run(json, id); },
   setGarminKey(id, key)     { q.setGarminKey.run(key, id); },
   userIdByGarminKey(key)    { return key ? q.userByGarminKey.get(key)?.id ?? null : null; },
   // Older databases were migrated without ON DELETE CASCADE on some tables,
