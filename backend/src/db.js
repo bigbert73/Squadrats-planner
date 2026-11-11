@@ -6,6 +6,7 @@ const Database = require('better-sqlite3');
 const path     = require('path');
 const fs       = require('fs');
 const bcrypt   = require('bcryptjs');
+const crypto   = require('crypto');
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/squadrats.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -108,7 +109,7 @@ const SCHEMA_SQL = `
 
 function generatePassword(len = 14) {
   const ch = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
-  return Array.from({ length: len }, () => ch[Math.floor(Math.random() * ch.length)]).join('');
+  return Array.from({ length: len }, () => ch[crypto.randomInt(ch.length)]).join('');
 }
 
 function runMigration() {
@@ -262,8 +263,33 @@ db.exec(SCHEMA_SQL);
   try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS users_garmin_key ON users(garmin_key)"); } catch(_) {}
 })();
 
+// Sessions carry this number; raising it (new password) ends every session
+// issued before.
+try { db.exec("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"); } catch(_) {}
+
 // Which map layers the user keeps on (JSON {name: bool}; NULL = app defaults)
 try { db.exec("ALTER TABLE users ADD COLUMN map_layers TEXT"); } catch(_) {}
+
+// Which Strava API application issued a rider's tokens: the shared one of this
+// installation or the rider's own. A token can only be refreshed by the
+// application that issued it. NULL = issued before this column (own keys).
+try { db.exec("ALTER TABLE strava_tokens ADD COLUMN client_id TEXT"); } catch(_) {}
+
+// Saved routes: turns for spoken navigation, and a public link (random token;
+// share_trim_m metres are cut from both ends of what the link shows, because a
+// route usually starts at the rider's front door)
+try { db.exec("ALTER TABLE saved_routes ADD COLUMN hints TEXT"); } catch(_) {}
+try { db.exec("ALTER TABLE saved_routes ADD COLUMN share_token TEXT"); } catch(_) {}
+try { db.exec("ALTER TABLE saved_routes ADD COLUMN share_trim_m INTEGER NOT NULL DEFAULT 0"); } catch(_) {}
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_saved_routes_share ON saved_routes(share_token) WHERE share_token IS NOT NULL");
+
+// "Forgot my password": only the hash of the token from the e-mail is kept
+db.exec(`CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+)`);
 
 // ── Strava heatmap session cookies (feature removed) ─────────────────────────
 // The heatmap proxy used to store a user's Strava session cookie; wipe any
@@ -284,7 +310,7 @@ const q = {
   updateRole:       db.prepare("UPDATE users SET role = ? WHERE id = ?"),
   updateStrava:     db.prepare("UPDATE users SET strava_client_id = ?, strava_client_secret = ? WHERE id = ?"),
   updateLastLogin:  db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?"),
-  updatePassHash:   db.prepare("UPDATE users SET password_hash = ? WHERE id = ?"),
+  updatePassHash:   db.prepare("UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?"),
   updateHome:       db.prepare("UPDATE users SET home_lat = ?, home_lng = ? WHERE id = ?"),
   setMapLayers:     db.prepare("UPDATE users SET map_layers = ? WHERE id = ?"),
   setGarminKey:     db.prepare("UPDATE users SET garmin_key = ? WHERE id = ?"),
@@ -295,7 +321,9 @@ const q = {
   insertOAuthUser:  db.prepare("INSERT INTO users (username,email,password_hash,role,oauth_provider,oauth_id) VALUES (?,?,NULL,?,?,?)"),
   linkOAuth:        db.prepare("UPDATE users SET oauth_provider=?, oauth_id=? WHERE id=?"),
 
-  upsertToken:      db.prepare(`INSERT INTO strava_tokens (user_id,access_token,refresh_token,expires_at,athlete_id,athlete_json) VALUES (@user_id,@access_token,@refresh_token,@expires_at,@athlete_id,@athlete_json) ON CONFLICT(user_id) DO UPDATE SET access_token=excluded.access_token,refresh_token=excluded.refresh_token,expires_at=excluded.expires_at,athlete_id=excluded.athlete_id,athlete_json=excluded.athlete_json`),
+  upsertToken:      db.prepare(`INSERT INTO strava_tokens (user_id,access_token,refresh_token,expires_at,athlete_id,athlete_json,client_id) VALUES (@user_id,@access_token,@refresh_token,@expires_at,@athlete_id,@athlete_json,@client_id) ON CONFLICT(user_id) DO UPDATE SET access_token=excluded.access_token,refresh_token=excluded.refresh_token,expires_at=excluded.expires_at,athlete_id=excluded.athlete_id,athlete_json=excluded.athlete_json,client_id=excluded.client_id`),
+  // the account a Strava athlete is connected to (the one used last, if several)
+  userByAthlete:    db.prepare("SELECT u.* FROM strava_tokens t JOIN users u ON u.id = t.user_id WHERE t.athlete_id = ? ORDER BY u.last_login DESC, u.id LIMIT 1"),
   getToken:         db.prepare("SELECT * FROM strava_tokens WHERE user_id = ?"),
   clearToken:       db.prepare("DELETE FROM strava_tokens WHERE user_id = ?"),
 
@@ -320,15 +348,23 @@ const q = {
   addBlockedSQI:    db.prepare("INSERT OR IGNORE INTO blocked_sqi (user_id,tx,ty) VALUES (?,?,?)"),
   delBlockedSQI:    db.prepare("DELETE FROM blocked_sqi WHERE user_id = ? AND tx = ? AND ty = ?"),
   // once collected after all, a blocked tile stops being blocked
-  listRoutes:       db.prepare("SELECT id,name,created_at,distance_km,new_sq,new_sqi,mode,profile,is_loop FROM saved_routes WHERE user_id = ? ORDER BY created_at DESC, id DESC"),
+  listRoutes:       db.prepare("SELECT id,name,created_at,distance_km,new_sq,new_sqi,mode,profile,is_loop,share_token,share_trim_m FROM saved_routes WHERE user_id = ? ORDER BY created_at DESC, id DESC"),
   getRoute:         db.prepare("SELECT * FROM saved_routes WHERE user_id = ? AND id = ?"),
-  insertRoute:      db.prepare(`INSERT INTO saved_routes (user_id,name,distance_km,new_sq,new_sqi,mode,profile,is_loop,waypoints,coords,elev_profile,surface_profile)
-                                VALUES (@user_id,@name,@distance_km,@new_sq,@new_sqi,@mode,@profile,@is_loop,@waypoints,@coords,@elev_profile,@surface_profile)`),
+  insertRoute:      db.prepare(`INSERT INTO saved_routes (user_id,name,distance_km,new_sq,new_sqi,mode,profile,is_loop,waypoints,coords,elev_profile,surface_profile,hints)
+                                VALUES (@user_id,@name,@distance_km,@new_sq,@new_sqi,@mode,@profile,@is_loop,@waypoints,@coords,@elev_profile,@surface_profile,@hints)`),
+  shareRoute:       db.prepare("UPDATE saved_routes SET share_token = ?, share_trim_m = ? WHERE user_id = ? AND id = ?"),
+  routeByShare:     db.prepare("SELECT id,name,created_at,distance_km,profile,is_loop,coords,share_trim_m FROM saved_routes WHERE share_token = ?"),
+  setEmail:         db.prepare("UPDATE users SET email = ? WHERE id = ?"),
+  addReset:         db.prepare("INSERT INTO password_resets (token_hash,user_id,expires_at,created_at) VALUES (?,?,?,?)"),
+  getReset:         db.prepare("SELECT * FROM password_resets WHERE token_hash = ?"),
+  delResetsOf:      db.prepare("DELETE FROM password_resets WHERE user_id = ?"),
+  delOldResets:     db.prepare("DELETE FROM password_resets WHERE expires_at < ?"),
+  countResetsOf:    db.prepare("SELECT COUNT(*) n FROM password_resets WHERE user_id = ? AND created_at > ?"),
   deleteRoute:      db.prepare("DELETE FROM saved_routes WHERE user_id = ? AND id = ?"),
   renameRoute:      db.prepare("UPDATE saved_routes SET name = ? WHERE user_id = ? AND id = ?"),
   routeCoords:      db.prepare("SELECT coords FROM saved_routes WHERE user_id = ? AND id = ?"),
 
-  usersWithStrava:  db.prepare("SELECT t.user_id, s.at AS last_at FROM strava_tokens t LEFT JOIN sync_status s ON s.user_id = t.user_id"),
+  usersWithStrava:  db.prepare("SELECT t.user_id, t.client_id, s.at AS last_at FROM strava_tokens t LEFT JOIN sync_status s ON s.user_id = t.user_id"),
   getSyncStatus:    db.prepare("SELECT * FROM sync_status WHERE user_id = ?"),
   setSyncStatus:    db.prepare(`INSERT INTO sync_status (user_id,source,at,result,error) VALUES (?,?,?,?,?)
                                 ON CONFLICT(user_id) DO UPDATE SET source=excluded.source,at=excluded.at,result=excluded.result,error=excluded.error`),
@@ -368,7 +404,7 @@ module.exports = {
   // Older databases were migrated without ON DELETE CASCADE on some tables,
   // so remove every row that belongs to the user explicitly
   deleteUser: db.transaction((id) => {
-    for (const t of ['strava_tokens', 'activities', 'tiles_sq', 'tiles_sqi', 'blocked_sqi', 'saved_routes', 'sync_status']) {
+    for (const t of ['strava_tokens', 'activities', 'tiles_sq', 'tiles_sqi', 'blocked_sqi', 'saved_routes', 'sync_status', 'password_resets']) {
       db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).run(id);
     }
     q.deleteUser.run(id);
@@ -383,7 +419,14 @@ module.exports = {
 
   // Strava tokens
   getToken(userId)         { return q.getToken.get(userId); },
-  saveToken(userId, t)     { q.upsertToken.run({ user_id: userId, ...t }); },
+  saveToken(userId, t)     { q.upsertToken.run({ client_id: null, user_id: userId, ...t }); },
+  getUserByAthlete(id)     { return id == null ? null : q.userByAthlete.get(id) || null; },
+  // does another account hold tokens of the same athlete from the same application?
+  athleteSharedByOthers(userId, tok) {
+    if (!tok || tok.athlete_id == null) return false;
+    return !!db.prepare("SELECT 1 FROM strava_tokens WHERE athlete_id = ? AND user_id <> ? AND IFNULL(client_id,'') = IFNULL(?,'') LIMIT 1")
+      .get(tok.athlete_id, userId, tok.client_id ?? null);
+  },
   clearToken(userId)       { q.clearToken.run(userId); },
 
   // Activities
@@ -410,6 +453,14 @@ module.exports = {
   getRoute(userId, id)       { return q.getRoute.get(userId, id); },
   insertRoute(userId, r)     { return q.insertRoute.run({ user_id: userId, ...r }).lastInsertRowid; },
   deleteRoute(userId, id)    { return q.deleteRoute.run(userId, id).changes > 0; },
+  // token null = the link stops working
+  shareRoute(userId, id, token, trimM) { return q.shareRoute.run(token, trimM | 0, userId, id).changes > 0; },
+  routeByShare(token)        { return token ? q.routeByShare.get(token) : undefined; },
+  setEmail(id, email)        { q.setEmail.run(email, id); },
+  addReset(hash, userId, expiresAt) { q.delOldResets.run(Date.now()); q.addReset.run(hash, userId, expiresAt, Date.now()); },
+  getReset(hash)             { const r = q.getReset.get(hash); return r && r.expires_at > Date.now() ? r : null; },
+  clearResets(userId)        { q.delResetsOf.run(userId); },
+  recentResets(userId, sinceMs) { return q.countResetsOf.get(userId, Date.now() - sinceMs).n; },
   renameRoute(userId, id, n) { return q.renameRoute.run(n, userId, id).changes > 0; },
   routeCoords(userId, id)    { const r = q.routeCoords.get(userId, id); return r ? JSON.parse(r.coords) : null; },
 

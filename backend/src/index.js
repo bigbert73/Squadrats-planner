@@ -11,32 +11,6 @@ const jwt          = require('jsonwebtoken');
 const bcrypt       = require('bcryptjs');
 const { rateLimit } = require('express-rate-limit');
 
-const app  = express();
-// Behind a reverse proxy: how many proxies sit in front of the backend (OpenShift: router + nginx).
-if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
-const PORT = process.env.PORT || 3000;
-
-app.use(compression());
-
-const JWT_SECRET = process.env.JWT_SECRET || (() => {
-  console.warn('\n⚠️  JWT_SECRET nie jest ustawiony — używam domyślnego (NIEBEZPIECZNE w produkcji)!\n');
-  return 'dev-squadrats-secret-change-in-production';
-})();
-
-const COOKIE_OPTS = {
-  httpOnly: true,
-  secure:   process.env.COOKIE_SECURE === 'true',
-  sameSite: 'lax',
-  maxAge:   30 * 24 * 60 * 60 * 1000, // 30 days
-};
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
-const FRONTEND = path.join(__dirname, '../../frontend');
-app.use(express.static(FRONTEND));
-
 const db     = require('./db');
 const strava = require('./strava');
 const tiles  = require('./tiles');
@@ -48,34 +22,154 @@ const priority = require('./priority');
 const photos = require('./photos');
 const mapillary = require('./mapillary');
 const oauth  = require('./oauth');
+const apple  = require('./apple');
+const mail   = require('./mail');
+const weather = require('./weather');
+const statshunters = require('./statshunters');
 const axios  = require('axios');
 const crypto = require('crypto');
+
+const app  = express();
+app.disable('x-powered-by');
+// Behind a reverse proxy: how many proxies sit in front of the backend (OpenShift: router + nginx).
+if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
+const PORT = process.env.PORT || 3000;
+
+// A rejected promise in an async handler would otherwise be an unhandled
+// rejection, which ends the process — one bad request would log everyone
+// out of a running sync or route calculation. Every handler registered below
+// hands its errors to the error middleware at the end of this file instead.
+for (const m of ['get', 'post', 'put', 'patch', 'delete']) {
+  const register = app[m].bind(app);
+  app[m] = (route, ...handlers) => register(route, ...handlers.map(h => (typeof h !== 'function' || h.length > 3) ? h
+    : function (req, res, next) {
+      try { const r = h(req, res, next); if (r && typeof r.catch === 'function') r.catch(next); }
+      catch (e) { next(e); }
+    }));
+}
+process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e));
+process.on('uncaughtException', (e) => console.error('[uncaughtException]', e));
+
+app.use(compression());
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
+  // A page of another site must not be able to make the browser change data
+  // here with the visitor's session (the cookie is SameSite=Lax as well).
+  // The one exception is Apple's answer to "Sign in with Apple", which Apple
+  // delivers as a form POST from its own site; it changes nothing by itself
+  // (see /auth/apple/callback).
+  if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['sec-fetch-site'] === 'cross-site'
+      && !(req.method === 'POST' && req.path === '/auth/apple/callback'))
+    return res.status(403).json({ error: 'Żądanie z innej strony' });
+  next();
+});
+
+// Session signing key. Without JWT_SECRET in the environment a random key is
+// created once and kept next to the database (data/ is not in the repository),
+// so sessions survive restarts and there is no shared default to forge them with.
+function loadJwtSecret() {
+  const file = path.join(path.dirname(process.env.DB_PATH || path.join(__dirname, '../../data/squadrats.db')), '.jwt-secret');
+  try { const s = fs.readFileSync(file, 'utf8').trim(); if (s.length >= 32) return s; } catch {}
+  const s = crypto.randomBytes(48).toString('hex');
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, s + '\n', { mode: 0o600 });
+    console.log(`[auth] JWT_SECRET nie jest ustawiony: utworzono losowy klucz sesji (${file})`);
+  } catch (e) {
+    console.warn(`[auth] JWT_SECRET nie jest ustawiony i nie udało się zapisać klucza (${e.message}): sesje wygasną przy restarcie`);
+  }
+  return s;
+}
+const JWT_SECRET = process.env.JWT_SECRET || loadJwtSecret();
+
+const COOKIE_OPTS = {
+  httpOnly: true,
+  secure:   process.env.COOKIE_SECURE === 'true',
+  sameSite: 'lax',
+  maxAge:   30 * 24 * 60 * 60 * 1000, // 30 days
+};
+
+app.use(cookieParser());
+
+// Who is asking, from the session cookie: { userId, v } or null. Checks the
+// signature only; requireAuth also checks that the account still exists.
+function sessionOf(req) {
+  if (req._session !== undefined) return req._session;
+  let s = null;
+  const token = req.cookies?.token;
+  if (typeof token === 'string' && token) {
+    try {
+      const d = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+      // OAuth state tokens are signed with the same key but carry a purpose
+      if (Number.isInteger(d.userId) && !d.p) s = { userId: d.userId, v: d.v | 0 };
+    } catch {}
+  }
+  return (req._session = s);
+}
+function issueSession(req, res, user) {
+  res.cookie('token', jwt.sign({ userId: user.id, v: user.token_version | 0 }, JWT_SECRET, { expiresIn: '30d' }), COOKIE_OPTS);
+}
+
+// Request bodies: small for anyone not logged in (login and registration are
+// a few hundred bytes); a route with its geometry needs a few MB, a GPX file more.
+const jsonSmall = express.json({ limit: '64kb' }), jsonMid = express.json({ limit: '8mb' }), jsonBig = express.json({ limit: '30mb' });
+app.use((req, res, next) => {
+  if (!sessionOf(req)) return jsonSmall(req, res, next);
+  return (req.path === '/api/gpx/import' ? jsonBig : jsonMid)(req, res, next);
+});
+
+const FRONTEND = path.join(__dirname, '../../frontend');
+app.use(express.static(FRONTEND));
+
+// ── Input checks ──────────────────────────────────────────────────────────────
+
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+// A position usable on the tile grid (Web Mercator ends at ±85.05°)
+const okPt = (p) => !!p && typeof p === 'object' && isNum(p.lat) && isNum(p.lng) && Math.abs(p.lat) <= 85.05 && Math.abs(p.lng) <= 180;
+const cleanPts = (arr, max) => (Array.isArray(arr) ? arr : []).filter(okPt).slice(0, max).map(p => ({ lat: p.lat, lng: p.lng }));
+const text = (v, max) => (typeof v === 'string' ? v : '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
+const BIKE_PROFILES = new Set(['standard', 'fastbike', 'gravel', 'rowery-pl', 'safety', 'mtb', 'trekking', 'foot', 'run']);
+// The name the app shows (header, browser tab, installed icon, e-mails, GPX).
+// "Squadrats" is somebody else's trademark: set APP_NAME to your own.
+const APP_NAME = text(process.env.APP_NAME, 60) || 'Squadrats Route Planner';
+const APP_SHORT_NAME = text(process.env.APP_SHORT_NAME, 14) || (APP_NAME.length <= 14 ? APP_NAME : APP_NAME.split(/\s+/)[0].slice(0, 14));
+// The address people reach the app at, for links that leave it (e-mail).
+// Never taken from the request: its Host header is whatever the sender wrote.
+const PUBLIC_BASE = (process.env.APP_BASE_URL || oauth.APP_BASE).replace(/\/+$/, '');
+const sha256 = (v) => crypto.createHash('sha256').update(v).digest('hex');
+const N_SQI = 2 ** 17;
+const okTile = (x, y) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < N_SQI && y < N_SQI;
 
 // ── Auth middleware ───────────────────────────────────────────────────────────
 
 function requireAuth(req, res, next) {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ error: 'Nie zalogowany' });
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.userId;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Nieprawidłowy token' });
+  const s = sessionOf(req);
+  if (!s) return res.status(401).json({ error: req.cookies?.token ? 'Nieprawidłowy token' : 'Nie zalogowany' });
+  const user = db.getUserById(s.userId);
+  // account deleted, or password changed on another device since this session began
+  if (!user || (user.token_version | 0) !== s.v) {
+    res.clearCookie('token');
+    return res.status(401).json({ error: 'Sesja wygasła. Zaloguj się ponownie.' });
   }
+  req.userId = user.id;
+  req.user = user;
+  next();
 }
 
 function requireAdmin(req, res, next) {
   requireAuth(req, res, () => {
-    const user = db.getUserById(req.userId);
-    if (!user || user.role !== 'admin') return res.status(403).json({ error: 'Tylko administrator' });
-    req.user = user;
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Tylko administrator' });
     next();
   });
 }
 
 function safeUser(user) {
   const tok = db.getToken(user.id);
+  const own = strava.ownCreds(user);
   return {
     id:                user.id,
     username:          user.username,
@@ -83,7 +177,11 @@ function safeUser(user) {
     role:              user.role,
     has_password:      !!user.password_hash,
     oauth_provider:    user.oauth_provider || null,
-    strava_configured: !!(user.strava_client_id && user.strava_client_secret),
+    // can connect: with the shared application of this installation or own keys
+    strava_configured: !!strava.credsFor(user),
+    strava_shared:     !!strava.appCreds(),
+    // keys of their own, other than the shared application's
+    strava_own_keys:   !!own && own.id !== strava.appCreds()?.id,
     strava_client_id:  user.strava_client_id,
     created_at:        user.created_at,
     last_login:        user.last_login,
@@ -116,44 +214,113 @@ const loginLimiter = rateLimit({
 // ── Auth routes ───────────────────────────────────────────────────────────────
 
 const PASSWORD_POLICY = /^(?=.*[0-9]).{8,}$/; // min 8 znaków + co najmniej 1 cyfra
+const okPassword = (p) => typeof p === 'string' && p.length <= 200 && PASSWORD_POLICY.test(p);
+// Letters, digits and . _ - (a space inside is fine); shown to the admin and
+// usable as a login, so no markup, no control characters, no e-mail look-alikes.
+const USERNAME_RE = /^[\p{L}\p{N}](?:[\p{L}\p{N}._ -]{1,30})[\p{L}\p{N}._-]$/u;
+const EMAIL_RE = /^[^\s@<>"']{1,64}@[^\s@<>"']{1,180}\.[^\s@<>"'.]{2,}$/;
+// Compared against when the account does not exist or has no password, so the
+// answer takes as long as a real check.
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(12).toString('hex'), 10);
 
 app.post('/api/auth/register', registerLimiter, async (req, res) => {
-  const { username, password, email, strava_client_id, strava_client_secret } = req.body;
-  if (!username?.trim() || !password) return res.status(400).json({ error: 'Nazwa użytkownika i hasło są wymagane' });
-  if (username.trim().length < 3)     return res.status(400).json({ error: 'Nazwa użytkownika min. 3 znaki' });
-  if (!PASSWORD_POLICY.test(password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
-
-  if (db.getUserByUsername(username.trim())) return res.status(409).json({ error: 'Nazwa użytkownika jest zajęta' });
-  if (email && db.getUserByEmail(email))     return res.status(409).json({ error: 'Email jest już zarejestrowany' });
-
-  try {
-    const hash   = await bcrypt.hash(password, 10);
-    const result = db.createUser(username.trim(), hash, email?.trim() || null);
-    const userId = result.lastInsertRowid;
-    if (strava_client_id && strava_client_secret) {
-      db.updateStravaCredentials(userId, strava_client_id.trim(), strava_client_secret.trim());
-    }
-    db.updateLastLogin(userId);
-    const user  = db.getUserById(userId);
-    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
-    res.cookie('token', token, COOKIE_OPTS);
-    res.json({ user: safeUser(user) });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  const b = req.body || {};
+  if (typeof b.username !== 'string' || typeof b.password !== 'string' || !b.username.trim() || !b.password)
+    return res.status(400).json({ error: 'Nazwa użytkownika i hasło są wymagane' });
+  const username = b.username.trim().normalize('NFC');
+  if (username.length < 3)  return res.status(400).json({ error: 'Nazwa użytkownika min. 3 znaki' });
+  if (username.length > 32) return res.status(400).json({ error: 'Nazwa użytkownika maks. 32 znaki' });
+  if (!USERNAME_RE.test(username)) return res.status(400).json({ error: 'Nazwa użytkownika: tylko litery, cyfry, kropka, myślnik i podkreślenie' });
+  if (!okPassword(b.password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
+  let email = null;
+  if (b.email !== undefined && b.email !== null && b.email !== '') {
+    if (typeof b.email !== 'string' || b.email.length > 254 || !EMAIL_RE.test(b.email.trim())) return res.status(400).json({ error: 'Nieprawidłowy adres e-mail' });
+    email = b.email.trim();
   }
+  for (const k of ['strava_client_id', 'strava_client_secret'])
+    if (b[k] !== undefined && b[k] !== null && typeof b[k] !== 'string') return res.status(400).json({ error: 'Nieprawidłowe dane Strava API' });
+  const sid = text(b.strava_client_id, 40), ssec = text(b.strava_client_secret, 100);
+  if (sid && !/^\d{1,12}$/.test(sid)) return res.status(400).json({ error: 'Client ID ze Stravy to sama liczba' });
+
+  if (db.getUserByUsername(username) || db.getUserByEmail(username)) return res.status(409).json({ error: 'Nazwa użytkownika jest zajęta' });
+  if (email && (db.getUserByEmail(email) || db.getUserByUsername(email))) return res.status(409).json({ error: 'Email jest już zarejestrowany' });
+
+  const hash = await bcrypt.hash(b.password, 10);
+  let userId;
+  try {
+    userId = db.createUser(username, hash, email).lastInsertRowid;
+  } catch (e) {
+    // two registrations of the same name at the same moment
+    if (/UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'Nazwa użytkownika jest zajęta' });
+    throw e;
+  }
+  if (sid && ssec) db.updateStravaCredentials(userId, sid, ssec);
+  db.updateLastLogin(userId);
+  const user = db.getUserById(userId);
+  issueSession(req, res, user);
+  res.json({ user: safeUser(user) });
 });
 
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Wymagana nazwa i hasło' });
-  const user = db.getUserByUsername(username) || db.getUserByEmail(username);
-  if (!user) return res.status(401).json({ error: 'Nieprawidłowe dane logowania' });
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) return res.status(401).json({ error: 'Nieprawidłowe dane logowania' });
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string' || !username || !password)
+    return res.status(400).json({ error: 'Wymagana nazwa i hasło' });
+  if (username.length > 254 || password.length > 200) return res.status(401).json({ error: 'Nieprawidłowe dane logowania' });
+  const name = username.trim();
+  const user = db.getUserByUsername(name) || db.getUserByEmail(name);
+  // Accounts created with Google have no password: same answer as a wrong one
+  const ok = await bcrypt.compare(password, user?.password_hash || DUMMY_HASH);
+  if (!user || !user.password_hash || !ok) return res.status(401).json({ error: 'Nieprawidłowe dane logowania' });
   db.updateLastLogin(user.id);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
-  res.cookie('token', token, COOKIE_OPTS);
+  issueSession(req, res, user);
   res.json({ user: safeUser(user) });
+  setImmediate(() => buildUserCache(user.id));
+});
+
+// ── Forgotten password ────────────────────────────────────────────────────────
+// A link with a random token goes to the account's e-mail address. Only the
+// token's hash is stored; it works once, for an hour. Needs SMTP_URL.
+
+const forgotLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, max: 6, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Zbyt wiele próśb o nowe hasło. Spróbuj ponownie za godzinę.' },
+});
+const RESET_TTL_MS = 60 * 60 * 1000;
+
+app.post('/api/auth/forgot', forgotLimiter, (req, res) => {
+  if (!mail.configured()) return res.status(404).json({ error: 'Odzyskiwanie hasła e-mailem nie jest włączone' });
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  if (email.length > 254 || !EMAIL_RE.test(email)) return res.status(400).json({ error: 'Nieprawidłowy adres e-mail' });
+  const lang = mail.LANGS.includes(req.body?.lang) ? req.body.lang : 'pl';
+  // The same answer, sent before anything is looked up: neither its content
+  // nor its timing says whether the address has an account.
+  res.json({ ok: true });
+  setImmediate(async () => {
+    try {
+      const user = db.getUserByEmail(email);
+      if (!user || db.recentResets(user.id, RESET_TTL_MS) >= 3) return;   // at most 3 letters an hour per account
+      const token = crypto.randomBytes(32).toString('base64url');
+      db.addReset(sha256(token), user.id, Date.now() + RESET_TTL_MS);
+      // in the fragment, so the token is never sent to (or logged by) a server on the way
+      await mail.sendReset({ to: user.email, link: `${PUBLIC_BASE}/#reset=${token}`, lang, appName: APP_NAME, appBase: PUBLIC_BASE });
+    } catch (e) { console.error('[mail] reset:', e.message); }
+  });
+});
+
+app.post('/api/auth/reset', loginLimiter, async (req, res) => {
+  const { token, password } = req.body || {};
+  const gone = () => res.status(400).json({ error: 'Link wygasł albo został już użyty. Poproś o nowy.' });
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{20,100}$/.test(token)) return gone();
+  if (!okPassword(password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
+  const r = db.getReset(sha256(token));
+  const user = r && db.getUserById(r.user_id);
+  if (!user) return gone();
+  db.clearResets(user.id);                                  // before anything slow: the link works once
+  db.updatePasswordHash(user.id, await bcrypt.hash(password, 10));   // ends every session of the account
+  db.updateLastLogin(user.id);
+  const fresh = db.getUserById(user.id);
+  issueSession(req, res, fresh);
+  res.json({ user: safeUser(fresh) });
   setImmediate(() => buildUserCache(user.id));
 });
 
@@ -162,30 +329,82 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => {
-  const user = db.getUserById(req.userId);
-  if (!user) return res.status(401).json({ error: 'Użytkownik nie istnieje' });
-  res.json(safeUser(user));
-});
+app.get('/api/auth/me', requireAuth, (req, res) => res.json(safeUser(req.user)));
 
 // ── Profile routes ────────────────────────────────────────────────────────────
 
 app.put('/api/profile/strava', requireAuth, (req, res) => {
-  const { strava_client_id, strava_client_secret } = req.body;
-  db.updateStravaCredentials(req.userId, strava_client_id?.trim() || null, strava_client_secret?.trim() || null);
+  const id = text(req.body?.strava_client_id, 40), secret = text(req.body?.strava_client_secret, 100);
+  if (id && !/^\d{1,12}$/.test(id)) return res.status(400).json({ error: 'Client ID ze Stravy to sama liczba' });
+  // Both empty: back to the shared application. Secret left empty next to an
+  // unchanged ID: keep the one already saved (it is never sent to the browser).
+  const keep = id && !secret && id === String(req.user.strava_client_id || '') ? req.user.strava_client_secret : null;
+  if (id && !secret && !keep) return res.status(400).json({ error: 'Podaj Client Secret' });
+  if (!id && secret) return res.status(400).json({ error: 'Podaj Client ID' });
+  db.updateStravaCredentials(req.userId, id || null, secret || keep || null);
   res.json({ user: safeUser(db.getUserById(req.userId)) });
 });
 
-app.put('/api/profile/password', requireAuth, async (req, res) => {
-  const { current_password, new_password } = req.body;
-  if (!current_password || !new_password) return res.status(400).json({ error: 'Wymagane oba hasła' });
-  if (!PASSWORD_POLICY.test(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
-  const user = db.getUserById(req.userId);
-  if (!user.password_hash) return res.status(400).json({ error: 'Konto social login nie ma hasła. Możesz ustawić nowe hasło bez podawania obecnego.' });
-  if (!await bcrypt.compare(current_password, user.password_hash))
-    return res.status(401).json({ error: 'Nieprawidłowe obecne hasło' });
-  db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
+// Disconnect Strava: the authorisation is withdrawn at Strava and the tokens
+// are forgotten here. Squares already collected stay (they are the rider's own
+// record; deleting the account removes them).
+async function stravaDisconnect(userId) {
+  const tok = db.getToken(userId);
+  if (!tok) return false;
+  // Strava keeps one authorisation per athlete and application: leave it alone
+  // while another account here still relies on it.
+  if (!db.athleteSharedByOthers(userId, tok)) {
+    try { await strava.deauthorize(userId); }
+    catch (e) { console.warn(`[strava] deauthorize user=${userId}: ${e.response?.status || e.message}`); }
+  }
+  db.clearToken(userId);
+  return true;
+}
+app.post('/api/profile/strava/disconnect', requireAuth, async (req, res) => {
+  await stravaDisconnect(req.userId);
+  res.json({ user: safeUser(db.getUserById(req.userId)) });
+});
+
+// A new password ends the sessions on every other device; this one continues.
+function setPassword(req, res, hash) {
+  db.updatePasswordHash(req.userId, hash);
+  issueSession(req, res, db.getUserById(req.userId));
   res.json({ ok: true });
+}
+
+app.put('/api/profile/password', requireAuth, async (req, res) => {
+  const { current_password, new_password } = req.body || {};
+  if (typeof current_password !== 'string' || typeof new_password !== 'string' || !current_password || !new_password)
+    return res.status(400).json({ error: 'Wymagane oba hasła' });
+  if (!okPassword(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
+  if (!req.user.password_hash) return res.status(400).json({ error: 'Konto social login nie ma hasła. Możesz ustawić nowe hasło bez podawania obecnego.' });
+  if (current_password.length > 200 || !await bcrypt.compare(current_password, req.user.password_hash))
+    return res.status(403).json({ error: 'Nieprawidłowe obecne hasło' });
+  setPassword(req, res, await bcrypt.hash(new_password, 10));
+});
+
+// The address the "forgot my password" link goes to. Whoever can change it can
+// take the account over, so an account with a password asks for it.
+app.put('/api/profile/email', requireAuth, loginLimiter, async (req, res) => {
+  const b = req.body || {};
+  let email = null;
+  if (b.email !== undefined && b.email !== null && b.email !== '') {
+    if (typeof b.email !== 'string' || b.email.length > 254 || !EMAIL_RE.test(b.email.trim())) return res.status(400).json({ error: 'Nieprawidłowy adres e-mail' });
+    email = b.email.trim();
+  }
+  if (req.user.password_hash) {
+    const cur = b.current_password;
+    if (typeof cur !== 'string' || !cur) return res.status(400).json({ error: 'Podaj obecne hasło' });
+    if (cur.length > 200 || !await bcrypt.compare(cur, req.user.password_hash)) return res.status(403).json({ error: 'Nieprawidłowe obecne hasło' });
+  }
+  if (email) {
+    const other = db.getUserByEmail(email) || db.getUserByUsername(email);
+    if (other && other.id !== req.userId) return res.status(409).json({ error: 'Email jest już zarejestrowany' });
+  }
+  try { db.setEmail(req.userId, email); }
+  catch (e) { if (/UNIQUE/i.test(e.message)) return res.status(409).json({ error: 'Email jest już zarejestrowany' }); throw e; }
+  db.clearResets(req.userId);   // links sent to the old address stop working
+  res.json({ user: safeUser(db.getUserById(req.userId)) });
 });
 
 app.put('/api/profile/layers', requireAuth, (req, res) => {
@@ -197,10 +416,10 @@ app.put('/api/profile/layers', requireAuth, (req, res) => {
 });
 
 app.put('/api/profile/home', requireAuth, (req, res) => {
-  const { lat, lng } = req.body;
-  if (lat !== null && (typeof lat !== 'number' || typeof lng !== 'number'))
-    return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
-  db.setHomePoint(req.userId, lat ?? null, lng ?? null);
+  const { lat, lng } = req.body || {};
+  const clear = lat === null || lat === undefined;
+  if (!clear && !okPt({ lat, lng })) return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
+  db.setHomePoint(req.userId, clear ? null : lat, clear ? null : lng);
   const c = userCaches.get(req.userId);
   if (c) delete c.priority; // priorities are ranked by distance from home
   res.json({ user: safeUser(db.getUserById(req.userId)) });
@@ -226,8 +445,9 @@ function bitmapHex(n, test) {
   return bytes.toString('hex');
 }
 app.get('/api/garmin/area', (req, res) => {
-  const userId = db.userIdByGarminKey(String(req.query.key || ''));
-  console.log(`[garmin] area user=${userId || '-'} ${(+req.query.lat).toFixed(2)},${(+req.query.lng).toFixed(2)}`);
+  const key = typeof req.query.key === 'string' ? req.query.key : '';
+  const userId = /^[0-9a-f]{16,64}$/i.test(key) ? db.userIdByGarminKey(key) : null;
+  console.log(`[garmin] area user=${userId || '-'}`);
   if (!userId) return res.status(401).json({ error: 'bad key' });
   const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
   if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 85) return res.status(400).json({ error: 'lat/lng' });
@@ -248,12 +468,10 @@ app.get('/api/garmin/area', (req, res) => {
 });
 
 app.put('/api/profile/set-password', requireAuth, async (req, res) => {
-  const { new_password } = req.body;
-  if (!new_password || !PASSWORD_POLICY.test(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
-  const user = db.getUserById(req.userId);
-  if (user.password_hash) return res.status(400).json({ error: 'Konto ma już hasło. Użyj opcji zmiany hasła.' });
-  db.updatePasswordHash(req.userId, await bcrypt.hash(new_password, 10));
-  res.json({ ok: true });
+  const { new_password } = req.body || {};
+  if (!okPassword(new_password)) return res.status(400).json({ error: 'Hasło min. 8 znaków i co najmniej 1 cyfra' });
+  if (req.user.password_hash) return res.status(400).json({ error: 'Konto ma już hasło. Użyj opcji zmiany hasła.' });
+  setPassword(req, res, await bcrypt.hash(new_password, 10));
 });
 
 // ── Account deletion (by the user) ────────────────────────────────────────────
@@ -261,13 +479,12 @@ app.put('/api/profile/set-password', requireAuth, async (req, res) => {
 // accounts. Revokes the Strava authorisation, then removes every row of the
 // user: activities, squares, routes, blocked squares, tokens.
 app.delete('/api/profile', requireAuth, async (req, res) => {
-  const user = db.getUserById(req.userId);
-  if (!user) return res.status(404).json({ error: 'Użytkownik nie istnieje' });
+  const user = req.user;
   const { password, confirm } = req.body || {};
   if (user.password_hash) {
-    if (!password || !await bcrypt.compare(password, user.password_hash))
+    if (typeof password !== 'string' || !password || password.length > 200 || !await bcrypt.compare(password, user.password_hash))
       return res.status(403).json({ error: 'Nieprawidłowe hasło' });
-  } else if (String(confirm || '').trim().toLowerCase() !== String(user.username).toLowerCase()) {
+  } else if (typeof confirm !== 'string' || confirm.trim().toLowerCase() !== String(user.username).toLowerCase()) {
     return res.status(403).json({ error: 'Wpisz swoją nazwę użytkownika, aby potwierdzić' });
   }
   if (user.role === 'admin') {
@@ -275,14 +492,7 @@ app.delete('/api/profile', requireAuth, async (req, res) => {
     if (others.length && !others.some(u => u.role === 'admin'))
       return res.status(400).json({ error: 'Jesteś jedynym administratorem. Najpierw nadaj komuś rolę admina.' });
   }
-  const token = db.getStravaAccessToken(user.id);
-  if (token) {
-    try {
-      await axios.post('https://www.strava.com/oauth/deauthorize', null, { params: { access_token: token }, timeout: 8000 });
-    } catch (e) {
-      console.warn(`[account] strava deauthorize user=${user.id}: ${e.response?.status || e.message}`);
-    }
-  }
+  await stravaDisconnect(user.id);
   db.deleteUser(user.id);
   invalidateUserCache(user.id);
   for (let i = clientLogs.length - 1; i >= 0; i--) if (clientLogs[i].uid === user.id) clientLogs.splice(i, 1);
@@ -297,106 +507,284 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = db.getAllUsers().map(u => ({
     ...u,
     oauth_provider:    u.oauth_provider || null,
-    strava_configured: !!(u.strava_client_id),
+    strava_configured: !!(u.strava_client_id) || !!strava.appCreds(),
+    strava_own_keys:   !!(u.strava_client_id) && String(u.strava_client_id) !== strava.appCreds()?.id,
     strava_connected:  !!db.getToken(u.id),
     sq_count:          db.getSQCount(u.id),
   }));
   res.json({ users });
 });
 
+// The account an admin route names in its path, or a 404
+function adminTarget(req, res) {
+  const id = /^\d{1,15}$/.test(req.params.id) ? Number(req.params.id) : NaN;
+  const target = Number.isSafeInteger(id) ? db.getUserById(id) : null;
+  if (!target) { res.status(404).json({ error: 'Użytkownik nie istnieje' }); return null; }
+  return target;
+}
+
 app.put('/api/admin/users/:id/role', requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id);
-  if (id === req.userId) return res.status(400).json({ error: 'Nie możesz zmienić własnej roli' });
-  const { role } = req.body;
+  const target = adminTarget(req, res);
+  if (!target) return;
+  if (target.id === req.userId) return res.status(400).json({ error: 'Nie możesz zmienić własnej roli' });
+  const role = req.body?.role;
   if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'Nieprawidłowa rola' });
-  db.updateUserRole(id, role);
+  db.updateUserRole(target.id, role);
+  console.log(`[admin] user ${req.userId} set role of user ${target.id} to ${role}`);
   res.json({ ok: true });
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id);
-  if (id === req.userId) return res.status(400).json({ error: 'Nie możesz usunąć własnego konta' });
-  db.deleteUser(id);
-  invalidateUserCache(id);
+  const target = adminTarget(req, res);
+  if (!target) return;
+  if (target.id === req.userId) return res.status(400).json({ error: 'Nie możesz usunąć własnego konta' });
+  db.deleteUser(target.id);
+  invalidateUserCache(target.id);
+  for (let i = clientLogs.length - 1; i >= 0; i--) if (clientLogs[i].uid === target.id) clientLogs.splice(i, 1);
+  console.log(`[admin] user ${req.userId} deleted user ${target.id}`);
   res.json({ ok: true });
 });
 
 // ── Health check (no auth — for OCP probes) ──────────────────────────────────
 
-app.get('/api/health', (req, res) => res.json({ ok: true, users: db.getUserCount() }));
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
 // ── OAuth providers (public — tells frontend which buttons to show) ────────────
 
 app.get('/api/auth/providers', (req, res) => {
   res.json({
     google: !!process.env.GOOGLE_CLIENT_ID,
+    strava: !!strava.appCreds(),   // "Continue with Strava": log in and connect in one step
+    apple:  apple.configured(),
+    reset:  mail.configured(),     // "forgot my password" by e-mail
+    appName: APP_NAME,
   });
+});
+
+// What a phone or desktop needs to install the app (name and icons)
+app.get('/api/manifest.webmanifest', (req, res) => {
+  res.set('Content-Type', 'application/manifest+json; charset=utf-8');
+  res.set('Cache-Control', 'no-cache');
+  res.send(JSON.stringify({
+    name: APP_NAME, short_name: APP_SHORT_NAME, id: '/', start_url: '/', scope: '/',
+    display: 'standalone', orientation: 'any', background_color: '#0f1115', theme_color: '#0f1115',
+    categories: ['sports', 'navigation', 'travel'],
+    icons: [
+      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  }));
 });
 
 // ── Social OAuth flows ────────────────────────────────────────────────────────
 
-function oauthState() {
-  return jwt.sign({ t: Date.now() }, JWT_SECRET, { expiresIn: '10m' });
+// The `state` that travels through the provider and back is signed, carries
+// its purpose (so it can never be used as a session, nor a session as a state)
+// and, for Google, a number that must match a cookie of the browser that
+// started the login: nobody can be logged in to somebody else's account by
+// following a prepared link.
+function verifyState(state, purpose) {
+  if (typeof state !== 'string' || !state) return null;
+  try {
+    const d = jwt.verify(state, JWT_SECRET, { algorithms: ['HS256'] });
+    return d.p === purpose ? d : null;
+  } catch { return null; }
 }
 
-function oauthSuccess(res, user) {
+function oauthSuccess(req, res, user) {
   db.updateLastLogin(user.id);
-  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '30d' });
-  res.cookie('token', token, COOKIE_OPTS);
+  issueSession(req, res, user);
   res.redirect('/?auth=ok');
   setImmediate(() => buildUserCache(user.id));
 }
 
 function oauthError(res, err) {
-  console.error('[OAuth]', err);
-  res.redirect('/?auth=error&msg=' + encodeURIComponent(err.message || String(err)));
+  console.error('[OAuth]', err.response?.status || '', err.message || err);
+  res.redirect('/?auth=error&msg=' + encodeURIComponent(String(err.message || err).slice(0, 200)));
 }
 
 // Google
 app.get('/auth/google', (req, res) => {
   if (!process.env.GOOGLE_CLIENT_ID) return res.status(404).send('Google OAuth nie jest skonfigurowane');
-  res.redirect(oauth.googleAuthUrl(oauthState()));
+  // Google sends the browser back to one fixed address. Start there, so the
+  // cookie set below is still there when it returns.
+  let home = null;
+  try { home = new URL(oauth.APP_BASE); } catch {}
+  if (home && req.hostname !== home.hostname && req.query.c === undefined) return res.redirect(`${oauth.APP_BASE}/auth/google?c=1`);
+  const n = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_n', n, { httpOnly: true, secure: COOKIE_OPTS.secure, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/auth' });
+  res.redirect(oauth.googleAuthUrl(jwt.sign({ p: 'google', n }, JWT_SECRET, { expiresIn: '10m' })));
 });
 app.get('/auth/google/callback', async (req, res) => {
-  const { code, error } = req.query;
-  if (error) return oauthError(res, new Error(error));
-  try { oauthSuccess(res, await oauth.googleCallback(code)); }
+  const { code, error, state } = req.query;
+  const n = req.cookies?.oauth_n;
+  res.clearCookie('oauth_n', { path: '/auth' });
+  if (error) return oauthError(res, new Error(typeof error === 'string' ? error : 'oauth_error'));
+  const st = verifyState(state, 'google');
+  if (!st || typeof n !== 'string' || st.n !== n) return res.redirect('/?auth=error&msg=invalid_state');
+  if (typeof code !== 'string' || !code) return res.redirect('/?auth=error&msg=no_code');
+  try { oauthSuccess(req, res, await oauth.googleCallback(code)); }
   catch (e) { oauthError(res, e); }
 });
 
-// ── Strava OAuth ──────────────────────────────────────────────────────────────
-
-app.get('/auth/strava', requireAuth, (req, res) => {
-  const user = db.getUserById(req.userId);
-  if (!user?.strava_client_id || !user?.strava_client_secret) {
-    return res.redirect('/?error=strava-config-missing');
-  }
-  const state = jwt.sign({ userId: req.userId }, JWT_SECRET, { expiresIn: '10m' });
-  res.redirect(strava.getAuthUrl(user.strava_client_id, state));
+// Apple
+const appleRedirect = () => `${oauth.APP_BASE}/auth/apple/callback`;
+app.get('/auth/apple', (req, res) => {
+  if (!apple.configured()) return res.status(404).send('Logowanie Apple nie jest skonfigurowane');
+  let home = null;
+  try { home = new URL(oauth.APP_BASE); } catch {}
+  if (home && req.hostname !== home.hostname && req.query.c === undefined) return res.redirect(`${oauth.APP_BASE}/auth/apple?c=1`);
+  const n = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_n', n, { httpOnly: true, secure: COOKIE_OPTS.secure, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/auth' });
+  res.redirect(apple.authUrl(jwt.sign({ p: 'apple', n }, JWT_SECRET, { expiresIn: '10m' }), appleRedirect()));
+});
+// Apple answers with a form POST from appleid.apple.com. The browser does not
+// attach our cookies to it (SameSite), so nothing is decided here: the answer
+// is handed to a page load of our own, where the cookie that proves this
+// browser started the login is present.
+app.post('/auth/apple/callback', express.urlencoded({ extended: false, limit: '16kb' }), (req, res) => {
+  const b = req.body || {}, q = new URLSearchParams();
+  for (const k of ['code', 'state', 'error']) if (typeof b[k] === 'string' && b[k].length <= 4000) q.set(k, b[k]);
+  res.redirect(303, '/auth/apple/finish?' + q);
+});
+app.get('/auth/apple/finish', async (req, res) => {
+  const { code, error, state } = req.query;
+  const n = req.cookies?.oauth_n;
+  res.clearCookie('oauth_n', { path: '/auth' });
+  if (!apple.configured()) return res.redirect('/?auth=error&msg=not_configured');
+  if (error) return oauthError(res, new Error(typeof error === 'string' ? error : 'oauth_error'));
+  const st = verifyState(state, 'apple');
+  if (!st || typeof n !== 'string' || st.n !== n) return res.redirect('/?auth=error&msg=invalid_state');
+  if (typeof code !== 'string' || !code) return res.redirect('/?auth=error&msg=no_code');
+  try {
+    const who = await apple.exchange(code, appleRedirect());
+    oauthSuccess(req, res, await oauth.findOrCreate('apple', who.sub, who.email));
+  } catch (e) { oauthError(res, e); }
 });
 
+// ── Strava OAuth ──────────────────────────────────────────────────────────────
+// Two ways in, one address Strava returns to (/auth/callback):
+//   /auth/strava        connect Strava to the account that is logged in
+//   /auth/strava/login  "Continue with Strava": log in (or create the account)
+//                       and connect in one step, with the shared application
+
+app.get('/auth/strava', requireAuth, (req, res) => {
+  const creds = strava.credsFor(req.user);
+  if (!creds) return res.redirect('/?error=strava-config-missing');
+  const state = jwt.sign({ p: 'strava', uid: req.userId }, JWT_SECRET, { expiresIn: '10m' });
+  res.redirect(strava.getAuthUrl(creds.id, state));
+});
+
+app.get('/auth/strava/login', (req, res) => {
+  const app_ = strava.appCreds();
+  if (!app_) return res.status(404).send('Logowanie przez Stravę nie jest skonfigurowane');
+  // Strava returns to one fixed address: start there, so the cookie is still there
+  let home = null;
+  try { home = new URL(oauth.APP_BASE); } catch {}
+  if (home && req.hostname !== home.hostname && req.query.c === undefined) return res.redirect(`${oauth.APP_BASE}/auth/strava/login?c=1`);
+  const n = crypto.randomBytes(16).toString('hex');
+  res.cookie('oauth_n', n, { httpOnly: true, secure: COOKIE_OPTS.secure, sameSite: 'lax', maxAge: 10 * 60 * 1000, path: '/auth' });
+  res.redirect(strava.getAuthUrl(app_.id, jwt.sign({ p: 'strava-login', n }, JWT_SECRET, { expiresIn: '10m' })));
+});
+
+// What went wrong, in words a rider can act on
+function stravaAuthError(e) {
+  const detail = JSON.stringify(e.response?.data || '');
+  if (e.code === 'STRAVA_RATE') return e.message;
+  if (e.response?.status === 403 || /limit of connected athletes/i.test(detail))
+    return 'Ta instalacja osiągnęła limit kont Stravy. Administrator musi poprosić Stravę o zwiększenie limitu.';
+  if (e.response?.status === 400 || e.response?.status === 401) return 'Strava odrzuciła autoryzację. Spróbuj ponownie.';
+  return e.response ? `Strava odpowiedziała błędem ${e.response.status}` : (e.message || 'Błąd połączenia ze Stravą');
+}
+
+// A login name for an account created by "Continue with Strava"
+function usernameForAthlete(a) {
+  const clean = (v) => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N}._ -]/gu, '').replace(/\s+/g, ' ').trim();
+  const base = [clean(a.firstname), clean(a.lastname)].filter(Boolean).join(' ').slice(0, 28).trim();
+  const free = (n) => USERNAME_RE.test(n) && !db.getUserByUsername(n) && !db.getUserByEmail(n);
+  if (base && free(base)) return base;
+  for (let i = 2; base && i < 50; i++) if (free(`${base} ${i}`)) return `${base} ${i}`;
+  return `strava_${a.id}`;
+}
+
+// First sync right after connecting, so the squares are there without a click
+function syncSoon(userId) {
+  setImmediate(() => runStravaSync(userId, 'auto').catch(e => console.warn(`[strava] first sync user=${userId}: ${e.message}`)));
+}
+
 app.get('/auth/callback', async (req, res) => {
-  const { code, error, state } = req.query;
-  if (error || !code) return res.redirect('/?auth=error&msg=' + encodeURIComponent(error || 'no_code'));
-  let userId;
-  try {
-    userId = jwt.verify(state, JWT_SECRET).userId;
-  } catch {
-    return res.redirect('/?auth=error&msg=invalid_state');
+  const { code, error, state, scope } = req.query;
+  const n = req.cookies?.oauth_n;
+  if (n) res.clearCookie('oauth_n', { path: '/auth' });
+  if (error || typeof code !== 'string' || !code) {
+    const msg = error === 'access_denied' ? 'Nie udzielono dostępu do Stravy' : (typeof error === 'string' ? error.slice(0, 100) : 'no_code');
+    return res.redirect('/?auth=error&msg=' + encodeURIComponent(msg));
   }
+  if (!strava.scopeAllowsActivities(scope))
+    return res.redirect('/?auth=error&msg=' + encodeURIComponent('Bez dostępu do aktywności nie da się policzyć kwadratów. Połącz ponownie i zostaw zaznaczone aktywności.'));
+
+  // ── log in with Strava ──
+  const login = verifyState(state, 'strava-login');
+  if (login) {
+    const app_ = strava.appCreds();
+    if (!app_ || typeof n !== 'string' || login.n !== n) return res.redirect('/?auth=error&msg=invalid_state');
+    try {
+      const d = await strava.exchangeWith(app_, code);
+      const athlete = d.athlete;
+      if (!athlete || !Number.isSafeInteger(athlete.id)) throw new Error('Strava nie zwróciła identyfikatora konta');
+      // the account this athlete is connected to, else the one they created
+      // by logging in with Strava before, else a new one
+      let user = db.getUserByAthlete(athlete.id) || db.getUserByOAuth('strava', String(athlete.id));
+      let fresh = false;
+      if (!user) {
+        user = db.getUserById(db.createOAuthUser('strava', String(athlete.id), null, usernameForAthlete(athlete)).lastInsertRowid);
+        fresh = true;
+        console.log(`[strava] new account ${user.id} created by Strava login`);
+      }
+      // An account with its own application keeps the tokens of that application
+      const own = strava.ownCreds(user), had = db.getToken(user.id);
+      if (!had || !own || own.id === app_.id) {
+        strava.saveExchanged(user.id, d, app_.id);
+        invalidateUserCache(user.id);
+        if (!had) { fresh = true; syncSoon(user.id); }
+      }
+      db.updateLastLogin(user.id);
+      issueSession(req, res, user);
+      res.redirect(fresh ? '/?auth=strava-new' : '/?auth=ok');
+      setImmediate(() => buildUserCache(user.id));
+    } catch (e) {
+      console.error('[strava] login:', e.response?.status || '', e.message);
+      res.redirect('/?auth=error&msg=' + encodeURIComponent(stravaAuthError(e)));
+    }
+    return;
+  }
+
+  // ── connect Strava to the account that started the flow ──
+  // If this browser is logged in here, it has to be that same account.
+  const st = verifyState(state, 'strava');
+  const s = sessionOf(req);
+  if (!st || !Number.isInteger(st.uid) || (s && s.userId !== st.uid) || !db.getUserById(st.uid))
+    return res.redirect('/?auth=error&msg=invalid_state');
+  const userId = st.uid;
   try {
     await strava.exchangeCode(userId, code);
     invalidateUserCache(userId);
+    syncSoon(userId);
     res.redirect('/?auth=strava-ok');
   } catch (e) {
-    console.error('Strava OAuth error:', e.message);
-    res.redirect('/?auth=error&msg=' + encodeURIComponent(e.message));
+    console.error('[strava] connect:', e.response?.status || '', e.message);
+    res.redirect('/?auth=error&msg=' + encodeURIComponent(stravaAuthError(e)));
   }
 });
 
 // ── Per-user tile cache ───────────────────────────────────────────────────────
 
+// At most USER_CACHE_MAX accounts stay in memory (a rider with 50 000
+// squadratinhos takes about 15 MB); the least recently used one is dropped
+// and simply rebuilt from the database on that person's next request.
 const userCaches = new Map();
+const USER_CACHE_MAX = Math.max(2, parseInt(process.env.USER_CACHE_MAX, 10) || 40);
 
 function buildUserCache(userId) {
   const sqRows  = db.getAllTilesSQ(userId);
@@ -419,11 +807,15 @@ function buildUserCache(userId) {
     },
   };
   userCaches.set(userId, c);
+  while (userCaches.size > USER_CACHE_MAX) userCaches.delete(userCaches.keys().next().value);
   return c;
 }
 
 function getUserCache(userId) {
-  return userCaches.has(userId) ? userCaches.get(userId) : buildUserCache(userId);
+  const c = userCaches.get(userId);
+  if (!c) return buildUserCache(userId);
+  userCaches.delete(userId); userCaches.set(userId, c);   // Map keeps insertion order: move to the fresh end
+  return c;
 }
 
 function invalidateUserCache(userId) {
@@ -469,22 +861,45 @@ app.post('/api/sync', requireAuth, async (req, res) => {
 
 app.get('/api/sync/status', requireAuth, (req, res) => {
   const st = db.getSyncStatus(req.userId);
+  const tok = db.getToken(req.userId);
+  const paused = tok ? strava.pausedFor(tok.client_id || `own:${req.userId}`) : 0;
   res.json({
-    connected: !!db.getToken(req.userId),
-    everyMin: AUTO_SYNC_EVERY_MS / 60000,
+    connected: !!tok,
+    everyMin: Math.round(autoSyncEveryMs(tok?.client_id) / 60000),
     running: syncRunning.has(req.userId),
+    pausedUntil: paused ? new Date(paused).toISOString() : null,
     last: st ? { source: st.source, at: st.at, result: st.result ? JSON.parse(st.result) : null, error: st.error } : null,
   });
 });
 
 // Background sync: picks up new rides without anyone pressing "Synchronizuj".
-// Polling (not Strava webhooks) because webhooks need a publicly reachable
-// URL; at 30 min per connected user it stays far inside Strava's rate limits
-// for a handful of riders.
+// Polling (not Strava webhooks) because webhooks need a publicly reachable URL.
+//
+// Strava counts requests per application (by default 1000 reads a day and 100
+// per 15 minutes), so riders on the shared application share one allowance.
+// A check costs one request; the background keeps to STRAVA_DAILY_BUDGET of
+// them a day (the rest is left for first syncs, the button and token
+// refreshes): up to about a dozen riders are checked every 30 minutes, more
+// riders proportionally less often. Riders with their own keys always get 30.
 const AUTO_SYNC_EVERY_MS = 30 * 60 * 1000;
+const STRAVA_DAILY_BUDGET = Math.max(50, parseInt(process.env.STRAVA_DAILY_BUDGET, 10) || 600);
+const AUTO_SYNC_PER_TICK = 20;   // shared-application riders per 5-minute round
+function autoSyncEveryMs(clientId, users = db.usersWithStrava()) {
+  if (!strava.isShared(clientId)) return AUTO_SYNC_EVERY_MS;
+  const n = users.filter(u => strava.isShared(u.client_id)).length;
+  return Math.max(AUTO_SYNC_EVERY_MS, Math.ceil(n * 24 * 3600 * 1000 / STRAVA_DAILY_BUDGET));
+}
 async function autoSyncTick() {
-  for (const u of db.usersWithStrava()) {
-    if (u.last_at && Date.now() - Date.parse(u.last_at) < AUTO_SYNC_EVERY_MS) continue;
+  const users = db.usersWithStrava();
+  const sharedEvery = autoSyncEveryMs(strava.appCreds()?.id, users);
+  const age = (u) => u.last_at ? Date.now() - Date.parse(u.last_at) : 1e15;
+  let shared = 0;
+  // longest-waiting first
+  for (const u of users.sort((a, b) => age(b) - age(a))) {
+    const isShared = strava.isShared(u.client_id);
+    if (age(u) < (isShared ? sharedEvery : AUTO_SYNC_EVERY_MS)) continue;
+    if (strava.pausedFor(u.client_id || `own:${u.user_id}`)) continue;
+    if (isShared && ++shared > AUTO_SYNC_PER_TICK) continue;
     try {
       const r = await runStravaSync(u.user_id, 'auto');
       if (r.newSQ || r.newSQI) console.log(`[auto-sync] user ${u.user_id}: +${r.newSQ} SQ, +${r.newSQI} SQI`);
@@ -505,7 +920,7 @@ const routeSummaryCache = new Map();
 function routeSummary(userId, id) {
   const key = `${userId}:${id}`;
   if (routeSummaryCache.has(key)) return routeSummaryCache.get(key);
-  const c = db.routeCoords(userId, id) || [];
+  const c = (db.routeCoords(userId, id) || []).filter(p => Array.isArray(p) && isNum(p[0]) && isNum(p[1]));
   let sum = { thumb: '', ascent_m: 0 };
   if (c.length >= 2) {
     const midLat = c.reduce((a, p) => a + p[0], 0) / c.length;
@@ -533,22 +948,23 @@ app.get('/api/routes', requireAuth, (req, res) =>
 
 // Course GPX of a saved route, named after it (Garmin Connect uses the <name>
 // as the course title when the file is imported or shared to the app).
+const GPX_TYPE = { foot: 'hiking', run: 'running' };
 const xmlEsc = s => String(s).replace(/[<>&"']/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[ch]));
 app.get('/api/routes/:id/gpx', requireAuth, (req, res) => {
   const r = db.getRoute(req.userId, +req.params.id);
   if (!r) return res.status(404).json({ error: 'Nie ma takiej trasy' });
-  const c = JSON.parse(r.coords);
+  const c = JSON.parse(r.coords).filter(p => Array.isArray(p) && isNum(p[0]) && isNum(p[1]));
   const hasElev = c.some(p => p[2] > 0);
   const name = xmlEsc(r.name);
   const pts = c.map(p => `      <trkpt lat="${(+p[0]).toFixed(6)}" lon="${(+p[1]).toFixed(6)}">${hasElev ? `<ele>${(+p[2] || 0).toFixed(1)}</ele>` : ''}</trkpt>`).join('\n');
-  const named = JSON.parse(r.waypoints).filter(w => w.name)
+  const named = JSON.parse(r.waypoints).filter(w => w && typeof w.name === 'string' && w.name && isNum(w.lat) && isNum(w.lng))
     .map(w => `  <wpt lat="${(+w.lat).toFixed(6)}" lon="${(+w.lng).toFixed(6)}"><name>${xmlEsc(w.name)}</name></wpt>\n`).join('');
   const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx creator="SquadratsPlanner" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata><name>${name}</name><time>${new Date(r.created_at.replace(' ', 'T') + 'Z').toISOString()}</time></metadata>
 ${named}  <trk>
     <name>${name}</name>
-    <type>cycling</type>
+    <type>${GPX_TYPE[r.profile] || 'cycling'}</type>
     <trkseg>
 ${pts}
     </trkseg>
@@ -577,24 +993,74 @@ app.get('/api/routes/:id', requireAuth, (req, res) => {
     waypoints: JSON.parse(r.waypoints), coords: JSON.parse(r.coords),
     elev_profile: r.elev_profile ? JSON.parse(r.elev_profile) : null,
     surface_profile: r.surface_profile ? JSON.parse(r.surface_profile) : null,
+    hints: r.hints ? JSON.parse(r.hints) : null,
   });
 });
 
+// What a saved route may hold. Everything a browser sends is rebuilt from the
+// fields the app knows, so an account cannot park arbitrary data here and a
+// broken entry cannot break the list, the thumbnail or the GPX later.
+const MAX_ROUTES_PER_USER = 500;
+const cleanWaypoint = (w) => {
+  if (!okPt(w)) return null;
+  const out = { type: typeof w.type === 'string' && /^[a-z]{1,12}$/.test(w.type) ? w.type : 'mid', lat: w.lat, lng: w.lng };
+  for (const [k, max] of [['label', 80], ['name', 40]]) {
+    if (w[k] === null) out[k] = null;
+    else if (typeof w[k] === 'string') out[k] = text(w[k], max) || null;
+  }
+  return out;
+};
+// Elevation / surface profile: a list of small rows of numbers and short words
+function cleanProfile(p) {
+  if (!Array.isArray(p) || !p.length || p.length > 20000) return null;
+  const okVal = (v) => v === null || isNum(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length <= 40);
+  for (const row of p) {
+    if (Array.isArray(row)) { if (row.length > 6 || !row.every(isNum)) return null; }
+    else if (row && typeof row === 'object') {
+      const e = Object.entries(row);
+      if (e.length > 8 || !e.every(([k, v]) => k.length <= 20 && okVal(v))) return null;
+    } else return null;
+  }
+  const s = JSON.stringify(p);
+  return s.length <= 1500000 ? s : null;
+}
+
+// Turns for spoken navigation: [index of the route point, command, exit, metres, angle]
+function cleanHints(h, nCoords) {
+  if (!Array.isArray(h) || !h.length || h.length > 5000) return null;
+  const out = [];
+  for (const r of h) {
+    if (!Array.isArray(r) || r.length < 2 || r.length > 5 || !r.every(isNum)) return null;
+    if (!Number.isInteger(r[0]) || r[0] < 0 || r[0] >= nCoords) return null;
+    out.push([r[0], r[1] | 0, r[2] | 0, Math.round(r[3] || 0), Math.round(r[4] || 0)]);
+  }
+  return JSON.stringify(out);
+}
+
 app.post('/api/routes', requireAuth, (req, res) => {
   const b = req.body || {};
-  const name = String(b.name || '').trim().slice(0, 80);
+  const name = text(b.name, 80);
   if (!name) return res.status(400).json({ error: 'Podaj nazwę trasy' });
   if (!Array.isArray(b.coords) || b.coords.length < 2 || b.coords.length > 50000) return res.status(400).json({ error: 'Brak trasy do zapisania' });
   if (!Array.isArray(b.waypoints)) return res.status(400).json({ error: 'Brak punktów trasy' });
+  const coords = [];
+  for (const c of b.coords) {
+    if (!Array.isArray(c) || !okPt({ lat: c[0], lng: c[1] })) return res.status(400).json({ error: 'Nieprawidłowe współrzędne trasy' });
+    coords.push([+c[0].toFixed(6), +c[1].toFixed(6), isNum(c[2]) ? Math.max(-500, Math.min(9000, Math.round(c[2]))) : 0]);
+  }
+  if (db.listRoutes(req.userId).length >= MAX_ROUTES_PER_USER)
+    return res.status(400).json({ error: `Limit zapisanych tras (${MAX_ROUTES_PER_USER}). Usuń którąś, aby zapisać nową.` });
+  const int = (v, max) => Math.max(0, Math.min(max, Math.round(isNum(v) ? v : 0)));
   const id = db.insertRoute(req.userId, {
     name,
-    distance_km: +b.distanceKm || 0,
-    new_sq: b.newSQ | 0, new_sqi: b.newSQI | 0,
-    mode: b.mode || null, profile: b.profile || null, is_loop: b.loop ? 1 : 0,
-    waypoints: JSON.stringify(b.waypoints.slice(0, 50)),
-    coords: JSON.stringify(b.coords.map(c => [+(+c[0]).toFixed(6), +(+c[1]).toFixed(6), Math.round(+c[2] || 0)])),
-    elev_profile: b.elevProfile ? JSON.stringify(b.elevProfile) : null,
-    surface_profile: b.surfaceProfile ? JSON.stringify(b.surfaceProfile) : null,
+    distance_km: isNum(b.distanceKm) ? Math.max(0, Math.min(100000, b.distanceKm)) : 0,
+    new_sq: int(b.newSQ, 1e7), new_sqi: int(b.newSQI, 1e7),
+    mode: text(b.mode, 20) || null, profile: text(b.profile, 20) || null, is_loop: b.loop ? 1 : 0,
+    waypoints: JSON.stringify(b.waypoints.slice(0, 200).map(cleanWaypoint).filter(Boolean).slice(0, 50)),
+    coords: JSON.stringify(coords),
+    elev_profile: cleanProfile(b.elevProfile),
+    surface_profile: cleanProfile(b.surfaceProfile),
+    hints: cleanHints(b.hints, coords.length),
   });
   res.json({ id: Number(id) });
 });
@@ -605,6 +1071,113 @@ app.delete('/api/routes/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Route links ───────────────────────────────────────────────────────────────
+// A saved route can be given a public address (/s/<token>): anyone who has it
+// sees the line on a map and can download the GPX, without an account. The
+// link shows the route and its name, nothing about its author. By default the
+// first and last 300 m are left out — a route usually starts at home.
+
+const SHARE_TRIM_M = 300;
+app.post('/api/routes/:id/share', requireAuth, (req, res) => {
+  const r = db.getRoute(req.userId, +req.params.id);
+  if (!r) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  const trim = req.body?.hideEnds === false ? 0 : SHARE_TRIM_M;
+  const token = r.share_token || crypto.randomBytes(12).toString('base64url');
+  db.shareRoute(req.userId, r.id, token, trim);
+  res.json({ token, trim_m: trim });
+});
+app.delete('/api/routes/:id/share', requireAuth, (req, res) => {
+  if (!db.shareRoute(req.userId, +req.params.id, null, 0)) return res.status(404).json({ error: 'Nie ma takiej trasy' });
+  res.json({ ok: true });
+});
+
+const sharedLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Zbyt wiele zapytań. Spróbuj ponownie za chwilę.' },
+});
+const mBetween = (a, b) => {
+  const r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r;
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2;
+  return 12742000 * Math.asin(Math.min(1, Math.sqrt(h)));
+};
+// What the link shows: the line without `trim` metres at both ends (never more
+// than a tenth of the route at each)
+function sharedRoute(token) {
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{12,40}$/.test(token)) return null;
+  const r = db.routeByShare(token);
+  if (!r) return null;
+  let c = [];
+  try { c = JSON.parse(r.coords).filter(p => Array.isArray(p) && isNum(p[0]) && isNum(p[1])); } catch {}
+  if (c.length < 2) return null;
+  const cum = [0];
+  for (let i = 1; i < c.length; i++) cum.push(cum[i - 1] + mBetween(c[i - 1], c[i]));
+  const total = cum[cum.length - 1], trim = Math.min(r.share_trim_m | 0, total * 0.1);
+  if (trim > 0) {
+    c = c.filter((_, i) => cum[i] >= trim && cum[i] <= total - trim);
+    if (c.length < 2) return null;
+  }
+  let ref = c[0][2] || 0, up = 0;
+  for (const p of c) { const e = p[2] || 0; if (e > ref + 3) { up += e - ref; ref = e; } else if (e < ref - 3) ref = e; }
+  return {
+    name: r.name, created_at: r.created_at, profile: r.profile || null, loop: !!r.is_loop,
+    distance_km: Math.round((total - 2 * trim) / 10) / 100, ascent_m: Math.round(up), trimmed_m: Math.round(trim), coords: c,
+  };
+}
+app.get('/api/shared/:token', sharedLimiter, (req, res) => {
+  const r = sharedRoute(req.params.token);
+  if (!r) return res.status(404).json({ error: 'Ten link nie jest już aktywny' });
+  res.json({ ...r, app: APP_NAME });
+});
+app.get('/api/shared/:token/gpx', sharedLimiter, (req, res) => {
+  const r = sharedRoute(req.params.token);
+  if (!r) return res.status(404).json({ error: 'Ten link nie jest już aktywny' });
+  const hasElev = r.coords.some(p => p[2] > 0), name = xmlEsc(r.name);
+  const pts = r.coords.map(p => `      <trkpt lat="${(+p[0]).toFixed(6)}" lon="${(+p[1]).toFixed(6)}">${hasElev ? `<ele>${(+p[2] || 0).toFixed(1)}</ele>` : ''}</trkpt>`).join('\n');
+  const file = (r.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l').replace(/Ł/g, 'L')
+    .replace(/[^A-Za-z0-9 _.-]+/g, ' ').trim().replace(/\s+/g, '_').slice(0, 60) || 'trasa') + '.gpx';
+  res.set('Content-Type', 'application/gpx+xml; charset=utf-8');
+  res.set('Content-Disposition', `attachment; filename="${file}"`);
+  res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="${xmlEsc(APP_NAME)}" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${name}</name></metadata>
+  <trk>
+    <name>${name}</name>
+    <type>${GPX_TYPE[r.profile] || 'cycling'}</type>
+    <trkseg>
+${pts}
+    </trkseg>
+  </trk>
+</gpx>
+`);
+});
+// The page behind the link. Its title and description are filled in here, so
+// a messenger shows the route's name and length when the link is pasted.
+app.get('/s/:token', sharedLimiter, (req, res) => {
+  const r = sharedRoute(req.params.token);
+  let html;
+  try { html = fs.readFileSync(path.join(FRONTEND, 'shared.html'), 'utf8'); } catch { return res.status(404).send('Not found'); }
+  const title = r ? `${r.name} · ${String(r.distance_km).replace('.', ',')} km` : APP_NAME;
+  const desc = r ? `${r.loop ? 'Pętla' : 'Trasa'} ${String(r.distance_km).replace('.', ',')} km, ${r.ascent_m} m w górę. ${APP_NAME}` : APP_NAME;
+  res.status(r ? 200 : 404).set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-cache')
+    .send(html.replace(/__OG_TITLE__/g, xmlEsc(title)).replace(/__OG_DESC__/g, xmlEsc(desc)).replace(/__APP_NAME__/g, xmlEsc(APP_NAME)));
+});
+
+// ── Weather along a route ─────────────────────────────────────────────────────
+// Forecast for one place (a 0.1° cell), from MET Norway through weather.js.
+const weatherLimiter = rateLimit({
+  windowMs: 60 * 1000, max: 40, standardHeaders: true, legacyHeaders: false,
+  message: { error: 'Zbyt wiele zapytań o pogodę. Spróbuj ponownie za chwilę.' },
+});
+app.get('/api/weather', requireAuth, weatherLimiter, async (req, res) => {
+  const p = { lat: Number(req.query.lat), lng: Number(req.query.lng) };
+  if (!okPt(p)) return res.status(400).json({ error: 'Nieprawidłowe koordynaty' });
+  try { res.json({ ...await weather.forecast(p.lat, p.lng), source: weather.ATTRIBUTION }); }
+  catch (e) {
+    console.warn('[weather]', e.response?.status || '', e.message);
+    res.status(502).json({ error: 'Prognoza jest chwilowo niedostępna' });
+  }
+});
+
 // ── Stats ─────────────────────────────────────────────────────────────────────
 
 // ── Frontend log telemetry ─────────────────────────────────────────────────
@@ -613,25 +1186,24 @@ const clientLogs = [];
 const MAX_LOGS = 500;
 
 app.post('/api/log', requireAuth, (req, res) => {
-  const { level = 'log', msg, data, url, line } = req.body || {};
+  const { level, msg, data, url, line } = req.body || {};
   const entry = {
     t: new Date().toISOString(),
     uid: req.userId,
-    level,
-    msg: String(msg || '').slice(0, 500),
-    data: data ? JSON.stringify(data).slice(0, 500) : undefined,
-    url: url ? String(url).slice(0, 200) : undefined,
-    line,
+    level: ['log', 'info', 'warn', 'error'].includes(level) ? level : 'log',
+    msg: text(typeof msg === 'string' ? msg : JSON.stringify(msg ?? ''), 500),
+    data: data ? text(JSON.stringify(data), 500) : undefined,
+    url: typeof url === 'string' ? text(url, 200) : undefined,
+    line: isNum(line) ? line : undefined,
   };
   clientLogs.push(entry);
   if (clientLogs.length > MAX_LOGS) clientLogs.shift();
-  if (level === 'error') console.error('[CLIENT]', entry.t, `uid=${entry.uid}`, entry.msg, entry.data || '');
+  if (entry.level === 'error') console.error('[CLIENT]', entry.t, `uid=${entry.uid}`, entry.msg, entry.data || '');
   res.json({ ok: true });
 });
 
-app.get('/api/log', requireAuth, (req, res) => {
-  if (req.userRole !== 'admin') return res.status(403).json({ error: 'forbidden' });
-  const n = parseInt(req.query.n) || 50;
+app.get('/api/log', requireAdmin, (req, res) => {
+  const n = Math.max(1, Math.min(MAX_LOGS, parseInt(req.query.n) || 50));
   res.json(clientLogs.slice(-n));
 });
 
@@ -644,8 +1216,9 @@ app.get('/api/stats', requireAuth, (req, res) => {
 // ── Tile endpoints ────────────────────────────────────────────────────────────
 
 function parseBbox(q) {
-  if (q.x0 !== undefined) return [+q.x0, +q.x1, +q.y0, +q.y1];
-  return null;
+  if (q.x0 === undefined) return null;
+  const b = [q.x0, q.x1, q.y0, q.y1].map(v => (typeof v === 'string' && /^-?\d{1,9}$/.test(v) ? +v : NaN));
+  return b.every(Number.isFinite) ? b : null;
 }
 
 app.get('/api/tiles/sq', requireAuth, (req, res) => {
@@ -678,8 +1251,8 @@ app.get('/api/tiles/all', requireAuth, (req, res) => {
 
 // Toggle a squadratinho as "impossible to collect" (long press on the map).
 app.post('/api/tiles/blocked/toggle', requireAuth, (req, res) => {
-  const tx = parseInt(req.body.tx, 10), ty = parseInt(req.body.ty, 10);
-  if (!Number.isFinite(tx) || !Number.isFinite(ty)) return res.status(400).json({ error: 'tx, ty required' });
+  const tx = Number(req.body?.tx), ty = Number(req.body?.ty);
+  if (!okTile(tx, ty)) return res.status(400).json({ error: 'tx, ty required' });
   if (db.hasTileSQI(req.userId, tx, ty)) return res.status(409).json({ error: 'Ten SQI jest już zdobyty' });
   const blocked = db.toggleBlockedSQI(req.userId, tx, ty);
   invalidateUserCache(req.userId);
@@ -690,7 +1263,7 @@ app.post('/api/tiles/blocked/toggle', requireAuth, (req, res) => {
 // collect (owned and already blocked ones left out). z17 tile range.
 app.get('/api/tiles/noroad', requireAuth, (req, res) => {
   const [x0, y0, x1, y1] = ['x0', 'y0', 'x1', 'y1'].map(k => parseInt(req.query[k], 10));
-  if (![x0, y0, x1, y1].every(Number.isFinite) || x1 < x0 || y1 < y0) return res.status(400).json({ error: 'x0,y0,x1,y1 required' });
+  if (!okTile(x0, y0) || !okTile(x1, y1) || x1 < x0 || y1 < y0) return res.status(400).json({ error: 'x0,y0,x1,y1 required' });
   if ((x1 - x0 + 1) * (y1 - y0 + 1) > 250000) return res.status(400).json({ error: 'range too large' });
   if (!reach.available()) return res.json({ available: false, tiles: [] });
   const c = getUserCache(req.userId);
@@ -724,12 +1297,13 @@ app.get('/api/tiles/priority', requireAuth, (req, res) => {
 
 // Accept suggestions: mark many squadratinhos as impossible at once
 app.post('/api/tiles/blocked/bulk', requireAuth, (req, res) => {
-  const list = Array.isArray(req.body.tiles) ? req.body.tiles : [];
+  const list = Array.isArray(req.body?.tiles) ? req.body.tiles : [];
   if (!list.length || list.length > 20000) return res.status(400).json({ error: 'tiles: 1..20000 [tx,ty]' });
   const c = getUserCache(req.userId);
   const owned = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
-  const ok = list.map(t => [parseInt(t[0], 10), parseInt(t[1], 10)])
-    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && !owned.has(`${x},${y}`));
+  const ok = list.filter(t => Array.isArray(t)).map(t => [Number(t[0]), Number(t[1])])
+    .filter(([x, y]) => okTile(x, y) && !owned.has(`${x},${y}`));
+  if (!ok.length) return res.json({ added: 0 });
   const added = db.addBlockedSQIMany(req.userId, ok);
   invalidateUserCache(req.userId);
   res.json({ added });
@@ -740,46 +1314,95 @@ app.post('/api/tiles/blocked/bulk', requireAuth, (req, res) => {
 app.get('/api/tiles/reach-stats', requireAuth, (req, res) => {
   const lat = parseFloat(req.query.lat), lng = parseFloat(req.query.lng);
   const rKm = Math.min(100, Math.max(1, parseFloat(req.query.r) || 50));
-  if (!isFinite(lat) || !isFinite(lng)) return res.status(400).json({ error: 'lat/lng' });
+  // above 72° the tiles get so narrow that a 100 km circle holds tens of millions
+  if (!isFinite(lat) || !isFinite(lng) || Math.abs(lat) > 72 || Math.abs(lng) > 180) return res.status(400).json({ error: 'lat/lng' });
   if (!reach.available()) return res.json({ available: false });
   const c = getUserCache(req.userId);
   const Z = tiles.Z_SQI, n = 2 ** Z;
   const ctr = tiles.latLngToTile(lat, lng, Z);
+  // The answer only changes with the rider's tiles, and those changes drop the
+  // whole user cache: remember it there (the panel asks again on every open).
+  const memoKey = `${ctr.x},${ctr.y},${rKm}`;
+  if (c.reachStats?.key === memoKey) return res.json(c.reachStats.value);
   const kmPerTile = 40075 * Math.cos(lat * Math.PI / 180) / n;
   const rT = Math.ceil(rKm / kmPerTile) + 1, r2 = (rKm / kmPerTile) ** 2;
+  // numeric keys: this loop visits up to a million tiles, strings would cost seconds
+  const W = 2 * rT + 1, keyOf = (x, y) => (y - ctr.y + rT) * W + (x - ctr.x + rT);
+  const inWin = r => Math.abs(r.tx - ctr.x) <= rT && Math.abs(r.ty - ctr.y) <= rT;
   const owned = new Set(), blocked = new Set();
-  for (const r of c.sqiRows) if (Math.abs(r.tx - ctr.x) <= rT && Math.abs(r.ty - ctr.y) <= rT) owned.add(`${r.tx},${r.ty}`);
-  for (const r of c.blockedSQI) blocked.add(`${r.tx},${r.ty}`);
+  for (const r of c.sqiRows) if (inWin(r)) owned.add(keyOf(r.tx, r.ty));
+  for (const r of c.blockedSQI) if (inWin(r)) blocked.add(keyOf(r.tx, r.ty));
   let nOwned = 0, nOpen = 0, nNoRoad = 0, nBlocked = 0, nUnknown = 0;
   for (let dy = -rT; dy <= rT; dy++) for (let dx = -rT; dx <= rT; dx++) {
     if (dx * dx + dy * dy > r2) continue;              // tiles are square in Mercator
-    const x = ctr.x + dx, y = ctr.y + dy, k = `${x},${y}`;
+    const x = ctr.x + dx, y = ctr.y + dy, k = keyOf(x, y);
     if (owned.has(k)) { nOwned++; continue; }
     if (blocked.has(k)) { nBlocked++; continue; }
     const s = reach.status(x, y);
     if (s < 0) nUnknown++; else if (s === 0) nNoRoad++; else nOpen++;
   }
   const collectable = nOwned + nOpen;
-  res.json({
+  const value = {
     available: true, r: rKm, owned: nOwned, open: nOpen, noRoad: nNoRoad, blocked: nBlocked, unknown: nUnknown,
     collectable, pct: collectable ? Math.round(1000 * nOwned / collectable) / 10 : 0,
-  });
+  };
+  c.reachStats = { key: memoKey, value };
+  res.json(value);
 });
 
 // ── Route planning ────────────────────────────────────────────────────────────
 
 const { fetchRoute, routeDistanceKm } = routing;
+const MAX_ROUTE_POINTS = 50, MAX_TARGET_KM = 500;
+
+// "No data for this area" and "no road near this point" are the rider's to
+// fix (move the point), not a server fault: 422 with a code the app knows.
+function routeFail(res, e) {
+  if (e instanceof routing.RoutingAreaError)
+    return res.status(422).json({ error: e.message, code: e.code === 'NO_ROUTING_DATA' ? 'no-routing-data' : 'no-road-near' });
+  return res.status(502).json({ error: 'Routing error: ' + e.message });
+}
+// Every point has to lie where routing data is installed (the public OSRM
+// fallback of the 'standard' profile is the only engine without that limit)
+function outsideCoverage(points, bikeProfile, needsBRouter) {
+  if (bikeProfile === 'standard' && !needsBRouter) return false;
+  return points.some(p => !routing.covered(p));
+}
+
+// Where routes can be planned and where the OpenStreetMap layers (places,
+// cycle network, squares without a road) have data. Public: no personal data.
+app.get('/api/coverage', (req, res) => {
+  const c = routing.coverage();
+  const pdb = getPoiDb();
+  let osm = null;
+  if (pdb) {
+    const meta = Object.fromEntries(pdb.prepare('SELECT key, value FROM meta').all().map(m => [m.key, m.value]));
+    osm = { regions: meta.regions ? meta.regions.split(',') : ['poland'], timestamp: meta.osm_timestamp || null, places: Number(meta.count) || null };
+  }
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json({ routing: { tiles: c.tiles, step: c.step, bbox: c.bbox }, osm });
+});
 
 app.post('/api/route/detour', requireAuth, async (req, res) => {
-  const { waypoints, loop = false, targetKm = 0, bikeProfile = 'standard', returnLeg = false, avoidCoords = null } = req.body;
+  const b = req.body || {};
+  const loop = b.loop === true, returnLeg = b.returnLeg === true;
   // 'heatmap' (old "Pop." option) never had data behind it; treat as SQI.
-  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest', 'popular', 'prio'].includes(req.body.mode) ? req.body.mode : 'sqi';
-  if (!waypoints?.length) return res.status(400).json({ error: 'waypoints required' });
+  const mode = ['sq', 'sqi', 'yard', 'yardi', 'shortest', 'popular', 'prio'].includes(b.mode) ? b.mode : 'sqi';
+  if (!Array.isArray(b.waypoints) || !b.waypoints.length) return res.status(400).json({ error: 'waypoints required' });
+  if (b.waypoints.length > MAX_ROUTE_POINTS) return res.status(400).json({ error: `Za dużo punktów trasy (maks. ${MAX_ROUTE_POINTS})` });
+  if (!b.waypoints.every(okPt)) return res.status(400).json({ error: 'Nieprawidłowe współrzędne punktu trasy' });
+  const waypoints = b.waypoints.map(p => ({ lat: p.lat, lng: p.lng }));
+  // the profile name becomes part of the routing engine's address
+  const bikeProfile = BIKE_PROFILES.has(b.bikeProfile) ? b.bikeProfile : 'standard';
+  const targetKm = isNum(b.targetKm) && b.targetKm > 0 ? b.targetKm : 0;
+  if (targetKm > MAX_TARGET_KM) return res.status(400).json({ error: `Maksymalna długość trasy to ${MAX_TARGET_KM} km` });
+  const avoidCoords = cleanPts(b.avoidCoords, 3000);
 
   const c = getUserCache(req.userId);
   const start = waypoints[0], end = waypoints[waypoints.length - 1];
   const samePoint = tiles.haversineDistance(start, end) < 0.4;
   const isLoop = loop || samePoint;
+  if (outsideCoverage(waypoints, bikeProfile, isLoop || returnLeg || mode === 'popular')) return routeFail(res, routing.noData());
 
   // Loop from just a start point: the planner builds and scores real loops
   // (way back on different roads) for every mode.
@@ -788,24 +1411,25 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
       return res.json(await planner.planLoop({
         start, targetKm, mode, bikeProfile, sqRows: c.sqRows, sqiRows: c.sqiRows, yard: c.yard, yardi: c.yardi,
         uberi: c.uberi, blockedSQI: c.blockedSQI, priority: mode === 'prio' ? getPriority(req.userId, c) : null,
+        windFrom: isNum(b.windFrom) ? ((b.windFrom % 360) + 360) % 360 : null,
       }));
     } catch (e) {
       if (e instanceof planner.PlannerError) return res.status(422).json({ error: e.message });
-      return res.status(500).json({ error: 'Routing error: ' + e.message });
+      return routeFail(res, e);
     }
   }
 
   // Loop through the user's own waypoints: closed, second half avoids the
   // first. A→B: plain routing; a return leg avoids the outbound track.
   const pts = isLoop && !samePoint ? [...waypoints, start] : [...waypoints];
-  const avoid = returnLeg && Array.isArray(avoidCoords) && avoidCoords.length > 1 ? avoidCoords : null;
+  const avoid = returnLeg && avoidCoords.length > 1 ? avoidCoords : null;
   const route = (p) => isLoop
     ? planner.routeLoopHalves(p, routing.brouterProfile(bikeProfile))
     : fetchRoute(p, avoid ? routing.brouterProfile(bikeProfile) : bikeProfile, 0, avoid);
 
   if (mode === 'shortest') {
     try { return res.json(await route(pts)); }
-    catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+    catch (e) { return routeFail(res, e); }
   }
 
   // Popular roads: loops through the rider's own waypoints are routed as
@@ -819,19 +1443,19 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
       const prof = routing.brouterProfile(bikeProfile);
       const alts = (await Promise.all([0, 1, 2, 3].map(i =>
         routing.fetchBRouterRoute(pts, prof, i, null, 30000).then(withPop).catch(() => null)))).filter(Boolean);
-      if (!alts.length) return res.status(500).json({ error: 'Routing error: brak trasy' });
+      if (!alts.length) return res.status(502).json({ error: 'Routing error: brak trasy' });
       const minKm = Math.min(...alts.map(routeDistanceKm));
       const ok = alts.filter(d => routeDistanceKm(d) <= minKm * 1.2);
       ok.sort((a, b) => b.planner.popular.share - a.planner.popular.share);
       return res.json(ok[0]);
-    } catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+    } catch (e) { return routeFail(res, e); }
   }
 
   // Long A→B route: straight-line >80km — skip iterative detour, one direct call.
   const directKm = tiles.haversineDistance(start, end);
   if (!isLoop && directKm > 80) {
     try { return res.json(await route(pts)); }
-    catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+    catch (e) { return routeFail(res, e); }
   }
 
   const ownedSQSet  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
@@ -840,10 +1464,10 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
   const tolerance = 0.15, target = Math.max(0, targetKm);
   let routeData;
   try { routeData = await route(pts); }
-  catch (e) { return res.status(500).json({ error: 'Routing error: ' + e.message }); }
+  catch (e) { return routeFail(res, e); }
 
   const baseKm = routeDistanceKm(routeData);
-  if (!baseKm) return res.status(500).json({ error: 'Could not compute base route' });
+  if (!baseKm) return res.status(502).json({ error: 'Could not compute base route' });
 
   const minKm = target > 0 ? target * (1 - tolerance) : 0;
   const maxKm = target > 0 ? target * (1 + tolerance) : Infinity;
@@ -877,45 +1501,58 @@ app.post('/api/route/detour', requireAuth, async (req, res) => {
 // plain routing on roads with the chosen bike profile, no squares, no loop
 // planner (/detour treats two points <400 m apart as a loop request).
 // `avoid` (closing the loop back to start) steers it off the road already drawn.
-const LEG_PROFILES = new Set(['standard', 'fastbike', 'gravel', 'rowery-pl', 'safety', 'mtb', 'trekking']);
 app.post('/api/route/leg', requireAuth, async (req, res) => {
   const { from, to, avoid } = req.body || {};
-  const okPt = p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180;
   if (!okPt(from) || !okPt(to)) return res.status(400).json({ error: 'from/to required' });
   if (tiles.haversineDistance(from, to) > 300) return res.status(400).json({ error: 'Punkty są za daleko od siebie (maks. 300 km)' });
-  const bikeProfile = LEG_PROFILES.has(req.body.bikeProfile) ? req.body.bikeProfile : 'standard';
-  const av = Array.isArray(avoid) ? avoid.filter(okPt).slice(0, 3000) : null;
+  const bikeProfile = BIKE_PROFILES.has(req.body.bikeProfile) ? req.body.bikeProfile : 'standard';
+  const av = Array.isArray(avoid) ? cleanPts(avoid, 3000) : null;
+  if (outsideCoverage([from, to], bikeProfile, av && av.length > 1)) return routeFail(res, routing.noData());
   try {
     if (av && av.length > 1) return res.json(await fetchRoute([from, to], routing.brouterProfile(bikeProfile), 0, av));
     return res.json(await fetchRoute([from, to], bikeProfile));
-  } catch (e) { return res.status(502).json({ error: 'Routing error: ' + e.message }); }
+  } catch (e) { return routeFail(res, e); }
 });
 
 // ── GPX import ────────────────────────────────────────────────────────────────
 
-app.post('/api/gpx/import', requireAuth, (req, res) => {
-  const { gpxText } = req.body;
-  if (!gpxText) return res.status(400).json({ error: 'gpxText required' });
-  try {
-    const ptRe = /lat="([^"]+)"\s+lon="([^"]+)"/g;
-    const coords = [];
-    let m;
-    while ((m = ptRe.exec(gpxText)) !== null) coords.push({ lat: parseFloat(m[1]), lng: parseFloat(m[2]) });
-    if (!coords.length) return res.status(400).json({ error: 'No GPS points found' });
-    const { sq14, sq17 } = tiles.trackToTiles(coords);
-    db.insertTilesSQBatch(req.userId, [...sq14].map(k => k.split(',').map(Number)));
-    db.insertTilesSQIBatch(req.userId, [...sq17].map(k => k.split(',').map(Number)));
-    invalidateUserCache(req.userId);
-    res.json({
-      points: coords.length,
-      newSQ:  sq14.size,
-      newSQI: sq17.size,
-      totalSQ:  db.getSQCount(req.userId),
-      totalSQI: db.getSQICount(req.userId),
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+// Turning a track into squares takes time in proportion to its length, so a
+// track gets a length budget (in degrees; 1° ≈ 70–110 km). A file that claims
+// to circle the planet a thousand times is refused instead of stalling
+// everybody else's requests.
+function trackLongerThan(coords, maxDeg) {
+  let d = 0;
+  for (let i = 1; i < coords.length; i++) {
+    d += Math.hypot(coords[i].lat - coords[i - 1].lat, coords[i].lng - coords[i - 1].lng);
+    if (d > maxDeg) return true;
   }
+  return false;
+}
+
+app.post('/api/gpx/import', requireAuth, (req, res) => {
+  const gpxText = req.body?.gpxText;
+  if (typeof gpxText !== 'string' || !gpxText) return res.status(400).json({ error: 'gpxText required' });
+  // track and route points; lat / lon in either order, either kind of quote
+  const coords = [];
+  const tagRe = /<(?:trkpt|rtept)\b([^>]{0,300})>/g, attr = (s, n) => { const m = new RegExp(`\\b${n}\\s*=\\s*["']([^"']{1,40})["']`).exec(s); return m ? Number(m[1]) : NaN; };
+  let m, seen = 0;
+  while ((m = tagRe.exec(gpxText)) !== null) {
+    seen++;
+    const p = { lat: attr(m[1], 'lat'), lng: attr(m[1], 'lon') };
+    if (okPt(p)) coords.push(p);
+  }
+  if (!coords.length) return res.status(400).json({ error: seen ? 'Plik nie zawiera poprawnych współrzędnych' : 'W pliku nie ma punktów GPS (trkpt)' });
+  if (trackLongerThan(coords, 400)) return res.status(400).json({ error: 'Ślad w pliku jest zbyt długi, aby go zaimportować' });
+  const { sq14, sq17 } = tiles.trackToTiles(coords);
+  const newSQ  = db.insertTilesSQBatch(req.userId, [...sq14].map(k => k.split(',').map(Number)));
+  const newSQI = db.insertTilesSQIBatch(req.userId, [...sq17].map(k => k.split(',').map(Number)));
+  invalidateUserCache(req.userId);
+  res.json({
+    points: coords.length,
+    newSQ, newSQI,
+    totalSQ:  db.getSQCount(req.userId),
+    totalSQI: db.getSQICount(req.userId),
+  });
 });
 
 // ── Squadrats.com KML import (gold-source owned squares) ──────────────────────
@@ -929,6 +1566,7 @@ app.post('/api/squadrats/import-kml', requireAuth, express.text({ limit: '30mb',
   try {
     const { parseSquadratsKml } = require('./kml');
     const { sq, sqi, sqSize, sqiSize } = parseSquadratsKml(xml);
+    if (!sq.size && !sqi.size) return res.status(400).json({ error: 'W pliku nie ma kwadratów. Wybierz plik KML pobrany ze squadrats.com.' });
     const addedSQ  = db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
     const addedSQI = db.insertTilesSQIBatch(req.userId, [...sqi].map(k => k.split(',').map(Number)));
     invalidateUserCache(req.userId);
@@ -942,18 +1580,57 @@ app.post('/api/squadrats/import-kml', requireAuth, express.text({ limit: '30mb',
       totalSQI: db.getSQICount(req.userId),
     });
   } catch (e) {
-    res.status(500).json({ error: 'Błąd parsowania KML: ' + e.message });
+    res.status(400).json({ error: 'Błąd parsowania KML: ' + e.message });
+  }
+});
+
+// ── Squares from StatsHunters and VeloViewer ──────────────────────────────────
+// Both count the same z14 squares. Additive, like the Squadrats import.
+
+const importing = new Set();
+app.post('/api/import/statshunters', requireAuth, async (req, res) => {
+  const code = statshunters.shareCode(req.body?.link);
+  if (!code) return res.status(400).json({ error: 'Wklej link udostępniania ze StatsHunters (statshunters.com/share/…)' });
+  if (importing.has(req.userId)) return res.status(409).json({ error: 'Import już trwa' });
+  importing.add(req.userId);
+  try {
+    const { sq, activities } = await statshunters.fetchTiles(code);
+    if (!sq.size) return res.status(400).json({ error: 'Pod tym linkiem nie ma kwadratów. Sprawdź w StatsHunters, czy link udostępnia aktywności.' });
+    const addedSQ = db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
+    invalidateUserCache(req.userId);
+    res.json({ addedSQ, parsedSQ: sq.size, activities, totalSQ: db.getSQCount(req.userId), totalSQI: db.getSQICount(req.userId) });
+  } catch (e) {
+    if (e instanceof statshunters.ImportError) return res.status(400).json({ error: e.message });
+    throw e;
+  } finally { importing.delete(req.userId); }
+});
+
+app.post('/api/import/veloviewer-kml', requireAuth, express.text({ limit: '30mb', type: '*/*' }), (req, res) => {
+  const xml = req.body;
+  if (!xml || typeof xml !== 'string' || xml.length < 50) return res.status(400).json({ error: 'Pusty plik KML' });
+  try {
+    const { sq, polygons } = require('./kml').parseTileKml(xml);
+    if (!sq.size) return res.status(400).json({ error: 'W pliku nie ma kwadratów. Wybierz plik KML z kafelkami Explorer wyeksportowany z VeloViewer.' });
+    const addedSQ = db.insertTilesSQBatch(req.userId, [...sq].map(k => k.split(',').map(Number)));
+    invalidateUserCache(req.userId);
+    res.json({ addedSQ, parsedSQ: sq.size, polygons, totalSQ: db.getSQCount(req.userId), totalSQI: db.getSQICount(req.userId) });
+  } catch (e) {
+    res.status(400).json({ error: 'Błąd parsowania KML: ' + e.message });
   }
 });
 
 // ── Preview tiles ─────────────────────────────────────────────────────────────
 
 app.post('/api/route/preview-tiles', requireAuth, (req, res) => {
-  const { coords } = req.body;
-  if (!coords?.length) return res.status(400).json({ error: 'coords required' });
-  const ownedSQ  = new Set(db.getAllTilesSQ(req.userId).map(r => `${r.tx},${r.ty}`));
-  const ownedSQI = new Set(db.getAllTilesSQI(req.userId).map(r => `${r.tx},${r.ty}`));
-  for (const r of getUserCache(req.userId).blockedSQI) ownedSQI.add(`${r.tx},${r.ty}`); // can't be collected
+  const raw = req.body?.coords;
+  if (!Array.isArray(raw) || !raw.length) return res.status(400).json({ error: 'coords required' });
+  if (raw.length > 60000 || !raw.every(okPt)) return res.status(400).json({ error: 'Nieprawidłowe współrzędne trasy' });
+  const coords = raw.map(p => ({ lat: p.lat, lng: p.lng }));
+  if (trackLongerThan(coords, 60)) return res.status(400).json({ error: 'Trasa jest zbyt długa' });
+  const c = getUserCache(req.userId);
+  const ownedSQ  = new Set(c.sqRows.map(r => `${r.tx},${r.ty}`));
+  const ownedSQI = new Set(c.sqiRows.map(r => `${r.tx},${r.ty}`));
+  for (const r of c.blockedSQI) ownedSQI.add(`${r.tx},${r.ty}`); // can't be collected
   const { sq14, sq17 } = tiles.trackToTiles(coords);
   const newSQ  = [...sq14].filter(k => !ownedSQ.has(k)).map(k => { const [tx,ty]=k.split(',').map(Number); return {tx,ty}; });
   const newSQI = [...sq17].filter(k => !ownedSQI.has(k)).map(k => { const [tx,ty]=k.split(',').map(Number); return {tx,ty}; });
@@ -982,19 +1659,23 @@ app.get('/api/mapy/tile/:set/:z/:x/:y', requireAuth, async (req, res) => {
 
 // ── Street View ───────────────────────────────────────────────────────────────
 
-app.get('/api/streetview/embed-url', (req, res) => {
-  const { lat, lng } = req.query;
+// For logged-in users only: these answers carry the Google key, and the
+// coverage check spends its quota.
+const queryPt = (q) => { const p = { lat: parseFloat(q.lat), lng: parseFloat(q.lng) }; return okPt(p) ? p : null; };
+
+app.get('/api/streetview/embed-url', requireAuth, (req, res) => {
+  const { lat, lng } = queryPt(req.query) || {};
   const key = process.env.GOOGLE_MAPS_KEY;
-  if (!key || !lat || !lng) return res.json({ url: null });
+  if (!key || lat === undefined) return res.json({ url: null });
   const url = `https://www.google.com/maps/embed/v1/streetview?key=${key}&location=${parseFloat(lat).toFixed(6)},${parseFloat(lng).toFixed(6)}&heading=0&pitch=0&fov=90`;
   res.json({ url });
 });
 
-app.get('/api/streetview/viewer', (req, res) => {
-  const { lat, lng } = req.query;
+app.get('/api/streetview/viewer', requireAuth, (req, res) => {
+  const pt = queryPt(req.query);
   const key = process.env.GOOGLE_MAPS_KEY;
-  if (!key || !lat || !lng) return res.status(404).send('No API key');
-  const la = parseFloat(lat).toFixed(6), ln = parseFloat(lng).toFixed(6);
+  if (!key || !pt) return res.status(404).send('No API key');
+  const la = pt.lat.toFixed(6), ln = pt.lng.toFixed(6);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
@@ -1039,14 +1720,16 @@ function svInit(){
 </body></html>`);
 });
 
-app.post('/api/streetview/coverage', async (req, res) => {
-  const { points } = req.body;
+const SV_MAX_POINTS = 400; // the app asks about ~300 points of a route
+app.post('/api/streetview/coverage', requireAuth, async (req, res) => {
   const key = process.env.GOOGLE_MAPS_KEY;
-  if (!key || !points?.length) return res.json({ coverage: null });
+  if (!Array.isArray(req.body?.points) || req.body.points.length > SV_MAX_POINTS) return res.status(400).json({ error: `points: 1..${SV_MAX_POINTS}` });
+  const points = req.body.points.filter(okPt).slice(0, SV_MAX_POINTS);
+  if (!key || !points.length) return res.json({ coverage: null });
   try {
     const coverage = await Promise.all(points.map(async p => {
-      const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${p.lat},${p.lng}&source=outdoor&key=${key}`;
-      const r = await fetch(url);
+      const url = `https://maps.googleapis.com/maps/api/streetview/metadata?location=${p.lat.toFixed(6)},${p.lng.toFixed(6)}&source=outdoor&key=${key}`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
       const d = await r.json();
       if (d.status === 'OK' && d.location) {
         return { lat: p.lat, lng: p.lng, ok: true, pLat: d.location.lat, pLng: d.location.lng };
@@ -1103,10 +1786,11 @@ const OVERPASS_CACHE_TTL_MS = 24 * 3600 * 1000;
 const overpassCache = new Map();
 
 app.post('/api/route/overpass', requireAuth, async (req, res) => {
-  const { query } = req.body;
-  if (!query) return res.status(400).json({ error: 'Missing query' });
+  const query = req.body?.query;
+  if (typeof query !== 'string' || !query.trim()) return res.status(400).json({ error: 'Missing query' });
+  if (query.length > 20000) return res.status(400).json({ error: 'Zapytanie jest zbyt długie' });
 
-  const key = require('crypto').createHash('sha1').update(query).digest('hex');
+  const key = crypto.createHash('sha1').update(query).digest('hex');
   const hit = overpassCache.get(key);
   if (hit && Date.now() - hit.t < OVERPASS_CACHE_TTL_MS) return res.json(hit.data);
 
@@ -1159,10 +1843,25 @@ function getPoiDb() {
 const isOrlen = (t) => /orlen/i.test(`${t.brand || ''} ${t.name || ''}`);
 
 app.post('/api/route/pois', requireAuth, (req, res) => {
-  const { coords, radiusM = 400, tags: wanted = [] } = req.body;
+  const b = req.body || {};
+  const radiusM = isNum(b.radiusM) ? b.radiusM : 400;
+  const wanted = (Array.isArray(b.tags) ? b.tags : []).filter(t => typeof t === 'string' && t.length <= 60).slice(0, 200);
+  if (!Array.isArray(b.coords) || b.coords.length < 2) return res.status(400).json({ error: 'coords required' });
+  if (b.coords.length > 60000 || !b.coords.every(okPt)) return res.status(400).json({ error: 'Nieprawidłowe współrzędne trasy' });
+  const coords = b.coords;
   const pdb = getPoiDb();
   if (!pdb) return res.status(503).json({ error: 'Brak lokalnej bazy POI', fallback: true });
-  if (!Array.isArray(coords) || coords.length < 2) return res.status(400).json({ error: 'coords required' });
+  // The local database covers the OSM extracts it was built from. A route
+  // that leaves them gets its places from Overpass (the app asks there next).
+  if (reach.available()) {
+    const step = Math.max(1, Math.floor(coords.length / 60));
+    let seen = 0, outside = 0;
+    for (let i = 0; i < coords.length; i += step) {
+      const t = tiles.latLngToTile(coords[i].lat, coords[i].lng, 17);
+      seen++; if (reach.status(t.x, t.y) < 0) outside++;
+    }
+    if (outside > seen * 0.1) return res.status(503).json({ error: 'Trasa wychodzi poza lokalną bazę miejsc', fallback: true });
+  }
 
   const rKm = Math.min(2, Math.max(0.05, radiusM / 1000));
   const lat0 = coords[0].lat, kx = 111.32 * Math.cos(lat0 * Math.PI / 180), ky = 110.57;
@@ -1172,6 +1871,8 @@ app.post('/api/route/pois', requireAuth, (req, res) => {
     if (p.lng < minLng) minLng = p.lng; if (p.lng > maxLng) maxLng = p.lng;
   }
   const dLat = rKm / ky, dLng = rKm / kx;
+  // every place inside the route's bounding box is read from the database
+  if ((maxLat - minLat) * (maxLng - minLng) > 40) return res.status(400).json({ error: 'Trasa obejmuje zbyt duży obszar, aby szukać miejsc' });
 
   // Route segments bucketed on a ~1 km grid so each candidate only checks
   // nearby segments.
@@ -1229,8 +1930,9 @@ app.post('/api/route/pois', requireAuth, (req, res) => {
 
 // ── Wikipedia POI near route ───────────────────────────────────────────────────
 app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
-  const { samples } = req.body; // [{lat,lng}, ...]
-  if (!samples?.length) return res.status(400).json({ error: 'Missing samples' });
+  // [{lat,lng}, ...]; one Wikipedia request each, so only as many as the app sends
+  const samples = cleanPts(req.body?.samples, 40);
+  if (!samples.length) return res.status(400).json({ error: 'Missing samples' });
   try {
     const wikiHeaders = { 'User-Agent': 'SquadratsApp/2.0' };
     const seen = new Set();
@@ -1238,7 +1940,7 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
 
     // Search within 1km radius of each sampled route point, deduplicate
     for (const pt of samples) {
-      const url = `https://pl.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${pt.lat}|${pt.lng}&gsradius=1000&gslimit=20&format=json&origin=*`;
+      const url = `https://pl.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${pt.lat.toFixed(6)}|${pt.lng.toFixed(6)}&gsradius=1000&gslimit=20&format=json&origin=*`;
       try {
         const r = await axios.get(url, { timeout: 6000, headers: wikiHeaders });
         for (const a of (r.data?.query?.geosearch || [])) {
@@ -1280,7 +1982,7 @@ app.post('/api/route/wiki-poi', requireAuth, async (req, res) => {
     res.json({ pois });
   } catch (e) {
     console.error('Wiki POI error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(502).json({ error: 'Wikipedia nie odpowiada' });
   }
 });
 
@@ -1357,13 +2059,31 @@ app.get('/api/mapillary/image/:id', requireAuth, async (req, res) => {
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
 
+// An unknown API address is an error, not the app's start page
+app.use('/api', (req, res) => res.status(404).json({ error: 'Nie ma takiego adresu API' }));
+
 app.get('*', (req, res) => res.sendFile(path.join(FRONTEND, 'index.html')));
+
+// ── Errors ────────────────────────────────────────────────────────────────────
+// Whatever goes wrong in a handler ends here: the client gets a short JSON
+// answer (never a stack trace), the details go to the server log.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode;
+  if (status >= 400 && status < 500) {
+    return res.status(status).json({
+      error: status === 413 ? 'Zbyt duże żądanie' : err.type === 'entity.parse.failed' ? 'Nieprawidłowy JSON' : 'Nieprawidłowe żądanie',
+    });
+  }
+  console.error(`[error] ${req.method} ${req.path}:`, err);
+  res.status(500).json({ error: 'Błąd serwera' });
+});
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 app.listen(PORT, () => {
   console.log(`\n╔══════════════════════════════════════╗`);
-  console.log(`║  Squadrats Route Planner v2 Multi    ║`);
+  console.log(`║  ${APP_NAME.slice(0, 35).padEnd(35)} ║`);
   console.log(`║  http://localhost:${PORT}               ║`);
   console.log(`╚══════════════════════════════════════╝\n`);
   console.log(`  Użytkownicy: ${db.getUserCount()}`);

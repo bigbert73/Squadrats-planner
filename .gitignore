@@ -5,3 +5,8 @@ backend/node_modules/
 *.db-wal
 *.db-shm
 .claude/
+tests/.stack.env
+tests/results/
+tests/shots/
+.env.*
+!.env.example

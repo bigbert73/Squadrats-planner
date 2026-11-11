@@ -1,0 +1,95 @@
+/* Styles of what extras.js adds: weather on the route, route links, imports,
+   account recovery, the installed app, voice navigation. */
+
+/* ── language ── */
+.lang-sel{margin-left:auto;height:28px;padding:0 6px;background:var(--card);border:1px solid var(--border2);border-radius:6px;color:var(--tx);font:500 12px 'Space Grotesk',sans-serif;cursor:pointer}
+.lang-sel.auth-lang{position:absolute;top:14px;right:14px;margin:0;background:#fff;border-color:#e5e7eb;color:#374151}
+@media(max-width:768px){.lang-sel{height:40px;font-size:14px}}
+
+/* ── offline ── */
+#offline-pill{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:12px;background:rgba(255,107,53,.14);border:1px solid rgba(255,107,53,.5);color:var(--orange);font-size:11px;font-weight:600;white-space:nowrap;flex-shrink:0}
+#offline-pill[hidden]{display:none}
+
+/* ── weather on the route ── */
+.rc-wx{margin:-2px 0 10px;padding:9px 10px;background:var(--card);border:1px solid var(--border);border-radius:9px;font-size:12px;color:var(--tx2);display:flex;flex-direction:column;gap:6px}
+.rc-wx[hidden]{display:none}
+.wx-top{display:flex;align-items:center;gap:8px}
+.wx-top>i{font-size:22px;color:var(--yellow);flex-shrink:0}
+.wx-top b{color:var(--tx);font-size:14px;font-weight:600}
+.wx-top select{margin-left:auto;min-width:0;max-width:150px;height:26px;background:var(--panel);border:1px solid var(--border2);border-radius:6px;color:var(--tx);font:500 11px 'Space Grotesk',sans-serif;padding:0 4px}
+.wx-row{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.wx-row span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.wx-row i{font-size:14px;color:var(--tx3)}
+.wx-arrow{display:inline-block;font-size:13px;line-height:1;color:var(--blue)}
+.wx-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--panel)}
+.wx-bar .h{background:var(--orange)} .wx-bar .c{background:var(--tx3)} .wx-bar .t{background:var(--green)}
+.wx-leg{display:flex;justify-content:space-between;font-size:11px}
+.wx-leg .h{color:var(--orange)} .wx-leg .t{color:var(--green)}
+.wx-tip{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;background:rgba(77,168,255,.1);border:1px solid rgba(77,168,255,.35);color:var(--tx);line-height:1.35}
+.wx-tip.good{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3)}
+.wx-tip button{flex-shrink:0;height:28px;padding:0 10px;border-radius:7px;border:1px solid var(--blue);background:var(--blue);color:#06121f;font:600 11.5px 'Space Grotesk',sans-serif;cursor:pointer}
+.wx-src{font-size:10px;color:var(--tx3)}
+.wx-src a{color:var(--tx3)}
+@media(max-width:768px){.wx-top select{height:40px;font-size:13px}.wx-tip button{height:40px}}
+
+/* ── "Moje trasy": link to a route, route from a file ── */
+.rt-tools button{height:34px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--tx);cursor:pointer;font:500 12px 'Space Grotesk',sans-serif;white-space:nowrap;flex-shrink:0}
+.rt-tools button:hover{border-color:var(--bhi)}
+.rt-acts .lnk.on{border-color:var(--green);color:var(--green)}
+.rt-share{margin-top:8px;padding:9px;background:var(--panel);border:1px solid var(--border2);border-radius:9px;display:flex;flex-direction:column;gap:7px;font-size:11.5px;color:var(--tx2)}
+.rt-share .row{display:flex;gap:6px;flex-wrap:wrap}
+.rt-share input[type=text]{flex:1;min-width:140px;height:30px;background:var(--card);border:1px solid var(--border2);border-radius:7px;color:var(--tx);padding:0 8px;font:400 11.5px 'JetBrains Mono',monospace}
+.rt-share button{height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 10px;background:var(--card);border:1px solid var(--border2);border-radius:7px;color:var(--tx);cursor:pointer;font:500 11.5px 'Space Grotesk',sans-serif}
+.rt-share button.pri{background:var(--green);border-color:var(--green);color:#06210f;font-weight:600}
+.rt-share button.off{margin-left:auto;color:var(--tx3)}
+.rt-share label{display:flex;align-items:center;gap:7px;cursor:pointer;line-height:1.35}
+.rt-share .row{align-items:center}
+.rt-share a{color:var(--blue);text-decoration:none}
+.rt-share a:hover{text-decoration:underline}
+@media(max-width:768px){
+  .rt-tools{flex-wrap:wrap}
+  .rt-tools button span{display:none}
+  .rt-tools button{height:40px;min-width:40px;justify-content:center}
+  .rt-share button,.rt-share input[type=text]{height:40px}
+}
+
+/* ── imports ── */
+#sh-form{margin:-2px 0 6px}
+#sh-form[hidden]{display:none}
+#sh-form input{width:100%;height:34px;margin-bottom:6px;background:var(--card);border:1px solid var(--border2);border-radius:7px;color:var(--tx);padding:0 9px;font:400 12px 'Space Grotesk',sans-serif}
+
+/* ── account ── */
+.auth-link{display:block;width:100%;margin-top:10px;padding:4px;background:none;border:none;color:#15803d;font:500 12px 'Space Grotesk',sans-serif;cursor:pointer;text-align:center}
+.auth-link:hover{text-decoration:underline}
+.auth-link[hidden]{display:none}
+.auth-ok{font-size:12px;line-height:1.45;color:#166534;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:9px 11px;margin-bottom:10px}
+.auth-ok[hidden]{display:none}
+.social-btn.apple{background:#000;border-color:#000;color:#fff;font-weight:600}
+.social-btn.apple:hover{background:#1f1f1f;border-color:#1f1f1f}
+.link-btn{background:none;border:none;padding:0 0 0 6px;color:var(--blue);font:500 11px 'Space Grotesk',sans-serif;cursor:pointer}
+.link-btn:hover{text-decoration:underline}
+#prof-email-box:not(:empty){margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+@media(max-width:768px){.auth-link{font-size:14px;min-height:40px}.link-btn{font-size:13px;min-height:40px}}
+
+/* ── riding: next turn, voice ── */
+#ride-turn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 7px;margin-left:-6px;border-radius:16px;background:var(--blue);color:#06121f;font-weight:700;font-size:13px;white-space:nowrap;flex-shrink:0}
+#ride-turn[hidden]{display:none}
+#ride-turn i{font-size:18px}
+#ride-turn.now{background:var(--green)}
+#ride-voice{width:30px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
+#ride-voice i{font-size:15px}
+#ride-voice.mute{color:var(--tx3)}
+@media(max-width:768px){#ride-bar{flex-wrap:wrap;justify-content:center;border-radius:16px}#ride-txt{flex:1 1 auto;min-width:0}}
+
+/* ── install hint (iPhone) ── */
+#install-hint{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:5000;max-width:420px;margin:0 auto;padding:14px 40px 14px 14px;background:var(--panel);border:1px solid var(--border2);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.6);font-size:13px;line-height:1.5;color:var(--tx)}
+#install-hint button{position:absolute;top:6px;right:6px;width:32px;height:32px;background:none;border:none;color:var(--tx2);font-size:18px;cursor:pointer}
+
+/* ── loop into the wind ── */
+.wind-opt{display:flex;align-items:center;gap:7px;margin:-2px 0 10px;font-size:12px;color:var(--tx2);cursor:pointer;user-select:none}
+.wind-opt i{font-size:15px;color:var(--blue)}
+.wind-opt input{accent-color:var(--blue);width:15px;height:15px;margin:0}
+@media(max-width:768px){.wind-opt{min-height:40px;font-size:13px}}
+
+/* forgotten / new password: the rest of the sign-in card steps aside */
+.auth-side-hide{display:none!important}

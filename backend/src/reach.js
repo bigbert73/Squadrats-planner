@@ -12,8 +12,13 @@ const Database = require('better-sqlite3');
 const DATA_DIR = path.dirname(process.env.DB_PATH || path.join(__dirname, '../../data/squadrats.db'));
 const REACH_DB = path.join(DATA_DIR, 'reach.db');
 
-let blocks = null, mtime = 0, B = 5;
+let blocks = null, mtime = 0, B = 5, checkedAt = 0;
 function load() {
+  // status() runs for hundreds of thousands of tiles per request: look at the
+  // file on disk at most every few seconds, not on every call
+  const now = Date.now();
+  if (now - checkedAt < 5000) return blocks;
+  checkedAt = now;
   let st;
   try { st = fs.statSync(REACH_DB); } catch { blocks = null; return null; }
   if (blocks && st.mtimeMs === mtime) return blocks;

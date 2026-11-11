@@ -8,6 +8,9 @@ const db    = require('./db');
 const APP_BASE = (process.env.STRAVA_REDIRECT_URI || 'http://localhost:3000/auth/callback')
   .replace(/\/auth\/callback$/, '');
 
+// `email` is only passed when the provider has confirmed that the address
+// belongs to this person: an existing account is joined by e-mail, so an
+// unconfirmed address would let anyone into somebody else's account.
 async function findOrCreate(provider, oauthId, email, displayName) {
   let user = db.getUserByOAuth(provider, oauthId);
   if (user) return user;
@@ -20,7 +23,8 @@ async function findOrCreate(provider, oauthId, email, displayName) {
     }
   }
 
-  const username = email || `${provider}_${oauthId}`;
+  const fallback = `${provider}_${oauthId}`;
+  const username = email && !db.getUserByUsername(email) ? email : fallback;
   const result = db.createOAuthUser(provider, oauthId, email, username);
   return db.getUserById(result.lastInsertRowid);
 }
@@ -52,8 +56,10 @@ async function googleCallback(code) {
   const info = await axios.get(G_INFO, {
     headers: { Authorization: `Bearer ${tok.data.access_token}` },
   });
-  const { sub, email, name } = info.data;
-  return findOrCreate('google', sub, email, name || email);
+  const { sub, email, name, email_verified } = info.data;
+  if (typeof sub !== 'string' || !sub) throw new Error('Google nie zwróciło identyfikatora konta');
+  const verified = email_verified === true || email_verified === 'true';
+  return findOrCreate('google', sub, verified && typeof email === 'string' ? email : null, name || email);
 }
 
-module.exports = { googleAuthUrl, googleCallback };
+module.exports = { googleAuthUrl, googleCallback, findOrCreate, APP_BASE };

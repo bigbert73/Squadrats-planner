@@ -2,7 +2,11 @@
  * poi-import.js — load POIs exported from an OSM extract (osmium export
  * geojsonseq) into a standalone SQLite file with an R-tree index.
  *
- *   node src/poi-import.js <in.geojsonseq> <out.db> [osm-timestamp]
+ *   node src/poi-import.js <in.geojsonseq[,in2,…]> <out.db> [osm-timestamp] [regions]
+ *
+ * Several inputs (one per OSM extract, comma-separated) end up in one
+ * database; an object that appears in two neighbouring extracts is stored
+ * once. [regions] is the list of extract names, kept in the meta table.
  *
  * Builds into <out.db>.tmp and renames over <out.db> at the end, so a
  * running server never sees a half-built database. Areas (e.g. a
@@ -32,8 +36,9 @@ function centroid(geom) {
 }
 
 async function main() {
-  const [inPath, outPath, osmTs] = process.argv.slice(2);
-  if (!inPath || !outPath) { console.error('usage: poi-import.js <in.geojsonseq> <out.db> [osm-timestamp]'); process.exit(1); }
+  const [inArg, outPath, osmTs, regions] = process.argv.slice(2);
+  const inputs = (inArg || '').split(',').filter(Boolean);
+  if (!inputs.length || !outPath) { console.error('usage: poi-import.js <in.geojsonseq[,in2,…]> <out.db> [osm-timestamp] [regions]'); process.exit(1); }
   const tmp = outPath + '.tmp';
   fs.rmSync(tmp, { force: true });
   const db = new Database(tmp);
@@ -50,8 +55,10 @@ async function main() {
     for (const r of rows) { ins.run(r.id, r.osm, r.lat, r.lng, r.tags); insR.run(r.id, r.lat, r.lat, r.lng, r.lng); }
   });
 
-  const rl = readline.createInterface({ input: fs.createReadStream(inPath), crlfDelay: Infinity });
   let id = 0, skipped = 0, batch = [];
+  const seen = inputs.length > 1 ? new Set() : null;      // extracts overlap along their borders
+  for (const inPath of inputs) {
+  const rl = readline.createInterface({ input: fs.createReadStream(inPath), crlfDelay: Infinity });
   for await (const raw of rl) {
     const line = raw.replace(/^\x1e/, '').trim();
     if (!line) continue;
@@ -63,13 +70,18 @@ async function main() {
     const tags = {};
     for (const k of KEEP) if (p[k] != null) tags[k] = p[k];
     if (!tags.amenity && !tags.shop && !tags.tourism && !tags.historic) { skipped++; continue; } // referenced vertex, not a POI
-    batch.push({ id: ++id, osm: `${p['@type'] || 'n'}/${p['@id'] ?? ''}`, lat: c[1], lng: c[0], tags: JSON.stringify(tags) });
+    const osm = `${p['@type'] || 'n'}/${p['@id'] ?? ''}`;
+    if (seen) { if (seen.has(osm)) continue; seen.add(osm); }
+    batch.push({ id: ++id, osm, lat: c[1], lng: c[0], tags: JSON.stringify(tags) });
     if (batch.length >= 5000) { flush(batch); batch = []; }
   }
+  }
+  if (!id) throw new Error('no POIs in the input; keeping the old database');
   if (batch.length) flush(batch);
   db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('osm_timestamp', osmTs || '');
   db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('imported_at', new Date().toISOString());
   db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('count', String(id));
+  if (regions) db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)').run('regions', regions);
   db.close();
   fs.renameSync(tmp, outPath);
   console.log(`POI import: ${id} POIs → ${outPath} (skipped ${skipped})`);

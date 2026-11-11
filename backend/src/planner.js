@@ -529,12 +529,16 @@ async function planPriority(start, target, profile, ctx) {
 
 class PlannerError extends Error {}
 
-async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority }) {
+// windFrom (degrees, where the wind blows from): only loops lying on that side
+// of the start are tried, so the way out is into the wind and the way back with it.
+const WIND_SECTOR = 70;
+async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority, windFrom = null }) {
   const t0 = Date.now(), overBudget = () => Date.now() - t0 > SOFT_BUDGET_MS;
   const profile = routing.brouterProfile(bikeProfile);
   const ctx = buildContext({ mode, sqRows, sqiRows, yard, yardi, uberi, blockedSQI, priority });
-  const target = Math.max(5, targetKm || 15);
+  const target = Math.max(routing.isFoot(bikeProfile) ? 3 : 5, targetKm || 15);
   if (ctx.mode === 'prio') return planPriority(start, target, profile, ctx);
+  const upwind = (dir) => windFrom == null || Math.abs(((dir - windFrom + 540) % 360) - 180) <= WIND_SECTOR;
   const reach = PETAL_REACH * target * (1 + LEN_TOLERANCE);
 
   if (ctx.mode === 'sq' || ctx.mode === 'yard' || ctx.mode === 'yardi') {
@@ -553,9 +557,11 @@ async function planLoop({ start, targetKm, mode, bikeProfile, sqRows, sqiRows, y
   // polygon and route only the most promising (routing is the expensive part).
   const ellipses = [], petals = [];
   for (let i = 0; i < DIRECTIONS; i++) {
+    if (!upwind(i * 360 / DIRECTIONS)) continue;
     for (const k of ASPECTS) ellipses.push({ kind: 'ellipse', dir: i * 360 / DIRECTIONS, k });
   }
   for (const c of targetClusters(start, reach * 0.4, reach, ctx)) {
+    if (!upwind(bearing(start, c))) continue;
     for (const side of [0, 35, -35]) {
       petals.push({ kind: 'petal', dir: bearing(start, c), d: c.d, T: { lat: c.lat, lng: c.lng }, side, baseKm: target });
     }

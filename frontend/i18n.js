@@ -1,16 +1,26 @@
-// UI language (PL / EN).
+// UI language (PL, EN, DE, NL, FR, CS).
 //
-// The app is written in Polish. In English mode every Polish text that reaches
-// the DOM (static markup, innerHTML/textContent set by the app, server errors
-// shown in toasts) is swapped for its English counterpart from EN / EN_RX by a
-// MutationObserver; the original is remembered per node, so switching back to
-// Polish restores it without a reload. Strings that never hit the DOM
-// (confirm/alert, input values, locale-formatted dates) go through t()/tl().
+// The app is written in Polish. In any other language every Polish text that
+// reaches the DOM (static markup, innerHTML/textContent set by the app, server
+// errors shown in toasts) is swapped for its counterpart by a MutationObserver;
+// the original is remembered per node, so switching the language needs no
+// reload. Strings that never hit the DOM (confirm/alert, input values,
+// locale-formatted dates) go through t()/tl().
+//
+// English lives here (EN / EN_RX / EN_SUB). The other languages are files of
+// the same shape, i18n/<code>.js, loaded only for those who use them; a text
+// missing there falls back to English.
 (function(){
 const KEY='sq-lang';
+const LANGS=['pl','en','de','nl','fr','cs'];
+const LOCALE={pl:'pl-PL',en:'en-GB',de:'de-DE',nl:'nl-NL',fr:'fr-FR',cs:'cs-CZ'};
+const PACK_VER=2; // bump when the files in i18n/ change
 let lang=null;
 try{lang=localStorage.getItem(KEY);}catch(e){}
-if(lang!=='pl'&&lang!=='en') lang=/^pl\b/i.test(navigator.language||'pl')?'pl':'en';
+if(!LANGS.includes(lang)){
+  const nav=String(navigator.language||'pl').slice(0,2).toLowerCase();
+  lang=LANGS.includes(nav)?nav:'en';
+}
 
 // Exact texts (whitespace-collapsed, trimmed)
 const EN={
@@ -49,7 +59,7 @@ const EN={
   'Moje trasy: zapisane trasy, podgląd, wysyłka do Garmin Connect':'My routes: saved routes, preview, send to Garmin Connect',
   'Wszystkie trasy, podgląd i Garmin Connect':'All routes, preview and Garmin Connect',
   'Szukaj po nazwie…':'Search by name…','Sortowanie':'Sort','Najnowsze':'Newest','Najdłuższe':'Longest','Najkrótsze':'Shortest',
-  'Najwięcej SQI':'Most SQI','Nazwa A–Z':'Name A–Z','Zamknij':'Close','Zmień nazwę':'Rename','Zapisz nazwę':'Save name',
+  'Najwięcej SQI':'Most SQI','Nazwa A–Z':'Name A–Z','Zamknij':'Close','Zmień nazwę':'Rename','Kilometr trasy':'Route kilometre','Zapisz nazwę':'Save name',
   'Pokaż na mapie':'Show on map','Na mapie':'On map','Pobierz GPX':'Download GPX','Trekking':'Trekking',
   'Moje trasy':'My routes','Ładowanie…':'Loading…','Podsumowanie trasy':'Route summary','Punkty na trasie':'Points along the route',
   'Wybierz Start i kliknij mapę':'Choose Start and click the map','Dom':'Home','Start ustawiony':'Start set',
@@ -219,6 +229,102 @@ const EN={
   'Brak lokalnej bazy POI':'No local POI database','Zapisany:':'Saved:',
   'Asfalt / Beton':'Asphalt / concrete','Szuter / Gravel':'Gravel','brak trasy':'no route',
   'Konto i wszystkie dane zostały usunięte.':'The account and all its data have been deleted.',
+  'Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.':'No connection to the server. Check your internet and try again.',
+  'Sesja wygasła. Zaloguj się ponownie — trasa na mapie zostaje.':'Your session has ended. Log in again — the route on the map stays.',
+  'Sesja wygasła. Zaloguj się ponownie.':'Your session has ended. Log in again.',
+  'Serwer chwilowo nie odpowiada. Odśwież stronę za chwilę.':'The server is not responding right now. Reload the page in a moment.',
+  'nazwa albo email':'username or email','3–32 znaki: litery, cyfry, kropka, - _':'3–32 characters: letters, digits, dot, - _',
+  'Żądanie z innej strony':'Request from another site','Nazwa użytkownika maks. 32 znaki':'Username: max. 32 characters',
+  'Nazwa użytkownika: tylko litery, cyfry, kropka, myślnik i podkreślenie':'Username: letters, digits, dot, hyphen and underscore only',
+  'Nieprawidłowy adres e-mail':'Invalid email address','Nieprawidłowe dane Strava API':'Invalid Strava API details',
+  'Client ID ze Stravy to sama liczba':'The Strava Client ID is just a number','Nieprawidłowe warstwy':'Invalid layers',
+  'Nieprawidłowe współrzędne trasy':'Invalid route coordinates','Nieprawidłowe współrzędne punktu trasy':'Invalid route point coordinates',
+  'Punkty są za daleko od siebie (maks. 300 km)':'The points are too far apart (max. 300 km)',
+  'Ślad w pliku jest zbyt długi, aby go zaimportować':'The track in the file is too long to import',
+  'W pliku nie ma kwadratów. Wybierz plik KML pobrany ze squadrats.com.':'There are no squares in the file. Choose the KML file downloaded from squadrats.com.',
+  'Trasa jest zbyt długa':'The route is too long','Zapytanie jest zbyt długie':'The query is too long',
+  'Trasa obejmuje zbyt duży obszar, aby szukać miejsc':'The route covers too large an area to search for places',
+  'Wikipedia nie odpowiada':'Wikipedia is not responding','Nie ma takiego adresu API':'No such API address','Błąd serwera':'Server error',
+  'Zbyt duże żądanie':'Request too large','Nieprawidłowy JSON':'Invalid JSON','Nieprawidłowe żądanie':'Invalid request',  // Strava with one click, coverage
+  'Kontynuuj ze Stravą':'Continue with Strava',
+  'Jedno kliknięcie: konto i kwadraty z Twoich jazd':'One click: an account and the squares from your rides',
+  'Odłącz Stravę':'Disconnect Strava','Połącz ponownie':'Reconnect','Zapisz klucze':'Save keys','(własne klucze)':'(own keys)',
+  'Po połączeniu nowe jazdy pobierają się same. Odłączenie zatrzymuje synchronizację, zdobyte kwadraty zostają na koncie.':'Once connected, new rides are fetched automatically. Disconnecting stops the sync; the squares you collected stay in your account.',
+  'Własne klucze Strava API (zaawansowane)':'Your own Strava API keys (advanced)','Klucze Strava API':'Strava API keys',
+  'Niepotrzebne do zwykłego używania. Własna aplikacja Strava ma osobny limit zapytań, niezależny od innych osób. Wyczyść oba pola i zapisz, aby wrócić do połączenia jednym kliknięciem.':'Not needed for normal use. Your own Strava application has its own request limit, independent of other people. Clear both fields and save to go back to one-click connecting.',
+  '✅ Strava połączona! Pobieram Twoje jazdy, kwadraty pojawią się za chwilę.':'✅ Strava connected! Fetching your rides — the squares will appear in a moment.',
+  'Połącz Stravę w Profilu, a Twoje jazdy zamienią się w kwadraty':'Connect Strava in Profile and your rides will turn into squares',
+  'Niepołączona. Jedno kliknięcie i Twoje jazdy zamienią się w kwadraty.':'Not connected. One click and your rides turn into squares.',
+  'Odłączyć Stravę? Synchronizacja się zatrzyma, zdobyte kwadraty zostają na koncie.':'Disconnect Strava? The sync will stop; the squares you collected stay in your account.',
+  'Strava odłączona':'Strava disconnected','Podaj Client Secret':'Enter the Client Secret','Podaj Client ID':'Enter the Client ID',
+  'Logowanie wygasło lub zostało przerwane. Spróbuj ponownie.':'The sign-in expired or was interrupted. Try again.',
+  'Ten obszar jest poza zasięgiem planowania tras':'This area is outside the route planning coverage',
+  'W pobliżu punktu nie ma drogi, którą da się pojechać':'There is no rideable road near this point',
+  'Strava chwilowo ogranicza liczbę zapytań — spróbuj ponownie później':'Strava is temporarily limiting requests — try again later',
+  'Połączenie ze Stravą wygasło — połącz Stravę ponownie w Profilu':'The Strava connection has expired — reconnect Strava in Profile',
+  'Ta instalacja osiągnęła limit kont Stravy. Administrator musi poprosić Stravę o zwiększenie limitu.':'This installation has reached its Strava account limit. The administrator has to ask Strava to raise it.',
+  'Strava odrzuciła autoryzację. Spróbuj ponownie.':'Strava rejected the authorisation. Try again.',
+  'Nie udzielono dostępu do Stravy':'Access to Strava was not granted','Błąd połączenia ze Stravą':'Could not reach Strava',
+  'Bez dostępu do aktywności nie da się policzyć kwadratów. Połącz ponownie i zostaw zaznaczone aktywności.':'Without access to activities the squares cannot be counted. Connect again and leave the activities ticked.',
+  'Strava nie zwróciła tokenu':'Strava did not return a token','Synchronizacja już trwa':'A sync is already running',
+  // installed app, offline
+  'Brak połączenia. Widzisz dane zapisane na tym urządzeniu.':'No connection. You are seeing the data saved on this device.',
+  'Zainstaluj aplikację':'Install the app','Dodaj aplikację do ekranu początkowego':'Add the app to the Home Screen',
+  'W Safari dotknij':'In Safari tap','Udostępnij':'Share',', a potem':', then','Do ekranu początkowego':'Add to Home Screen',
+  '. Aplikacja otworzy się wtedy na pełnym ekranie i zadziała także bez zasięgu.':'. The app will then open full screen and work without coverage too.',
+  // walking and running
+  'Pieszo i bieg':'Walking and running','Pieszo':'Walk','Bieg':'Run',
+  'BRouter — szlaki, ścieżki i chodniki':'BRouter — trails, paths and pavements','BRouter — ścieżki piesze, tempo biegowe':'BRouter — footpaths, at a running pace',
+  // wind and weather
+  'Pętla pod wiatr na początek':'Loop into the wind first',
+  'Planer wybierze pętlę po tej stronie startu, z której wieje: najpierw jedziesz pod wiatr, wracasz z wiatrem. Działa przy wietrze od 11 km/h. Może dać mniej nowych kwadratów.':'The planner picks a loop on the side of the start the wind blows from: you ride into the wind first and come back with it. Works when the wind is 11 km/h or more. May give fewer new squares.',
+  'Nie mam prognozy wiatru, planuję pętlę bez niej':'No wind forecast available, planning the loop without it',
+  'z północy':'from the north','z północnego wschodu':'from the north-east','ze wschodu':'from the east','z południowego wschodu':'from the south-east',
+  'z południa':'from the south','z południowego zachodu':'from the south-west','z zachodu':'from the west','z północnego zachodu':'from the north-west',
+  'Zbyt wiele zapytań o pogodę. Spróbuj ponownie za chwilę.':'Too many weather requests. Try again in a moment.','Prognoza jest chwilowo niedostępna':'The forecast is temporarily unavailable',
+  // link to a route, a route from a file
+  'Link do trasy':'Link to the route','Utwórz link':'Create a link','Kopiuj':'Copy','Zobacz, co widzi odbiorca':'See what the recipient sees','Wyłącz link':'Turn the link off',
+  'Każdy, kto dostanie link, zobaczy tę trasę na mapie i pobierze ją jako GPX. Nie zobaczy Twoich kwadratów, innych tras ani konta.':'Anyone who gets the link will see this route on a map and can download it as a GPX. They will not see your squares, your other routes or your account.',
+  'Ukryj początek i koniec trasy (po 300 m), żeby link nie zdradzał, gdzie mieszkasz':'Hide the start and the end of the route (300 m each), so the link does not reveal where you live',
+  'Skopiowano link do trasy':'Route link copied','Link ukrywa teraz początek i koniec trasy':'The link now hides the start and the end of the route','Link pokazuje teraz całą trasę':'The link now shows the whole route',
+  'Link wyłączony. Kto go ma, już nie otworzy trasy.':'Link turned off. Whoever has it can no longer open the route.','Ten link nie jest już aktywny':'This link is no longer active',
+  'Wczytuję udostępnioną trasę…':'Loading the shared route…','Wczytuję trasę z pliku…':'Loading the route from the file…',
+  'Wczytaj trasę z pliku GPX (cudzą albo z innej aplikacji)':'Load a route from a GPX file (somebody else\'s or from another app)','Z pliku GPX':'From a GPX file',
+  'Plik jest za duży (limit 40 MB)':'The file is too large (40 MB limit)','Plik jest za duży (limit 30 MB)':'The file is too large (30 MB limit)',
+  'W tym pliku GPX nie ma trasy (śladu ani punktów trasy)':'This GPX file has no route in it (no track and no route points)',
+  // imports from StatsHunters and VeloViewer
+  'Importuj ze StatsHunters (link)':'Import from StatsHunters (link)','Kwadraty z Twojego konta StatsHunters, przez link udostępniania':'Squares from your StatsHunters account, through a share link',
+  'Pobierz kwadraty':'Fetch the squares','W StatsHunters utwórz link udostępniania (Share) i wklej go tutaj. Link pozwala tylko czytać Twoje kafelki.':'In StatsHunters create a share link (Share) and paste it here. The link only lets us read your tiles.',
+  'Importuj z VeloViewer (KML)':'Import from VeloViewer (KML)','Plik KML z kafelkami wyeksportowany z VeloViewer':'A KML file with tiles exported from VeloViewer',
+  'Wklej link udostępniania ze StatsHunters':'Paste the share link from StatsHunters','Wklej link udostępniania ze StatsHunters (statshunters.com/share/…)':'Paste the share link from StatsHunters (statshunters.com/share/…)',
+  'Pobieram kwadraty ze StatsHunters…':'Fetching squares from StatsHunters…','Importuję kafelki z VeloViewer…':'Importing tiles from VeloViewer…','Import już trwa':'An import is already running',
+  'Pod tym linkiem nie ma kwadratów. Sprawdź w StatsHunters, czy link udostępnia aktywności.':'There are no squares under this link. Check in StatsHunters that the link shares activities.',
+  'W pliku nie ma kwadratów. Wybierz plik KML z kafelkami Explorer wyeksportowany z VeloViewer.':'There are no squares in the file. Choose the KML file with Explorer tiles exported from VeloViewer.',
+  'StatsHunters odesłał pod inny adres':'StatsHunters redirected to another address','StatsHunters nie odpowiada — spróbuj ponownie później':'StatsHunters is not responding — try again later',
+  'StatsHunters nie zna takiego linku. Skopiuj go ze statshunters.com → Settings → Share.':'StatsHunters does not know this link. Copy it from statshunters.com → Settings → Share.',
+  'StatsHunters chwilowo ogranicza liczbę zapytań — spróbuj ponownie później':'StatsHunters is temporarily limiting requests — try again later',
+  'StatsHunters odpowiedział w nieznanym formacie':'StatsHunters answered in an unknown format','Za dużo kwadratów w odpowiedzi':'Too many squares in the answer','obszar w pliku jest zbyt duży':'the area in the file is too large',
+  // account: forgotten password, e-mail address, Apple
+  'Nie pamiętasz hasła?':'Forgot your password?','Wyślij link':'Send the link','Wróć do logowania':'Back to log in','Ustaw nowe hasło':'Set a new password','Ustaw nowe hasło do swojego konta.':'Set a new password for your account.',
+  'Podaj adres e-mail zapisany na koncie. Wyślemy na niego link do ustawienia nowego hasła.':'Enter the e-mail address saved in your account. We will send it a link for setting a new password.',
+  'Jeśli jest konto z tym adresem, wysłaliśmy na niego link do ustawienia nowego hasła. Link działa godzinę. Zajrzyj też do spamu.':'If there is an account with this address, we have sent it a link for setting a new password. The link works for an hour. Check your spam folder too.',
+  'Hasło zmienione. Jesteś zalogowany.':'Password changed. You are logged in.','Bez adresu e-mail nie odzyskasz zapomnianego hasła.':'Without an e-mail address you cannot recover a forgotten password.',
+  'Zmień':'Change','Nowy adres e-mail':'New e-mail address','Na ten adres wyślemy link, gdy zapomnisz hasła.':'We will send a link to this address when you forget your password.','Zapisz adres':'Save the address','Zapisano adres e-mail':'E-mail address saved',
+  'Zbyt wiele próśb o nowe hasło. Spróbuj ponownie za godzinę.':'Too many requests for a new password. Try again in an hour.','Odzyskiwanie hasła e-mailem nie jest włączone':'Password recovery by e-mail is not enabled',
+  'Link wygasł albo został już użyty. Poproś o nowy.':'The link has expired or was already used. Ask for a new one.','Podaj obecne hasło':'Enter your current password',
+  'Zbyt wiele zapytań. Spróbuj ponownie za chwilę.':'Too many requests. Try again in a moment.',
+  'Kontynuuj z Apple':'Continue with Apple','Apple: nieznany klucz podpisu':'Apple: unknown signing key','Apple nie zwróciło tokenu':'Apple did not return a token','Apple: nieprawidłowy token':'Apple: invalid token',
+  'Apple nie zwróciło identyfikatora konta':'Apple did not return an account identifier','Google nie zwróciło identyfikatora konta':'Google did not return an account identifier','Strava nie zwróciła identyfikatora konta':'Strava did not return an account identifier',
+  'Brak konfiguracji Strava API — dodaj Client ID i Secret w profilu':'The Strava API is not configured — add the Client ID and Secret in the profile','Brak autoryzacji Strava':'Strava is not authorised',
+  // spoken turns
+  'Komunikaty głosowe o skrętach':'Spoken turn announcements','Komunikaty głosowe o skrętach: włączone':'Spoken turn announcements: on','Komunikaty głosowe o skrętach: wyłączone':'Spoken turn announcements: off',
+  'skręć w lewo':'turn left','skręć w prawo':'turn right','lekko w lewo':'bear left','lekko w prawo':'bear right','ostro w lewo':'sharp left','ostro w prawo':'sharp right',
+  'trzymaj się lewej':'keep left','trzymaj się prawej':'keep right','zawróć':'make a U-turn','wjedź na rondo':'enter the roundabout',
+  // planner and routing answers
+  'Brak priorytetowych kwadratów — wszystkie zdobyte albo poza zasięgiem 30 km od domu':'No priority squares — all collected or more than 30 km from home',
+  'Nie udało się wyznaczyć trasy przez priorytetowe kwadraty (BRouter)':'Could not plan a route through the priority squares (BRouter)','Nie udało się wyznaczyć żadnej pętli (BRouter)':'Could not plan any loop (BRouter)',
+  'BRouter: pusta odpowiedź':'BRouter: empty answer','Trasa wychodzi poza lokalną bazę miejsc':'The route leaves the local database of places',
+  'nowych SQ':'new SQ','kwadratów powiększających Yard':'squares that enlarge the Yard','kwadratów powiększających Yardinho':'squares that enlarge the Yardinho',
 };
 
 // Texts with variable parts: {} matches anything; $1.. in the English template
@@ -237,6 +343,7 @@ const EN_RX=[
   ['Pobieranie aktywności: {}…','Fetching activities: $1…'],
   ['✅ Gotowe! +{} SQ, +{} SQI','✅ Done! +$1 SQ, +$2 SQI'],
   ['Sync: {} aktywności · +{} nowych SQ · +{} nowych SQI','Sync: $1 activities · +$2 new SQ · +$3 new SQI'],
+  ['Strava odpowiedziała błędem {}','Strava answered with error $1'],
   ['❌ Błąd: {}','❌ Error: $1'],['Błąd sync: {}','Sync error: $1'],['Błąd: {}','Error: $1'],
   ['GPX: {} pts → +{} SQ, +{} SQI · łącznie {} SQ','GPX: $1 pts → +$2 SQ, +$3 SQI · $4 SQ in total'],
   ['Błąd GPX: {}','GPX error: $1'],
@@ -250,6 +357,9 @@ const EN_RX=[
   ['✅ A→B {}km · {}','✅ A→B $1 km · $2'],
   ['✅ Pętla {}km · {} SQ · {} SQI · {}','✅ Loop $1 km · $2 SQ · $3 SQI · $4'],
   ['Błąd powrotu: {}','Way back error: $1'],
+  ['Nie udało się wylogować: {}','Could not log out: $1'],
+  ['Limit zapisanych tras ({}). Usuń którąś, aby zapisać nową.','Saved-route limit reached ($1). Delete one to save a new one.'],
+  ['Za dużo punktów trasy (maks. {})','Too many route points (max. $1)'],['Maksymalna długość trasy to {} km','The maximum route length is $1 km'],
   ['Nie udało się udostępnić: {}','Could not share: $1'],['Nie udało się zapisać: {}','Could not save: $1'],
   ['Usunięto: {}','Deleted: $1'],
   ['Nie udało się pobrać GPX: {}','Could not download the GPX: $1'],['Nie udało się zmienić nazwy: {}','Could not rename: $1'],['Wczytano: {} · teraz +{} nowych SQI','Loaded: $1 · now +$2 new SQI'],
@@ -276,33 +386,44 @@ const EN_RX=[
   ['{} m od trasy','$1 m off route'],['{} km od trasy','$1 km off route'],
   ['Tylko punkty najwyżej {} m od trasy — bez zjeżdżania','Only points at most $1 m off the route — no detours'],
   ['Obejrzyj panoramę w {} →','View the panorama on $1 →'],['Zobacz w {} →','View on $1 →'],
+  ['Zapisano: {}','Saved: $1'],
+  ['Najbliższy priorytetowy kwadrat jest ~{} km stąd — ustaw pętlę ≥ {} km','The nearest priority square is ~$1 km away — set the loop to ≥ $2 km'],
+  ['Brak {} w promieniu 80 km','No $1 within 80 km'],
+  ['Brak {} w zasięgu {} km — najbliższe ~{} km stąd, ustaw pętlę ≥ {} km','No $1 within reach of a $2 km loop — the nearest are ~$3 km away, set the loop to ≥ $4 km'],
 ];
 
 // Fragments inside longer texts (Leaflet joins map attributions into one node)
 const EN_SUB=[['Ślady GPS ©','GPS traces ©'],['Ortofotomapa ©','Orthophoto ©'],['Działki ©','Parcels ©'],['Bank Danych o Lasach','Forest Data Bank']];
 
 const esc=s=>s.replace(/[.*+?^$()|[\]\\]/g,'\\$&');
-const RX=EN_RX.map(([pl,en])=>[new RegExp('^'+pl.split('{}').map(esc).join('(.+?)')+'$','s'),en]);
+const compile=list=>list.map(([pl,x])=>[new RegExp('^'+pl.split('{}').map(esc).join('(.+?)')+'$','s'),x]);
+// Dictionaries by language: exact texts, patterns, fragments
+const D={en:{map:EN,rx:compile(EN_RX),sub:EN_SUB}};
 const NUM=/(\d),(\d)/g;  // Polish decimal comma
 // localStorage 'sq-i18n-debug' collects texts left untranslated in window.i18nMiss
 let MISS=null;
 try{if(localStorage.getItem('sq-i18n-debug')) MISS=window.i18nMiss=new Set();}catch(e){}
 
-function trKey(k,depth){
-  let r=EN[k];
+function look(d,k,depth){
+  const r=d.map[k];
   if(r!=null) return r;
   if(depth>2) return null;
-  for(const [re,tpl] of RX){
+  for(const [re,tpl] of d.rx){
     const m=k.match(re);
-    if(m) return tpl.replace(/\$(\d)/g,(_,i)=>{const p=m[+i]; return (trKey(p,depth+1)??p).replace(NUM,'$1.$2');});
+    if(m) return tpl.replace(/\$(\d)/g,(_,i)=>{const p=m[+i], q=trKey(p,depth+1)??p; return lang==='en'?q.replace(NUM,'$1.$2'):q;});
   }
   let out=k;
-  for(const [pl,en] of EN_SUB) out=out.split(pl).join(en);
+  for(const [pl,x] of d.sub) out=out.split(pl).join(x);
   return out===k?null:out;
 }
-// English for a Polish text, keeping its surrounding whitespace; null if unknown
+// The current language first, English for what it lacks
+function trKey(k,depth){
+  const d=D[lang];
+  return (d&&d!==D.en?look(d,k,depth):null)??look(D.en,k,depth);
+}
+// The current language's version of a Polish text, keeping its surrounding whitespace; null if unknown
 function tr(s){
-  if(lang!=='en'||!/[A-Za-zÀ-ž]/.test(s)) return null;
+  if(lang==='pl'||!/[A-Za-zÀ-ž]/.test(s)) return null;
   const k=s.replace(/\s+/g,' ').trim();
   const r=trKey(k,0);
   if(r==null){ if(MISS&&/[a-ząćęłńóśźż]{3}/i.test(k)) MISS.add(k); return null; }
@@ -351,24 +472,57 @@ function start(){
 // Public API
 window.LANG=lang;
 // Translate a string used outside the DOM (confirm, alert, input values)
-window.t=s=>(lang==='en'&&trKey(s,0))||s;
-// Pick between a Polish and an English variant built in code
-window.tl=(pl,en)=>lang==='en'?en:pl;
-window.locale=()=>lang==='en'?'en-GB':'pl-PL';
-window.setLang=l=>{
-  if(l===lang||(l!=='pl'&&l!=='en')) return;
+window.t=s=>(lang!=='pl'&&trKey(s,0))||s;
+// A text built in code, given in Polish and in English; the other languages
+// have it in their file under the Polish version
+// (texts with variable parts sit among that file's patterns)
+function packRx(d,k){
+  for(const [re,tpl] of d.rx){const m=k.match(re); if(m) return tpl.replace(/\$(\d)/g,(_,i)=>m[+i]);}
+  return null;
+}
+window.tl=(pl,en)=>lang==='pl'?pl:lang==='en'?en:(D[lang]&&(D[lang].map[pl]??packRx(D[lang],pl)))??en;
+window.locale=()=>LOCALE[lang];
+window.LANGS=LANGS;
+window.sqI18nSource={map:EN,rx:EN_RX,sub:EN_SUB}; // for the tests, which check every language file against it
+// i18n/<code>.js hands its texts over with this
+window.sqLangPack=(code,p)=>{
+  D[code]={map:p.map||{},rx:compile(p.rx||[]),sub:p.sub||[]};
+};
+const packs={};
+function loadPack(l){
+  if(l==='pl'||l==='en'||D[l]) return Promise.resolve();
+  return packs[l]||(packs[l]=new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src=`/i18n/${l}.js?v=${PACK_VER}`;
+    sc.onload=res; sc.onerror=()=>{delete packs[l];rej(new Error('language file'));};
+    document.head.appendChild(sc);
+  }));
+}
+function apply(l){
   lang=window.LANG=l;
   try{localStorage.setItem(KEY,l);}catch(e){}
   document.documentElement.lang=l;
   syncUi();
-  walk(document.body);
+  if(document.body) walk(document.body);
   window.dispatchEvent(new Event('langchange'));
+}
+// Returns a promise: Polish and English switch at once, the others once their file is in
+window.setLang=l=>{
+  if(l===lang||!LANGS.includes(l)) return Promise.resolve();
+  if(l==='pl'||l==='en'||D[l]){apply(l);return Promise.resolve();}
+  return loadPack(l).then(()=>apply(l),()=>{syncUi();}); // file unreachable (offline): stay as we are
 };
 function syncUi(){
-  document.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));
-  const ml=document.getElementById('manual-link'); if(ml) ml.href=lang==='en'?'/docs/en.html':'/docs/';
+  document.querySelectorAll('[data-lang-sel]').forEach(s=>{s.value=lang;});
+  const ml=document.getElementById('manual-link'); if(ml) ml.href=lang==='pl'?'/docs/':'/docs/en.html';
 }
 document.documentElement.lang=lang;
+// The saved language's file is fetched before the page body is parsed, so the
+// first paint is already in that language
+if(lang!=='pl'&&lang!=='en'){
+  if(document.readyState==='loading') document.write(`<script src="/i18n/${lang}.js?v=${PACK_VER}"><\/script>`);
+  else loadPack(lang).then(()=>{if(document.body) walk(document.body);},()=>{});
+}
 start();
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>{syncUi();walk(document.body);}); else syncUi();
 })();

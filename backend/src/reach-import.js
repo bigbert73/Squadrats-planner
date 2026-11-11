@@ -14,6 +14,13 @@
  * The extract's .poly boundary says where the data is complete: a tile
  * outside it is "unknown", never "unreachable".
  *
+ * Several extracts: build one index per extract, then join them:
+ *
+ *   node src/reach-import.js --merge <out.db> <osm-timestamp> <regions> <a.db> <b.db> …
+ *
+ * (a squadratinho is inside when any extract covers it, and has a road when
+ * any extract has one there).
+ *
  * Output, per z12 block (32×32 squadratinhos): road bitmap and inside
  * bitmap (NULL = whole block inside), row-major, LSB first, 128 bytes each.
  */
@@ -98,7 +105,52 @@ function markInside(rings) {
   return cells;
 }
 
+function writeDb(outPath, osmTs, regions) {
+  const tmp = outPath + '.tmp';
+  fs.rmSync(tmp, { force: true });
+  const db = new Database(tmp);
+  db.pragma('journal_mode = OFF');
+  db.pragma('synchronous = OFF');
+  db.exec(`CREATE TABLE blocks (k INTEGER PRIMARY KEY, road BLOB NOT NULL, inside BLOB) WITHOUT ROWID;
+           CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);`);
+  const ins = db.prepare('INSERT INTO blocks (k, road, inside) VALUES (?, ?, ?)');
+  let unreachable = 0;
+  db.transaction(() => {
+    for (const [k, b] of blocks) {
+      const full = b.inside.every(v => v === 255);
+      for (let i = 0; i < 128; i++) { let m = b.inside[i] & ~b.road[i]; while (m) { unreachable += m & 1; m >>= 1; } }
+      ins.run(k, Buffer.from(b.road), full ? null : Buffer.from(b.inside));
+    }
+  })();
+  const meta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
+  meta.run('zoom', String(Z));
+  meta.run('block_bits', String(B));
+  meta.run('imported_at', new Date().toISOString());
+  if (osmTs) meta.run('osm_timestamp', osmTs);
+  if (regions) meta.run('regions', regions);
+  db.close();
+  fs.renameSync(tmp, outPath);
+  return unreachable;
+}
+
+function merge([outPath, osmTs, regions, ...parts]) {
+  if (!outPath || !parts.length) { console.error('usage: reach-import.js --merge <out.db> <osm-timestamp> <regions> <a.db> <b.db> …'); process.exit(1); }
+  for (const p of parts) {
+    const db = new Database(p, { readonly: true, fileMustExist: true });
+    for (const r of db.prepare('SELECT k, road, inside FROM blocks').iterate()) {
+      let b = blocks.get(r.k);
+      if (!b) blocks.set(r.k, b = { road: new Uint8Array(128), inside: new Uint8Array(128) });
+      for (let i = 0; i < 128; i++) { b.road[i] |= r.road[i]; b.inside[i] |= r.inside ? r.inside[i] : 255; }
+    }
+    db.close();
+  }
+  if (!blocks.size) throw new Error('nothing to merge; keeping the old index');
+  const unreachable = writeDb(outPath, osmTs, regions);
+  console.log(`reach: ${parts.length} extract(s) joined, ${unreachable} SQI without a road, ${blocks.size} blocks`);
+}
+
 async function main() {
+  if (process.argv[2] === '--merge') return merge(process.argv.slice(3));
   const [input, polyPath, outPath, osmTs] = process.argv.slice(2);
   if (!input || !polyPath || !outPath) {
     console.error('usage: reach-import.js <highways.geojsonseq|-> <extract.poly> <out.db> [osm-timestamp]');
@@ -129,29 +181,7 @@ async function main() {
   }
 
   if (!used) throw new Error('no usable ways in the input; keeping the old index');
-  const tmp = outPath + '.tmp';
-  fs.rmSync(tmp, { force: true });
-  const db = new Database(tmp);
-  db.pragma('journal_mode = OFF');
-  db.pragma('synchronous = OFF');
-  db.exec(`CREATE TABLE blocks (k INTEGER PRIMARY KEY, road BLOB NOT NULL, inside BLOB) WITHOUT ROWID;
-           CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);`);
-  const ins = db.prepare('INSERT INTO blocks (k, road, inside) VALUES (?, ?, ?)');
-  let unreachable = 0;
-  db.transaction(() => {
-    for (const [k, b] of blocks) {
-      const full = b.inside.every(v => v === 255);
-      for (let i = 0; i < 128; i++) { let m = b.inside[i] & ~b.road[i]; while (m) { unreachable += m & 1; m >>= 1; } }
-      ins.run(k, Buffer.from(b.road), full ? null : Buffer.from(b.inside));
-    }
-  })();
-  const meta = db.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
-  meta.run('zoom', String(Z));
-  meta.run('block_bits', String(B));
-  meta.run('imported_at', new Date().toISOString());
-  if (osmTs) meta.run('osm_timestamp', osmTs);
-  db.close();
-  fs.renameSync(tmp, outPath);
+  const unreachable = writeDb(outPath, osmTs);
   console.log(`reach: ${ways} ways (${used} usable), ${insideCells} SQI in extract, ${unreachable} without a road, ${blocks.size} blocks`);
 }
 

@@ -79,7 +79,9 @@ const saveCell = (cell, hits) => {
       const id = Number(h?.pageid), lat = Number(h?.lat), lng = Number(h?.lng);
       if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) continue;
       const title = str(h.title, 300);
-      if (!/^File:.+\.(jpe?g|webp)$/i.test(title)) continue;
+      // a real Commons file name (MediaWiki forbids # < > [ ] | { } in titles);
+      // this cache is shared between accounts, so nothing else gets in
+      if (!/^File:[^<>"#|{}\[\]\u0000-\u001f\u007f]{1,230}\.(jpe?g|webp)$/i.test(title)) continue;
       ins.run(id, lat, lng, title); n++;
     }
     d.prepare('INSERT OR REPLACE INTO commons_cells (cell, fetched_at, n) VALUES (?, ?, ?)').run(cell, Date.now(), n);

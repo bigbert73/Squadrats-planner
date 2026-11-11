@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>__OG_TITLE__</title>
+<meta name="description" content="__OG_DESC__">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="__APP_NAME__">
+<meta property="og:title" content="__OG_TITLE__">
+<meta property="og:description" content="__OG_DESC__">
+<meta name="twitter:card" content="summary">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<style>
+:root{--bg:#07090f;--panel:#111928;--card:#1c2b3d;--tx:#e6edf5;--tx2:#93a8c0;--tx3:#6b7f96;--green:#00e676;--blue:#4da8ff;--border:#22344a}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));background:var(--panel);border-bottom:1px solid var(--border)}
+.logo{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--green);color:#06210f;font-weight:800;font-size:13px;flex-shrink:0}
+header a.app{color:var(--tx);text-decoration:none;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .cta{margin-left:auto;flex-shrink:0}
+.btn{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 14px;border-radius:9px;border:1px solid var(--border);background:var(--card);color:var(--tx);font:600 14px system-ui,sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--green);border-color:var(--green);color:#06210f}
+.btn i{font-size:17px}
+main{flex:1;display:flex;flex-direction:column;min-height:0}
+.info{padding:14px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left))}
+h1{margin:0 0 8px;font-size:1.25rem;line-height:1.25;text-wrap:balance;overflow-wrap:anywhere}
+.stats{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--tx2);font-size:14px}
+.stats b{color:var(--tx);font-size:16px;font-variant-numeric:tabular-nums}
+.stats span{display:inline-flex;align-items:baseline;gap:6px}
+.stats i{color:var(--tx3);font-size:16px;align-self:center}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.note{margin-top:10px;font-size:13px;color:var(--tx3);display:flex;gap:6px;align-items:flex-start}
+#map{flex:1;min-height:320px;background:#0d131c}
+#elev{height:74px;background:var(--panel);border-top:1px solid var(--border);display:none}
+#elev svg{display:block;width:100%;height:100%}
+footer{padding:10px max(16px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:var(--panel);border-top:1px solid var(--border);font-size:13px;color:var(--tx2)}
+footer a{color:var(--blue)}
+.gone{margin:auto;padding:40px 20px;text-align:center;color:var(--tx2)}
+.gone i{font-size:44px;color:var(--tx3);display:block;margin-bottom:10px}
+.leaflet-container{font:12px system-ui,sans-serif}
+@media(max-width:560px){header .cta{display:none}.btn{height:44px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">SQ</span><a class="app" href="/">__APP_NAME__</a>
+  <a class="btn pri cta" id="open-top" href="/"><i class="ti ti-map-2"></i><span data-t="open"></span></a>
+</header>
+<main id="main">
+  <div class="info">
+    <h1 id="name">…</h1>
+    <div class="stats" id="stats"></div>
+    <div class="acts">
+      <a class="btn" id="gpx" href="#"><i class="ti ti-download"></i><span data-t="gpx"></span></a>
+      <a class="btn pri" id="open" href="/"><i class="ti ti-map-2"></i><span data-t="open"></span></a>
+    </div>
+    <div class="note" id="trim" hidden><i class="ti ti-eye-off"></i><span></span></div>
+  </div>
+  <div id="map"></div>
+  <div id="elev"></div>
+</main>
+<footer><span data-t="foot"></span> <a href="/" data-t="try"></a></footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(function(){
+const T={
+  pl:{open:'Otwórz w planerze',gpx:'Pobierz GPX',loop:'Pętla',ab:'Trasa A → B',up:'w górę',foot:'pieszo',run:'bieg',bike:'rower',
+      trim:'Autor ukrył początek i koniec trasy (po {n} m).',gone:'Ten link nie jest już aktywny',gone2:'Autor wyłączył udostępnianie tej trasy albo ją usunął.',
+      foot_:'Trasa zaplanowana w aplikacji, która prowadzi przez kwadraty, których jeszcze nie masz.',try:'Zaplanuj własną',start:'Start',end:'Koniec',err:'Nie udało się wczytać trasy. Odśwież stronę.'},
+  en:{open:'Open in the planner',gpx:'Download GPX',loop:'Loop',ab:'Route A → B',up:'climbing',foot:'on foot',run:'run',bike:'bike',
+      trim:'The author has hidden the start and the end of the route ({n} m each).',gone:'This link is no longer active',gone2:'The author has turned sharing off or deleted the route.',
+      foot_:'Planned in an app that takes you through the squares you do not have yet.',try:'Plan your own',start:'Start',end:'End',err:'Could not load the route. Reload the page.'},
+  de:{open:'Im Planer öffnen',gpx:'GPX herunterladen',loop:'Rundtour',ab:'Strecke A → B',up:'bergauf',foot:'zu Fuß',run:'Lauf',bike:'Rad',
+      trim:'Start und Ende der Strecke wurden ausgeblendet (je {n} m).',gone:'Dieser Link ist nicht mehr aktiv',gone2:'Die Freigabe wurde beendet oder die Strecke gelöscht.',
+      foot_:'Geplant mit einer App, die dich durch Kacheln führt, die dir noch fehlen.',try:'Eigene Strecke planen',start:'Start',end:'Ziel',err:'Die Strecke konnte nicht geladen werden. Seite neu laden.'},
+  nl:{open:'Openen in de planner',gpx:'GPX downloaden',loop:'Rondje',ab:'Route A → B',up:'klimmen',foot:'te voet',run:'hardlopen',bike:'fiets',
+      trim:'Het begin en het einde van de route zijn verborgen (elk {n} m).',gone:'Deze link is niet meer actief',gone2:'Het delen is uitgezet of de route is verwijderd.',
+      foot_:'Gepland met een app die je door de tegels leidt die je nog mist.',try:'Plan je eigen route',start:'Start',end:'Einde',err:'De route kon niet worden geladen. Ververs de pagina.'},
+  fr:{open:'Ouvrir dans le planificateur',gpx:'Télécharger le GPX',loop:'Boucle',ab:'Itinéraire A → B',up:'de dénivelé',foot:'à pied',run:'course',bike:'vélo',
+      trim:'Le début et la fin du parcours sont masqués ({n} m chacun).',gone:'Ce lien n’est plus actif',gone2:'Le partage a été désactivé ou le parcours supprimé.',
+      foot_:'Parcours préparé avec une appli qui vous fait passer par les carrés qui vous manquent.',try:'Planifiez le vôtre',start:'Départ',end:'Arrivée',err:'Impossible de charger le parcours. Rechargez la page.'},
+  cs:{open:'Otevřít v plánovači',gpx:'Stáhnout GPX',loop:'Okruh',ab:'Trasa A → B',up:'stoupání',foot:'pěšky',run:'běh',bike:'kolo',
+      trim:'Začátek a konec trasy jsou skryté (po {n} m).',gone:'Tento odkaz už není aktivní',gone2:'Sdílení bylo vypnuto nebo byla trasa smazána.',
+      foot_:'Naplánováno v aplikaci, která vás vede přes čtverce, které ještě nemáte.',try:'Naplánujte si vlastní',start:'Start',end:'Cíl',err:'Trasu se nepodařilo načíst. Obnovte stránku.'},
+};
+let lang='';
+try{lang=localStorage.getItem('sq-lang')||'';}catch(e){}
+if(!T[lang]) lang=(navigator.language||'pl').slice(0,2).toLowerCase();
+if(!T[lang]) lang='en';
+const t=T[lang];
+// "foot" is the walking profile; the footer text lives under foot_
+document.documentElement.lang=lang;
+document.querySelectorAll('[data-t]').forEach(e=>{e.textContent=e.dataset.t==='foot'?t.foot_:t[e.dataset.t];});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(x,d)=>{const s=Number(x).toFixed(d);return lang==='en'?s:s.replace('.',',');};
+const token=(location.pathname.split('/')[2]||'').replace(/[^A-Za-z0-9_-]/g,'');
+function gone(title,sub){
+  document.getElementById('main').innerHTML=`<div class="gone"><i class="ti ti-link-off"></i><b>${esc(title)}</b><br>${esc(sub||'')}</div>`;
+  document.getElementById('open-top').hidden=true;
+}
+fetch('/api/shared/'+token).then(async r=>{
+  if(r.status===404){gone(t.gone,t.gone2);return;}
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const d=await r.json();
+  document.getElementById('name').textContent=d.name;
+  const kind=d.profile==='foot'?t.foot:d.profile==='run'?t.run:t.bike;
+  const ico=d.profile==='foot'?'ti-walk':d.profile==='run'?'ti-run':'ti-bike';
+  document.getElementById('stats').innerHTML=
+    `<span><i class="ti ti-ruler-2"></i><b>${num(d.distance_km,1)}</b> km</span>`+
+    (d.ascent_m>0?`<span><i class="ti ti-trending-up"></i><b>${d.ascent_m}</b> m ${esc(t.up)}</span>`:'')+
+    `<span><i class="ti ${d.loop?'ti-refresh':'ti-arrow-right'}"></i>${esc(d.loop?t.loop:t.ab)}</span>`+
+    `<span><i class="ti ${ico}"></i>${esc(kind)}</span>`;
+  document.getElementById('gpx').href='/api/shared/'+token+'/gpx';
+  const open='/?shared='+token;
+  document.getElementById('open').href=open; document.getElementById('open-top').href=open;
+  if(d.trimmed_m>0){const n=document.getElementById('trim');n.hidden=false;n.lastElementChild.textContent=t.trim.replace('{n}',d.trimmed_m);}
+
+  const map=L.map('map',{zoomControl:true,attributionControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(map);
+  const ll=d.coords.map(p=>[p[0],p[1]]);
+  L.polyline(ll,{color:'#ffffff',weight:8,opacity:.9}).addTo(map);
+  const line=L.polyline(ll,{color:'#ff3d2e',weight:4.5,opacity:1}).addTo(map);
+  const dot=(p,c,label)=>L.circleMarker(p,{radius:7,color:'#fff',weight:2.5,fillColor:c,fillOpacity:1}).addTo(map).bindTooltip(label);
+  dot(ll[0],'#00c853',t.start);
+  if(!d.loop||d.trimmed_m>0) dot(ll[ll.length-1],'#1565c0',t.end);
+  map.fitBounds(line.getBounds(),{padding:[24,24]});
+  window._sharedMap=map;
+
+  // elevation outline, when the route has heights
+  const el=d.coords.map(p=>p[2]||0);
+  if(el.some(e=>e>0)){
+    const box=document.getElementById('elev'); box.style.display='block';
+    const W=1000,H=74,min=Math.min(...el),max=Math.max(...el),span=Math.max(20,max-min),n=el.length,step=Math.max(1,Math.floor(n/500));
+    let pts='';
+    for(let i=0;i<n;i+=step) pts+=`${(i/(n-1)*W).toFixed(1)},${(H-6-(el[i]-min)/span*(H-14)).toFixed(1)} `;
+    pts+=`${W},${(H-6-(el[n-1]-min)/span*(H-14)).toFixed(1)}`;
+    box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"><polygon points="0,${H} ${pts} ${W},${H}" fill="rgba(77,168,255,.18)"/><polyline points="${pts}" fill="none" stroke="#4da8ff" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+    map.invalidateSize();
+  }
+}).catch(()=>gone(t.err,''));
+})();
+</script>
+</body>
+</html>

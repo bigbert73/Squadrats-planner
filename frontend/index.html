@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Squadrats Route Planner v2</title>
+<title>Squadrats Route Planner</title>
+<meta name="theme-color" content="#0f1115">
+<link rel="manifest" href="/api/manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <script src="/i18n.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css"/>
@@ -100,6 +107,8 @@ html,body{position:fixed;inset:0;width:100%;height:100%;font-family:'Space Grote
 .wdel:hover{color:var(--red);background:rgba(248,113,113,.1)}
 .wren{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:4px;border-radius:2px;line-height:1}
 .wren:hover{color:var(--tx)}
+.wkm{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--tx3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.wkm:empty{display:none}
 .wc input{width:100%;height:28px;padding:0 6px;font:16px 'Space Grotesk',sans-serif;background:var(--bg,#0d1117);color:var(--tx);border:1px solid var(--green);border-radius:6px;outline:none}
 .hint{font-size:12px;color:var(--tx3);text-align:center;padding:12px 0}
 
@@ -364,6 +373,7 @@ body.riding #zlvl{display:none}
 .mtb2:hover{background:var(--hover);color:var(--tx)}
 .mtb2.on{background:rgba(0,230,118,.15);color:var(--green)}
 #draw-bar{position:absolute;top:66px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:4px;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:12px;padding:4px 4px 4px 12px;box-shadow:0 4px 16px rgba(0,0,0,.4);white-space:nowrap}
+#draw-bar[hidden]{display:none}
 #draw-bar .db-km{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;color:var(--tx);min-width:62px;display:flex;align-items:center;gap:6px}
 #draw-bar .db-km .db-spin{width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite}
 #draw-bar button{display:flex;align-items:center;gap:5px;height:34px;padding:0 10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--tx2);font-family:'Space Grotesk',sans-serif;font-size:12px;cursor:pointer}
@@ -425,6 +435,28 @@ body.riding #zlvl{display:none}
 .auth-field input{width:100%;background:#f9fafb;border:1.5px solid #e5e7eb;border-radius:8px;padding:9px 11px;font-family:'Space Grotesk',sans-serif;font-size:12px;color:#111827;outline:none;transition:all .15s;box-sizing:border-box}
 .auth-field input:focus{border-color:#3b82f6;background:#fff;box-shadow:0 0 0 3px rgba(59,130,246,.12)}
 .auth-err{font-size:11px;color:#dc2626;margin-bottom:8px;min-height:16px}
+.auth-note{font-size:12px;line-height:1.45;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 11px;margin-bottom:14px}
+@media(max-width:768px){
+  .auth-tab{min-height:44px;font-size:13px}
+  .auth-submit{min-height:48px;font-size:14px}
+  .auth-field label{font-size:12px}
+  .auth-err{font-size:13px}
+  .auth-lang button{min-width:44px;min-height:40px;font-size:12px}
+  .auth-strava-toggle{min-height:44px;font-size:13px}
+  .social-btn{min-height:48px}
+  /* admin list: one card per account instead of a table wider than the screen */
+  .atab thead{display:none}
+  .atab,.atab tbody,.atab tr,.atab td{display:block}
+  .atab tr{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+  .atab td{display:flex;align-items:center;justify-content:space-between;gap:10px;border:none;padding:4px 0;font-size:12px!important;min-width:0;overflow-wrap:anywhere}
+  .atab td::before{content:attr(data-l);color:var(--tx3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0}
+  .atab td.au-name{grid-column:1/-1;order:-2;font-size:15px!important;justify-content:flex-start}
+  .atab td.au-name::before{content:none}
+  .atab td[data-l="Email"]{grid-column:1/-1;order:-1}
+  .atab td.au-acts{grid-column:1/-1;justify-content:flex-end;padding-top:8px}
+  .atab td.au-acts::before{content:none}
+  .abtn{min-height:40px;padding:8px 14px;font-size:12px}
+}
 .auth-submit{width:100%;padding:11px;background:linear-gradient(135deg,#16a34a,#15803d);border:none;border-radius:8px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;margin-top:6px;letter-spacing:.02em;box-shadow:0 2px 10px rgba(22,163,74,.3)}
 .auth-submit:hover{background:linear-gradient(135deg,#15803d,#14532d);box-shadow:0 4px 18px rgba(22,163,74,.4);transform:translateY(-1px)}
 .auth-submit:active{transform:translateY(0)}
@@ -442,6 +474,14 @@ body.riding #zlvl{display:none}
 .social-btn:hover{border-color:#d1d5db;background:#f9fafb;box-shadow:0 2px 8px rgba(0,0,0,.09)}
 .social-btn i{font-size:16px}
 .social-btn.google i{color:#ea4335}
+.social-btn.strava{background:#fc4c02;border-color:#fc4c02;color:#fff;font-weight:700;font-size:12px}
+.social-btn.strava:hover{background:#e34402;border-color:#e34402;box-shadow:0 3px 12px rgba(252,76,2,.35)}
+.auth-hint{font-size:10.5px;color:#6b7280;text-align:center;margin-top:7px;line-height:1.45}
+.btn-strava{background:#fc4c02;border-color:#fc4c02;color:#fff;font-weight:700}.btn-strava:hover:not(:disabled){background:#e34402;border-color:#e34402}
+.btn-strava:disabled{opacity:.45;cursor:not-allowed}
+details.adv{margin-top:4px}
+details.adv>summary{cursor:pointer;font-size:11px;color:var(--tx2);padding:8px 0;user-select:none}
+details.adv>summary:hover{color:var(--tx)}
 .oauth-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:10px;background:#f1f5f9;border:1px solid #e5e7eb;color:#374151}
 .oauth-badge.google{color:#ea4335;border-color:#fca5a5;background:#fff1f2}
 
@@ -635,7 +675,53 @@ a.udrop-btn{text-decoration:none}
 .abtn{padding:4px 10px;font-size:11px;cursor:pointer;border-radius:3px;font-family:'Space Grotesk',sans-serif;transition:all .12s}
 .abtn-role{background:var(--card);border:1px solid var(--border);color:var(--tx2)}.abtn-role:hover{border-color:var(--bhi);color:var(--tx)}
 .abtn-del{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red);margin-left:4px}.abtn-del:hover{background:rgba(248,113,113,.2)}
+/* ── TOUCH TARGETS: at least 40 px on a phone ── */
+@media(max-width:768px){
+  #mob-menu-btn{width:40px;height:40px}
+  #routes-btn{height:40px;min-width:40px;justify-content:center}
+  #user-menu-btn{min-height:40px}
+  #mode-toolbar .mtb2{min-width:44px;min-height:44px;justify-content:center}
+  /* stays left of the map buttons column (40 px + margins), centred in the rest */
+  #draw-bar{top:66px;left:8px;right:56px;transform:none;width:fit-content;max-width:calc(100vw - 64px);margin:0 auto}
+  #draw-bar button{height:42px}
+  #mtools{gap:5px}
+  .mtb{width:40px;height:40px;font-size:17px}
+  #mtools-pop{right:48px}
+  #mtools-pop .mtb{height:44px;font-size:13px}
+  #sb #sbt .tb{min-height:40px}
+  #sb #sbt{min-width:0}
+  /* the close button stays in view even when the tabs need to scroll */
+  #sb #mob-sb-close{position:sticky;right:0;background:var(--panel)}
+  #mob-sb-close,#sb #mob-sb-close{width:40px;height:40px}
+  .sheet-handle{padding:13px 0 8px}
+  #sb .loop-opt{min-height:40px;padding:4px 14px}
+  #sb .adv-toggle{min-height:44px}
+  .addr-srch{min-width:44px}
+  .wp-clear{height:44px}
+  .btn{min-height:44px}
+  .udrop-btn{min-height:44px}
+  .lang-sw button{min-width:44px;min-height:40px}
+  .modal-close{min-width:40px;min-height:40px;justify-content:center;font-size:19px}
+  .lb,.rc-btn{min-height:44px}
+  .rt-acts button{height:40px;min-width:40px;justify-content:center}
+  .rt-ren{min-width:40px;min-height:40px;font-size:17px}
+  .rt-name input{height:40px}
+  #rt-sort{min-height:40px}
+  #draw-bar button{min-width:40px}
+  .rg label{min-height:40px}
+  .wi{padding:2px 2px 2px 8px}
+  .wc{line-height:40px}
+  .wren,.wdel{min-width:40px;min-height:40px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+}
+@media(max-width:400px){
+  #sb #sbt{padding-left:6px;padding-right:6px}
+  #sb #sbt .tb{padding:6px 7px!important;gap:3px!important}
+  #draw-bar{padding-left:8px;gap:3px}
+  #draw-bar .db-km{min-width:54px}
+  #draw-bar button{padding:0 7px}
+}
 </style>
+<link rel="stylesheet" href="/extras.css">
 </head>
 <body>
 <div id="app">
@@ -643,7 +729,8 @@ a.udrop-btn{text-decoration:none}
 <!-- HEADER -->
 <header id="hdr">
   <button id="mob-menu-btn" onclick="toggleMobileMenu()" title="Menu"><i class="ti ti-menu-2"></i></button>
-  <h1><span class="logo">SQ</span><span class="ttl">Squadrats Route Planner</span></h1>
+  <h1><span class="logo">SQ</span><span class="ttl" data-app-name>Squadrats Route Planner</span></h1>
+  <span id="offline-pill" hidden title="Brak połączenia. Widzisz dane zapisane na tym urządzeniu."><i class="ti ti-wifi-off"></i>Offline</span>
   <div class="hdiv"></div>
   <div id="sbt">
     <button class="tb on" onclick="swTab('plan',this)"><i class="ti ti-route"></i>Trasa</button>
@@ -677,8 +764,9 @@ a.udrop-btn{text-decoration:none}
       <button class="udrop-btn" onclick="openRoutes();closeUserMenu()"><i class="ti ti-route"></i>Moje trasy</button>
       <button class="udrop-btn" onclick="openProfile();closeUserMenu()"><i class="ti ti-user"></i>Profil i Strava</button>
       <button class="udrop-btn" id="admin-menu-btn" style="display:none" onclick="openAdmin();closeUserMenu()"><i class="ti ti-shield"></i>Panel admina</button>
+      <button class="udrop-btn" id="install-btn" style="display:none" onclick="installApp();closeUserMenu()"><i class="ti ti-device-mobile-down"></i>Zainstaluj aplikację</button>
       <a class="udrop-btn" id="manual-link" href="/docs/" target="_blank" rel="noopener"><i class="ti ti-book"></i>Podręcznik</a>
-      <div class="udrop-lang"><i class="ti ti-language"></i><span>Język</span><div class="lang-sw notranslate"><button data-lang="pl" onclick="setLang('pl')">PL</button><button data-lang="en" onclick="setLang('en')">EN</button></div></div>
+      <div class="udrop-lang"><i class="ti ti-language"></i><span>Język</span><select class="lang-sel notranslate" data-lang-sel onchange="setLang(this.value)"><option value="pl">Polski</option><option value="en">English</option><option value="de">Deutsch</option><option value="nl">Nederlands</option><option value="fr">Français</option><option value="cs">Čeština</option></select></div>
       <hr class="udrop-sep">
       <button class="udrop-btn udrop-danger" onclick="doLogout()"><i class="ti ti-logout"></i>Wyloguj</button>
     </div>
@@ -710,7 +798,7 @@ a.udrop-btn{text-decoration:none}
     <div id="route-card">
       <div class="rc-top">
         <div class="rc-km"><span id="rc-km">0.0</span><small>km</small></div>
-        <div class="rc-eta"><i class="ti ti-clock"></i><b id="rc-eta">—</b>@<input id="avg-speed" type="number" min="5" max="60" value="20" oninput="refreshRouteUI()" title="Średnia prędkość (km/h)">km/h</div>
+        <div class="rc-eta"><i class="ti ti-clock"></i><b id="rc-eta">—</b>@<input id="avg-speed" type="number" min="2" max="60" value="20" oninput="window.onSpeedInput?.();refreshRouteUI()" title="Średnia prędkość (km/h)">km/h</div>
       </div>
       <div class="rc-stats">
         <div class="rc-stat"><b class="no" id="rc-sq">0</b><span>nowe SQ</span></div>
@@ -720,6 +808,7 @@ a.udrop-btn{text-decoration:none}
       </div>
       <div class="rc-reuse" id="rc-reuse"></div>
       <div class="rc-reuse" id="rc-pop" style="display:none"></div>
+      <div class="rc-wx" id="rc-wx" hidden></div>
       <div class="rc-act">
         <button class="rc-btn pri" onclick="exportGPXGarmin()" title="GPX z wysokościami — import jako kurs w Garmin Connect"><i class="ti ti-device-watch"></i>Pobierz GPX dla Garmina</button>
         <button class="rc-btn" onclick="exportGPX()"><i class="ti ti-download"></i>GPX</button>
@@ -771,6 +860,7 @@ a.udrop-btn{text-decoration:none}
         <span class="dist-val" id="dist-lbl">50 km</span>
       </div>
     </div>
+    <label class="wind-opt" title="Planer wybierze pętlę po tej stronie startu, z której wieje: najpierw jedziesz pod wiatr, wracasz z wiatrem. Działa przy wietrze od 11 km/h. Może dać mniej nowych kwadratów."><input type="checkbox" id="wind-loop" onchange="window.onWindOpt?.()"><i class="ti ti-wind"></i>Pętla pod wiatr na początek</label>
 
     <!-- 4. PROFIL ROWERU -->
     <div class="sb-sec"><i class="ti ti-bike"></i>Profil roweru</div>
@@ -781,6 +871,11 @@ a.udrop-btn{text-decoration:none}
       <button class="bp-btn"    id="bp-lowtraffic" onclick="setBikeProf('rowery-pl',this)" title="BRouter — spokojne drogi, ścieżki"><i class="ti ti-road-off" style="color:var(--yellow)"></i>Spokojny</button>
       <button class="bp-btn on" id="bp-safety"     onclick="setBikeProf('safety',this)"    title="BRouter — ścieżki rowerowe priorytet"><i class="ti ti-shield" style="color:var(--green)"></i>Bezpieczny</button>
       <button class="bp-btn"    id="bp-mtb"        onclick="setBikeProf('mtb',this)"       title="BRouter — MTB, terenowy"><i class="ti ti-trees" style="color:var(--green)"></i>MTB</button>
+    </div>
+    <div class="sb-sec"><i class="ti ti-walk"></i>Pieszo i bieg</div>
+    <div class="bp-set">
+      <button class="bp-btn" id="bp-foot" onclick="setBikeProf('foot',this)" title="BRouter — szlaki, ścieżki i chodniki"><i class="ti ti-walk" style="color:var(--cyan)"></i>Pieszo</button>
+      <button class="bp-btn" id="bp-run"  onclick="setBikeProf('run',this)"  title="BRouter — ścieżki piesze, tempo biegowe"><i class="ti ti-run" style="color:var(--purple)"></i>Bieg</button>
     </div>
     <div id="bp-note" style="font-size:12px;color:var(--tx3);margin-bottom:6px;padding:7px 10px;background:var(--card);border-radius:7px;display:none">
       <i class="ti ti-info-circle"></i> Profile inne niż Ogólny wymagają BRouter.
@@ -908,6 +1003,14 @@ a.udrop-btn{text-decoration:none}
     <input type="file" id="gpx-in" accept=".gpx" multiple style="display:none" onchange="importGPX(event)">
     <button class="btn" style="background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.35);color:var(--green)" onclick="g('squadrats-kml-in').click()" title="Oficjalny eksport kwadratów ze squadrats.com — 'Pobierz KML' w ich aplikacji"><i class="ti ti-cloud-download"></i>Importuj z Squadrats.com (KML)</button>
     <input type="file" id="squadrats-kml-in" accept=".kml,.xml,.txt" style="display:none" onchange="importSquadratsKML(event)">
+    <button class="btn btn-b" onclick="toggleSHForm()" title="Kwadraty z Twojego konta StatsHunters, przez link udostępniania"><i class="ti ti-link"></i>Importuj ze StatsHunters (link)</button>
+    <div id="sh-form" hidden>
+      <input id="sh-link" type="url" placeholder="https://www.statshunters.com/share/…" autocomplete="off" autocapitalize="none" spellcheck="false" onkeydown="if(event.key==='Enter')importStatsHunters()">
+      <button class="btn btn-b" id="sh-go" onclick="importStatsHunters()"><i class="ti ti-download"></i>Pobierz kwadraty</button>
+      <div class="hint" style="text-align:left;margin:0 0 8px">W StatsHunters utwórz link udostępniania (Share) i wklej go tutaj. Link pozwala tylko czytać Twoje kafelki.</div>
+    </div>
+    <button class="btn btn-b" onclick="g('vv-kml-in').click()" title="Plik KML z kafelkami wyeksportowany z VeloViewer"><i class="ti ti-file-import"></i>Importuj z VeloViewer (KML)</button>
+    <input type="file" id="vv-kml-in" accept=".kml,.xml" style="display:none" onchange="importVeloViewerKML(event)">
    </div>
   </div>
 
@@ -1028,7 +1131,9 @@ a.udrop-btn{text-decoration:none}
     </div>
     <div id="poi-map-panel" style="display:none;position:absolute;top:10px;right:46px;z-index:1000;background:rgba(13,17,23,.92);backdrop-filter:blur(8px);border:1px solid var(--border2);border-radius:8px;padding:8px;display:none;flex-direction:column;gap:4px;min-width:140px"></div>
     <div id="ride-bar" hidden>
+      <span id="ride-turn" hidden></span>
       <i class="ti ti-navigation" id="ride-ico"></i><span id="ride-txt">Szukam sygnału GPS…</span>
+      <button id="ride-voice" type="button" onclick="toggleVoice()" title="Komunikaty głosowe o skrętach"><i class="ti ti-volume"></i></button>
       <button id="ride-center" type="button" hidden onclick="recenterRide()">Wycentruj</button>
       <button id="ride-stop" type="button" onclick="stopRide()">Zakończ</button>
     </div>
@@ -1136,10 +1241,17 @@ a.udrop-btn{text-decoration:none}
   </svg>
 
   <div class="auth-card">
-    <div class="lang-sw auth-lang notranslate"><button data-lang="pl" onclick="setLang('pl')">PL</button><button data-lang="en" onclick="setLang('en')">EN</button></div>
+    <select class="lang-sel auth-lang notranslate" data-lang-sel onchange="setLang(this.value)"><option value="pl">Polski</option><option value="en">English</option><option value="de">Deutsch</option><option value="nl">Nederlands</option><option value="fr">Français</option><option value="cs">Čeština</option></select>
     <div class="auth-logo"><span class="logo">SQ</span></div>
-    <h2>Squadrats Route Planner</h2>
+    <h2 data-app-name>Squadrats Route Planner</h2>
     <div class="auth-tagline">planuj trasy &bull; zbieraj kwadraty &bull; jeździj</div>
+    <div id="auth-note" class="auth-note" hidden></div>
+    <!-- STRAVA: one click, shown when this installation has its own Strava application -->
+    <div id="strava-first" style="display:none">
+      <button type="button" id="btn-strava" class="social-btn strava" onclick="window.location.href='/auth/strava/login'"><i class="ti ti-brand-strava"></i>Kontynuuj ze Stravą</button>
+      <div class="auth-hint">Jedno kliknięcie: konto i kwadraty z Twoich jazd</div>
+      <div class="auth-or">lub</div>
+    </div>
     <div class="auth-tabs">
       <button id="atp-login" class="auth-tab on" onclick="swAuthTab('login')">Logowanie</button>
       <button id="atp-reg"   class="auth-tab"    onclick="swAuthTab('register')">Rejestracja</button>
@@ -1148,24 +1260,49 @@ a.udrop-btn{text-decoration:none}
     <!-- LOGIN -->
     <form id="form-login" onsubmit="doLogin(event)">
       <div class="auth-field"><label>Nazwa użytkownika</label>
-        <input id="login-user" type="text" placeholder="admin" required autocomplete="username"></div>
+        <input id="login-user" type="text" placeholder="nazwa albo email" required maxlength="254" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
       <div class="auth-field"><label>Hasło</label>
-        <input id="login-pass" type="password" required autocomplete="current-password"></div>
+        <input id="login-pass" type="password" required maxlength="200" autocomplete="current-password"></div>
       <div id="login-err" class="auth-err"></div>
       <button type="submit" class="auth-submit"><i class="ti ti-login"></i> Zaloguj się</button>
+      <button type="button" class="auth-link" id="forgot-link" hidden onclick="swAuthTab('forgot')">Nie pamiętasz hasła?</button>
+    </form>
+
+    <!-- FORGOTTEN PASSWORD: a link by e-mail (shown when this installation can send mail) -->
+    <form id="form-forgot" style="display:none" onsubmit="doForgot(event)">
+      <div class="auth-hint" style="text-align:left;margin:0 0 10px">Podaj adres e-mail zapisany na koncie. Wyślemy na niego link do ustawienia nowego hasła.</div>
+      <div class="auth-field"><label>Email</label>
+        <input id="forgot-email" type="email" required maxlength="254" autocomplete="email" autocapitalize="none" spellcheck="false"></div>
+      <div id="forgot-err" class="auth-err"></div>
+      <div id="forgot-ok" class="auth-ok" hidden></div>
+      <button type="submit" class="auth-submit"><i class="ti ti-mail"></i> Wyślij link</button>
+      <button type="button" class="auth-link" onclick="swAuthTab('login')">Wróć do logowania</button>
+    </form>
+
+    <!-- NEW PASSWORD: opened by the link from the e-mail -->
+    <form id="form-reset" style="display:none" onsubmit="doReset(event)">
+      <div class="auth-hint" style="text-align:left;margin:0 0 10px">Ustaw nowe hasło do swojego konta.</div>
+      <div class="auth-field"><label>Nowe hasło (min. 8 znaków, 1 cyfra)</label>
+        <input id="reset-pass" type="password" pattern="(?=.*[0-9]).{8,}" title="Min. 8 znaków i co najmniej 1 cyfra" required maxlength="200" autocomplete="new-password"></div>
+      <div class="auth-field"><label>Powtórz hasło</label>
+        <input id="reset-pass2" type="password" required maxlength="200" autocomplete="new-password"></div>
+      <div id="reset-err" class="auth-err"></div>
+      <button type="submit" class="auth-submit"><i class="ti ti-key"></i> Ustaw nowe hasło</button>
+      <button type="button" class="auth-link" onclick="swAuthTab('login')">Wróć do logowania</button>
     </form>
 
     <!-- REGISTER -->
     <form id="form-reg" style="display:none" onsubmit="doRegister(event)">
       <div class="auth-field"><label>Nazwa użytkownika *</label>
-        <input id="reg-user" type="text" placeholder="min. 3 znaki" minlength="3" required autocomplete="username"></div>
+        <input id="reg-user" type="text" placeholder="3–32 znaki: litery, cyfry, kropka, - _" minlength="3" maxlength="32" required autocomplete="username" autocapitalize="none" spellcheck="false"></div>
       <div class="auth-field"><label>Email (opcjonalny)</label>
         <input id="reg-email" type="email" placeholder="twoj@email.com" autocomplete="email"></div>
+      <div class="auth-hint" id="reg-email-hint" hidden style="text-align:left;margin:-6px 0 10px">Bez adresu e-mail nie odzyskasz zapomnianego hasła.</div>
       <div class="auth-field"><label>Hasło * (min. 8 znaków, 1 cyfra)</label>
         <input id="reg-pass" type="password" pattern="(?=.*[0-9]).{8,}" title="Min. 8 znaków i co najmniej 1 cyfra" required autocomplete="new-password"></div>
       <div class="auth-field"><label>Powtórz hasło *</label>
         <input id="reg-pass2" type="password" required autocomplete="new-password"></div>
-      <div class="auth-strava-toggle" onclick="toggleRegStrava()">
+      <div class="auth-strava-toggle" id="reg-strava-toggle" onclick="toggleRegStrava()">
         <i class="ti ti-brand-strava" style="color:#fc4c02"></i>
         <span>Konfiguracja Strava API</span>
         <span style="font-size:10px;color:var(--tx3);flex:1">(opcjonalne)</span>
@@ -1191,6 +1328,7 @@ a.udrop-btn{text-decoration:none}
     <div id="social-section" style="display:none">
       <div class="auth-or">lub</div>
       <div class="social-btns">
+        <button id="btn-apple" class="social-btn apple" style="display:none" onclick="window.location.href='/auth/apple'"><i class="ti ti-brand-apple"></i>Kontynuuj z Apple</button>
         <button id="btn-google" class="social-btn google" style="display:none" onclick="window.location.href='/auth/google'"><i class="ti ti-brand-google"></i>Kontynuuj z Google</button>
       </div>
     </div>
@@ -1214,6 +1352,8 @@ a.udrop-btn{text-decoration:none}
         <option value="sqi">Najwięcej SQI</option>
         <option value="name">Nazwa A–Z</option>
       </select>
+      <button type="button" id="rt-imp" onclick="g('route-gpx-in').click()" title="Wczytaj trasę z pliku GPX (cudzą albo z innej aplikacji)"><i class="ti ti-file-upload"></i><span>Z pliku GPX</span></button>
+      <input type="file" id="route-gpx-in" accept=".gpx,application/gpx+xml" hidden onchange="importRouteGPX(event)">
     </div>
     <div class="rt-sum" id="rt-sum"></div>
     <div class="modal-body"><div class="rt-list" id="rt-list"></div></div>
@@ -1235,7 +1375,8 @@ a.udrop-btn{text-decoration:none}
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
           <span style="color:var(--tx3)">Rola</span><span id="prof-role"></span></div>
         <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:11px">
-          <span style="color:var(--tx3)">Email</span><span id="prof-email" style="color:var(--tx2)"></span></div>
+          <span style="color:var(--tx3)">Email</span><span><span id="prof-email" style="color:var(--tx2)"></span> <button type="button" class="link-btn" id="prof-email-btn" onclick="editEmail()">Zmień</button></span></div>
+        <div id="prof-email-box"></div>
       </div>
 
       <div class="sl mt8">Hasło</div>
@@ -1261,26 +1402,32 @@ a.udrop-btn{text-decoration:none}
         <div id="prof-home-err" style="font-size:11px;color:var(--red);margin-top:4px;min-height:14px"></div>
       </div>
 
-      <div class="sl mt8">Konfiguracja Strava API</div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px;font-size:12px;color:var(--tx2);line-height:1.9">
-        <b style="color:var(--green)">Jak uzyskać klucze API Strava?</b><br>
-        1. Przejdź na <a href="https://www.strava.com/settings/api" target="_blank" style="color:var(--blue)">strava.com/settings/api</a><br>
-        2. Utwórz lub edytuj aplikację<br>
-        3. <b>Authorization Callback Domain</b>: <code id="prof-app-domain" style="color:var(--yellow)"></code><br>
-        4. Skopiuj <b>Client ID</b> i <b>Client Secret</b>
-      </div>
-      <div class="crb" style="margin-bottom:8px">
-        <label>Strava Client ID</label>
-        <input id="prof-strava-id" type="text" placeholder="np. 12345" autocomplete="off">
-        <label>Strava Client Secret</label>
-        <input id="prof-strava-secret" type="password" placeholder="abc123…" autocomplete="off">
-      </div>
-      <div id="prof-strava-err" style="font-size:11px;color:var(--red);margin-bottom:6px;min-height:14px"></div>
+      <div class="sl mt8">Strava</div>
+      <div id="prof-strava-status" style="font-size:12px;margin-bottom:8px;padding:9px 10px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border);min-height:32px;line-height:1.5"></div>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-b" style="flex:1" onclick="saveStravaCredentials()"><i class="ti ti-device-floppy"></i>Zapisz</button>
-        <button class="btn btn-g" id="prof-connect-btn" style="flex:1" onclick="connectStrava()"><i class="ti ti-brand-strava"></i>Połącz ze Stravą</button>
+        <button class="btn btn-strava" id="prof-connect-btn" style="flex:1" onclick="connectStrava()"><i class="ti ti-brand-strava"></i>Połącz ze Stravą</button>
+        <button class="btn btn-x" id="prof-disconnect-btn" style="flex:1;display:none" onclick="disconnectStrava()"><i class="ti ti-plug-x"></i>Odłącz Stravę</button>
       </div>
-      <div id="prof-strava-status" style="font-size:11px;margin-top:8px;padding:7px 10px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border);min-height:32px"></div>
+      <div style="font-size:11px;color:var(--tx3);line-height:1.5;margin:2px 0 4px">Po połączeniu nowe jazdy pobierają się same. Odłączenie zatrzymuje synchronizację, zdobyte kwadraty zostają na koncie.</div>
+      <details class="adv" id="prof-strava-adv">
+        <summary id="prof-strava-adv-sum">Własne klucze Strava API (zaawansowane)</summary>
+        <div id="prof-strava-adv-note" style="font-size:11px;color:var(--tx3);line-height:1.5;margin-bottom:8px">Niepotrzebne do zwykłego używania. Własna aplikacja Strava ma osobny limit zapytań, niezależny od innych osób. Wyczyść oba pola i zapisz, aby wrócić do połączenia jednym kliknięciem.</div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px;margin-bottom:8px;font-size:12px;color:var(--tx2);line-height:1.9">
+          <b style="color:var(--green)">Jak uzyskać klucze API Strava?</b><br>
+          1. Przejdź na <a href="https://www.strava.com/settings/api" target="_blank" style="color:var(--blue)">strava.com/settings/api</a><br>
+          2. Utwórz lub edytuj aplikację<br>
+          3. <b>Authorization Callback Domain</b>: <code id="prof-app-domain" style="color:var(--yellow)"></code><br>
+          4. Skopiuj <b>Client ID</b> i <b>Client Secret</b>
+        </div>
+        <div class="crb" style="margin-bottom:8px">
+          <label>Strava Client ID</label>
+          <input id="prof-strava-id" type="text" placeholder="np. 12345" autocomplete="off">
+          <label>Strava Client Secret</label>
+          <input id="prof-strava-secret" type="password" placeholder="abc123…" autocomplete="off">
+        </div>
+        <div id="prof-strava-err" style="font-size:11px;color:var(--red);margin-bottom:6px;min-height:14px"></div>
+        <button class="btn btn-b" onclick="saveStravaCredentials()"><i class="ti ti-device-floppy"></i>Zapisz klucze</button>
+      </details>
 
       <div class="sl" style="margin-top:16px">Prywatność i konto</div>
       <div class="crb">
@@ -1372,6 +1519,26 @@ const LYR_COLOR={'sq-own':'g','sq-new':'o','sq-yard':'b','sq-uber':'y','sqi-own'
 
 let statsData={}, toastTm=null;
 let currentUser=null;
+let _lastUserId=null;   // who used this page last; a different person gets a fresh page
+let _sessionGone=false; // the login window is up after a lost session: it explains itself, follow-up error toasts would only add noise
+
+// ── Network layer ─────────────────────────────────────────────────────────────
+// Every request of the app passes through here, so two things are handled in
+// one place: a dead connection gives a readable message instead of the
+// browser's "Failed to fetch", and a session that ended on the server (expired,
+// password changed on another device, account removed) brings the login window
+// back instead of a string of silent errors.
+const NET_ERR='Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.';
+const _nativeFetch=window.fetch.bind(window);
+window.fetch=async function(input,init){
+  const url=typeof input==='string'?input:(input&&input.url)||'';
+  const own=/^\/(?!\/)/.test(url);
+  let r;
+  try{r=await _nativeFetch(input,init);}
+  catch(e){if(own&&e instanceof TypeError) throw new Error(NET_ERR);throw e;}
+  if(own&&r.status===401&&currentUser&&!/^\/api\/auth\/(login|register|logout)\b/.test(url)) sessionExpired();
+  return r;
+};
 
 // ═══════════════════════════════════════════════════════════════════════
 //  MAP INIT
@@ -1379,16 +1546,18 @@ let currentUser=null;
 async function initMap(){
   // doubleClickZoom off: our click handler zooms on a double tap itself, but
   // only once it's sure no third tap (= toggle "uncollectable") follows.
-  map=L.map('map',{zoomControl:false,preferCanvas:true,doubleClickZoom:false}).setView([52.23,21.01],12);
+  // First view: Warsaw in Polish, the whole of Europe otherwise; after login the
+  // home point or the rider's own squares take over (centerOnSquares).
+  map=L.map('map',{zoomControl:false,preferCanvas:true,doubleClickZoom:false}).setView(...(tl('pl','en')==='pl'?[[52.23,21.01],12]:[[50.5,10],5]));
   map.createPane('coveragePane'); map.getPane('coveragePane').style.zIndex='401';
   map.createPane('routePane');    map.getPane('routePane').style.zIndex='402';
   map.createPane('kmPane');       map.getPane('kmPane').style.zIndex='403';
 
-  baseLayers.dark     =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © Carto',maxZoom:19});
-  baseLayers.osm      =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
-  baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri, i-cubed, USDA, USGS, AEX, GeoEye',maxZoom:19});
-  baseLayers.topo     =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
-  baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20});
+  baseLayers.dark     =L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM © Carto',maxZoom:19,crossOrigin:true});
+  baseLayers.osm      =L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19,crossOrigin:true});
+  baseLayers.satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri, i-cubed, USDA, USGS, AEX, GeoEye',maxZoom:19,crossOrigin:true});
+  baseLayers.topo     =L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17,crossOrigin:true});
+  baseLayers.cycle    =L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',{attribution:'© CyclOSM',maxZoom:20,crossOrigin:true});
   baseLayers.osm.addTo(map);
   initMapyCom();
 
@@ -1466,10 +1635,11 @@ async function loadTilesFromDB(){
     applyStats(d.stats);
     prioData=null;
     redrawAll();
+    if(_centerOnLoad){_centerOnLoad=false;centerOnSquares();}
     loadReachStats();
     if(VIS['sqi-prio']) loadPriority();
     hideLoad();
-    toast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);
+    if(ownedSQ.size||ownedSQI.size) toast(`Załadowano: ${ownedSQ.size} SQ, ${ownedSQI.size} SQI`);   // an empty account needs no "0, 0" message
   }catch(e){
     hideLoad();
     console.error('loadTilesFromDB error:', e);
@@ -1509,6 +1679,7 @@ function applyStats(s){
   setText('h-uber',  s.uber?.size||0);
   setText('h-uber2', s.uber?.size||0);
   setText('h-sqi',   s.sqi||0);
+  updateStravaUi();
 }
 
 async function refreshStats(){
@@ -1921,8 +2092,19 @@ function togLyr(name,btn,c,restoring){
 // ═══════════════════════════════════════════════════════════════════════
 //  STRAVA SYNC (SSE)
 // ═══════════════════════════════════════════════════════════════════════
+// A rider without a home point: open the map where their squares are
+let _centerOnLoad=false;
+function centerOnSquares(){
+  if(!ownedSQ.size||currentUser?.home_lat||wpts.length) return;
+  const xs=[],ys=[];
+  for(const k of ownedSQ){const p=parseKey(k);xs.push(p.x);ys.push(p.y);}
+  xs.sort((a,b)=>a-b);ys.sort((a,b)=>a-b);
+  const c=tileNW(xs[xs.length>>1]+.5,ys[ys.length>>1]+.5,14);
+  map.setView([c.lat,c.lng],11,{animate:false});
+}
+
 async function syncStrava(){
-  if(!currentUser?.strava_connected){toast('Połącz konto Strava w Profilu');return;}
+  if(!currentUser?.strava_connected){toast('Połącz konto Strava w Profilu');if(currentUser?.strava_shared) openProfile();return;}
   g('sync-btn').disabled=true;
   const prog=g('sync-progress');
   prog.style.display='block';
@@ -2028,6 +2210,7 @@ function setBikeProf(p,el){
   document.querySelectorAll('[id^=bp-]').forEach(b=>{if(b.tagName==='BUTTON')b.classList.remove('on')});
   el.classList.add('on');
   g('bp-note').style.display=p==='standard'?'none':'block';
+  window.onProfileSet?.(p);
 }
 
 function previewRoute(){
@@ -2272,11 +2455,16 @@ async function showRoute(route,{loop,pop=null}){
   buildElevData(routeCoords, route.elevProfile||null);
   updElevSummary();
   if(g('elev-panel').classList.contains('open')) drawElevChart();
-  const prv=await (await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})})).json();
+  // Without a connection (a saved route opened offline) the route still shows; only its new squares stay unknown
+  let prv=null;
+  try{
+    const pr=await fetch('/api/route/preview-tiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coords:routeCoords})});
+    if(pr.ok) prv=await pr.json();
+  }catch(_){}
   const dist=route.distance/1000;
   routeFormOpen=false;
   setPlanDist(dist);
-  applyNewTiles(prv);
+  applyNewTiles(prv||{newSQ:[],newSQI:[]});
   hideLoad();
   if(mob){closeMobileMenu();refreshMobPeek();}
   svCovData=null;
@@ -2285,7 +2473,7 @@ async function showRoute(route,{loop,pop=null}){
   fetchPOI();
   fetchWikiPOI();
   fetchRoutePhotos();
-  _routeMeta={coords:routeCoords,elevProfile:route.elevProfile||null,surfaceProfile:route.surfaceProfile||null,loop};
+  _routeMeta={coords:routeCoords,elevProfile:route.elevProfile||null,surfaceProfile:route.surfaceProfile||null,hints:route.hints||null,loop};
   if(!loop) outboundRouteData={coords:routeCoords.slice(),elevProfile:route.elevProfile||null,distance:route.distance};
   return dist;
 }
@@ -2306,7 +2494,8 @@ async function calcRoute(){
     const res=await fetch('/api/route/detour',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile})
+      body:JSON.stringify({waypoints,mode:opt,loop,targetKm:parseFloat(g('dist-r').value),bikeProfile,
+        windFrom:loop&&wpts.length===1?(await window.windForPlan?.(waypoints[0]))??undefined:undefined})
     });
     if(res.status===401){toast('Sesja wygasła — zaloguj się ponownie');hideLoad();return;}
     if(!res.ok){const e=await res.json().catch(()=>({}));throw new Error(e.error||('routing error '+res.status));}
@@ -2503,15 +2692,19 @@ function removeReturnLeg(){
     });
 }
 
+// The installation's own name (APP_NAME on the server) in exported files
+function appWord(){return ((window.APP_NAME||'Squadrats').trim().split(/\s+/)[0])||'Squadrats';}
+function gpxCreator(){return esc((window.APP_NAME||'SquadratsPlanner').replace(/\s+/g,''));}
+function fileSlug(){return appWord().toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g,'')||'trasa';}
 function exportGPX(){
   const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng}));
   if(!pts.length){toast('Brak trasy');return;}
-  let gpx=`<?xml version="1.0"?>\n<gpx version="1.1" creator="SquadratsPlanner">\n${gpxWptXml()}  <trk><trkseg>\n`;
+  let gpx=`<?xml version="1.0"?>\n<gpx version="1.1" creator="${gpxCreator()}">\n${gpxWptXml()}  <trk><trkseg>\n`;
   pts.forEach(p=>{gpx+=`    <trkpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"></trkpt>\n`;});
   gpx+=`  </trkseg></trk>\n</gpx>`;
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([gpx],{type:'application/gpx+xml'}));
-  a.download='squadrats_'+new Date().toISOString().slice(0,10)+'.gpx';
+  a.download=fileSlug()+'_'+new Date().toISOString().slice(0,10)+'.gpx';
   a.click();
   toast('GPX wyeksportowany');
 }
@@ -2526,10 +2719,10 @@ function buildCourseGPX(){
   const pts=routeCoords.length>0?routeCoords:wpts.map(w=>({lat:w.marker.getLatLng().lat,lng:w.marker.getLatLng().lng,elev:0}));
   if(!pts.length) return null;
   const now=new Date(), dateStr=now.toISOString().slice(0,10);
-  const name=`Squadrats ${dateStr}`;
+  const name=`${appWord()} ${dateStr}`;
   const hasElev=pts.some(p=>p.elev&&p.elev>0);
   let gpx=`<?xml version="1.0" encoding="UTF-8"?>
-<gpx creator="SquadratsPlanner" version="1.1"
+<gpx creator="${gpxCreator()}" version="1.1"
   xmlns="http://www.topografix.com/GPX/1/1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
@@ -2548,7 +2741,7 @@ ${gpxWptXml()}  <trk>
   gpx+=`    </trkseg>
   </trk>
 </gpx>`;
-  return {gpx, filename:`squadrats_${dateStr}.gpx`};
+  return {gpx, filename:`${fileSlug()}_${dateStr}.gpx`};
 }
 
 function exportGPXGarmin(){
@@ -2556,7 +2749,7 @@ function exportGPXGarmin(){
   if(!c){toast('Brak trasy do eksportu');return;}
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([c.gpx],{type:'application/gpx+xml'}));
-  a.download=c.filename.replace('squadrats_','squadrats_garmin_');
+  a.download=c.filename.replace('_','_garmin_');
   a.click();
   toast('GPX dla Garmina pobrany — zaimportuj w connect.garmin.com → Kursy');
 }
@@ -2586,6 +2779,7 @@ function openSaveRoute(){
   const start=wpts.find(w=>w.type==='start');
   const d=new Date();
   g('rc-save-name').value=`${loop?tl('Pętla','Loop'):tl('Trasa','Route')} ${Math.round(_planKm)} km${start?.label?' · '+start.label:''} · ${d.getDate()}.${String(d.getMonth()+1).padStart(2,'0')}`;
+  const given=window.planName?.(); if(given) g('rc-save-name').value=given; // a route that came with a name (a link, a file)
   g('rc-save-form').hidden=false;
   g('rc-save-name').focus(); g('rc-save-name').select();
 }
@@ -2598,7 +2792,7 @@ async function saveRoute(){
     mode:document.querySelector('input[name="opt"]:checked')?.value,profile:bikeProfile,
     waypoints:wpts.map(w=>{const ll=w.marker.getLatLng();return{type:w.type,lat:ll.lat,lng:ll.lng,label:w.label||null,name:w.name||null};}),
     coords:routeCoords.map(p=>[p.lat,p.lng,p.elev||0]),
-    elevProfile:sameGeom?_routeMeta.elevProfile:null,surfaceProfile:sameGeom?_routeMeta.surfaceProfile:null};
+    elevProfile:sameGeom?_routeMeta.elevProfile:null,surfaceProfile:sameGeom?_routeMeta.surfaceProfile:null,hints:sameGeom?_routeMeta.hints:null};
   try{
     const r=await fetch('/api/routes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json().catch(()=>({}));
@@ -2611,8 +2805,11 @@ async function saveRoute(){
 async function loadSavedRoutes(){
   const list=g('saved-list');
   try{
-    const routes=await (await fetch('/api/routes')).json();
+    const rr=await fetch('/api/routes');
+    const routes=rr.ok?await rr.json():null;
+    if(!Array.isArray(routes)) return;
     _routes=routes;
+    window.onRoutesLoaded?.(routes);
     if(!g('routes-modal').hidden) renderRoutes();
     g('saved-count').textContent=routes.length?`(${routes.length})`:'';
     if(!routes.length){list.innerHTML='<div class="hint">Brak zapisanych tras. Wyznacz trasę i kliknij „Zapisz” w jej karcie.</div>';return;}
@@ -2654,7 +2851,7 @@ async function openSavedRoute(id){
     d.waypoints.forEach(w=>setWptName(addWpt(L.latLng(w.lat,w.lng),w.type,w.label||undefined),w.name));
     relabelWpts(); renderWL(); if(rLine){map.removeLayer(rLine);rLine=null;}
     await showRoute({geometry:{coordinates:d.coords.map(([la,ln,el])=>[ln,la,el])},distance:d.distance_km*1000,
-      elevProfile:d.elev_profile,surfaceProfile:d.surface_profile},{loop});
+      elevProfile:d.elev_profile,surfaceProfile:d.surface_profile,hints:d.hints||null},{loop});
     if(!loop){const btn=g('return-leg-btn');btn.innerHTML='<i class="ti ti-arrows-left-right"></i> Dodaj powrót inną drogą';btn.onclick=addReturnLeg;btn.style.display='flex';}
     toast(`Wczytano: ${d.name} · teraz +${newSQI.size} nowych SQI`);
   }catch(e){hideLoad();toast('Nie udało się wczytać trasy: '+e.message);}
@@ -2665,7 +2862,7 @@ async function openSavedRoute(id){
 // share sheet, where the Garmin Connect app imports it as a course.
 let _routes=[];
 const _gpxCache=new Map(); // route id → File (built ahead, so the share keeps the tap's user activation)
-const PROF_NAMES={standard:'Ogólny',fastbike:'Szosowy',gravel:'Gravel','rowery-pl':'Spokojny',safety:'Bezpieczny',mtb:'MTB',trekking:'Trekking'};
+const PROF_NAMES={standard:'Ogólny',fastbike:'Szosowy',gravel:'Gravel','rowery-pl':'Spokojny',safety:'Bezpieczny',mtb:'MTB',trekking:'Trekking',foot:'Pieszo',run:'Bieg'};
 function canShareGPX(){
   try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['<gpx/>'],'t.gpx',{type:'application/gpx+xml'})]}));}catch(e){return false;}
 }
@@ -2770,6 +2967,7 @@ function renderRoutes(){
           <button class="gc" type="button"><i class="ti ti-device-watch-share"></i>Garmin Connect</button>
           <button class="op" type="button" title="Pokaż na mapie"><i class="ti ti-map-2"></i><span class="lbl-d">Na mapie</span></button>
           <button class="gpx" type="button" title="Pobierz GPX"><i class="ti ti-download"></i><span class="lbl-d">GPX</span></button>
+          <button class="lnk${r.share_token?' on':''}" type="button" title="Link do trasy"><i class="ti ti-link"></i><span class="lbl-d">Link</span></button>
           <button class="del" type="button" title="Usuń trasę"><i class="ti ti-trash"></i></button>
         </div>
       </div>`;
@@ -2778,6 +2976,7 @@ function renderRoutes(){
     card.querySelector('.rt-name b').onclick=open;
     card.querySelector('.op').onclick=open;
     card.querySelector('.gc').onclick=e=>sendToGarmin(r.id,e.currentTarget);
+    card.querySelector('.lnk').onclick=()=>toggleSharePanel(r,card);
     card.querySelector('.gpx').onclick=async()=>{
       try{const f=await fetchRouteGPX(r.id);const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),10000);}
       catch(e){toast('Nie udało się pobrać GPX: '+e.message);}
@@ -2828,6 +3027,7 @@ async function startRide(){
   if(!window.isSecureContext){toast('Pozycja GPS działa tylko przez połączenie HTTPS — otwórz aplikację adresem https://');return;}
   if(!navigator.geolocation){toast('Ta przeglądarka nie udostępnia pozycji GPS');return;}
   _ride={follow:true,marker:null,circle:null,watchId:null,wake:null,lastKm:0};
+  window.navStart?.(); // in the tap itself: iOS lets a page speak only after a touch
   g('mtb-track').classList.add('on');
   g('ride-bar').hidden=false; g('ride-bar').classList.remove('off'); g('ride-center').hidden=true;
   g('ride-txt').textContent='Szukam sygnału GPS…';
@@ -2844,6 +3044,7 @@ function stopRide(){
   if(_ride.circle) map.removeLayer(_ride.circle);
   try{_ride.wake?.release();}catch(_){}
   map.off('dragstart',pauseRideFollow);
+  window.navStop?.();
   _ride=null;
   g('mtb-track').classList.remove('on');
   g('ride-bar').hidden=true;
@@ -2871,7 +3072,7 @@ function onRidePos(pos){
   const bar=g('ride-bar'), txt=g('ride-txt');
   if(!routeCoords.length){bar.classList.remove('off');txt.textContent=`Dokładność ${Math.round(acc)} m · zaplanuj trasę, by widzieć postęp`;return;}
   const passes=routePasses(ll.lat,ll.lng,100);
-  if(!passes.length){bar.classList.add('off');txt.textContent='Daleko od trasy';return;}
+  if(!passes.length){bar.classList.add('off');txt.textContent='Daleko od trasy';window.navUpdate?.(null,Infinity,pos.coords);return;}
   // Where a loop passes the same place twice, prefer the pass that continues
   // from where the rider was last seen.
   const minOff=Math.min(...passes.map(p=>p.off));
@@ -2883,6 +3084,7 @@ function onRidePos(pos){
   txt.textContent=off>100
     ? `Poza trasą: ${off} m · najbliżej km ${fmtKm(p.km)}`
     : `km ${fmtKm(p.km)} z ${fmtKm(_planKm)} · zostało ${fmtKm(left)} km${off>=30?` · ${off} m od trasy`:''}`;
+  window.navUpdate?.(p.km,off,pos.coords);
 }
 function onRideErr(e){
   const msg=e.code===1?'Brak zgody na pozycję GPS — zezwól w ustawieniach przeglądarki':e.code===3?'Szukam sygnału GPS…':'Pozycja GPS niedostępna';
@@ -2901,7 +3103,12 @@ async function refreshSyncStatus(){
     const el=g('autosync-status');
     if(!st.connected){el.textContent='Połącz Stravę w profilu, a nowe jazdy będą synchronizowane automatycznie.';return;}
     const l=st.last;
-    let line=`<i class="ti ti-refresh-dot"></i> ${tl('Automatycznie co','Automatically every')} ${st.everyMin} min`;
+    const every=st.everyMin>=120?`${Math.round(st.everyMin/60)} h`:`${st.everyMin} min`;
+    let line=`<i class="ti ti-refresh-dot"></i> ${tl('Automatycznie co','Automatically every')} ${every}`;
+    if(st.pausedUntil){
+      const pt=new Date(st.pausedUntil).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});
+      line+=` · ${tl('Strava ogranicza zapytania, wznowienie ok.','Strava is limiting requests, resuming around')} ${pt}`;
+    }
     if(l){
       const t=new Date(l.at).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});
       const day=new Date(l.at).toDateString()===new Date().toDateString()?'':` ${new Date(l.at).toLocaleDateString(locale())}`;
@@ -2915,6 +3122,26 @@ async function refreshSyncStatus(){
     }
     if(l) _syncSeenAt=l.at;
   }catch(_){}
+}
+// Right after connecting Strava the server fetches the rider's history in the
+// background: wait for it, then show the squares.
+async function watchFirstSync(){
+  const t0=Date.now(), uid=currentUser?.id;
+  for(let i=0;i<80;i++){
+    await new Promise(r=>setTimeout(r,i<10?2000:5000));
+    if(!currentUser||currentUser.id!==uid) return;
+    let st;
+    try{st=await (await fetch('/api/sync/status')).json();}catch(_){continue;}
+    if(!st.connected) return;
+    if(st.running||!st.last||new Date(st.last.at).getTime()<t0-120000) continue;
+    refreshSyncStatus();
+    if(st.last.error){toast('Błąd sync: '+st.last.error);return;}
+    const r=st.last.result||{};
+    await loadTilesFromDB();
+    centerOnSquares();
+    toast(`Sync: ${r.processed??0} aktywności · +${r.newSQ??0} nowych SQ · +${r.newSQI??0} nowych SQI`);
+    return;
+  }
 }
 function startSyncWatch(){
   _syncSeenAt=null;
@@ -3232,7 +3459,7 @@ async function labelWpt(w){
   const key=ll.lat.toFixed(4)+','+ll.lng.toFixed(4);
   if(_geoCache.has(key)){w.label=_geoCache.get(key);return;}
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=17&accept-language=pl&lat=${ll.lat}&lon=${ll.lng}`);
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=17&accept-language=${tl('pl','en')}&lat=${ll.lat}&lon=${ll.lng}`);
     const d=await r.json();
     const s=shortPlace(d.address||{})||(d.display_name||'').split(',').slice(0,2).join(',');
     if(!s) return;
@@ -3371,8 +3598,63 @@ function renderWL(){
     let tc,tl;
     if(w.type==='start'){tc='ws';tl='S';}else if(w.type==='end'){tc='we';tl='E';}else{mc2++;tc='wm';tl=mc2;}
     const coords=`${ll.lat.toFixed(4)}°N ${ll.lng.toFixed(4)}°E`;
-    return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc" title="${coords}" onclick="renameWptI(${i})">${wptRowText(w)}</div><button class="wren" onclick="renameWptI(${i})" title="Zmień nazwę"><i class="ti ti-pencil"></i></button><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
+    return`<div class="wi"><div class="wico ${tc}">${tl}</div><div class="wc" title="${coords}" onclick="renameWptI(${i})">${wptRowText(w)}</div><span class="wkm" title="Kilometr trasy"></span><button class="wren" onclick="renameWptI(${i})" title="Zmień nazwę"><i class="ti ti-pencil"></i></button><button class="wdel" onclick="removeWptI(${i})">×</button></div>`;
   }).join('');
+  updWptKm();
+}
+// Kilometre of the route at each waypoint; null where the point isn't on the
+// route (a leg still being routed, a point added after the route was made).
+// Points are matched to the line in order, so where the route passes a place
+// twice each point gets its own pass.
+let _cumFor=null, _cum=[];
+function wptKms(){
+  const c=routeCoords, n=c.length;
+  if(n<2) return wpts.map(()=>null);
+  if(_cumFor!==c||_cum.length!==n){
+    _cum=[0]; for(let i=1;i<n;i++) _cum.push(_cum[i-1]+haversine(c[i-1],c[i]));
+    _cumFor=c;
+  }
+  const cum=_cum, total=cum[n-1];
+  const scale=total>0&&_planKm>0&&Math.abs(_planKm/total-1)<0.1?_planKm/total:1; // agree with the route's own length
+  const endI=hasReturnLeg&&outboundRouteData?Math.min(n,outboundRouteData.coords.length)-1:n-1;
+  const DEG=111.32, NEAR=(0.5/DEG)**2, SLACK=0.025/DEG; // 500 m off the line = not on it; 25 m = "same pass"
+  const drawing=mode==='draw'||_drawFinish;
+  let from=0;
+  return wpts.map((w,k)=>{
+    if(drawing&&k>routeSegments.length) return null;
+    const ll=w.marker.getLatLng(), kx=Math.cos(ll.lat*Math.PI/180);
+    const d2p=p=>(p.lat-ll.lat)**2+((p.lng-ll.lng)*kx)**2;
+    if(k===0&&d2p(c[0])<=NEAR) return 0;
+    if(k===wpts.length-1&&w.type==='end'&&d2p(c[endI])<=NEAR) return cum[endI]*scale;
+    // nearest point of each segment from..n-2: squared distance and position along it
+    const m=n-1-from; if(m<1) return null;
+    const D=new Float64Array(m), T=new Float64Array(m);
+    let dmin=Infinity;
+    for(let j=0;j<m;j++){
+      const a=c[from+j], b=c[from+j+1];
+      const ax=(a.lng-ll.lng)*kx, ay=a.lat-ll.lat, bx=(b.lng-ll.lng)*kx, by=b.lat-ll.lat;
+      const vx=bx-ax, vy=by-ay, len=vx*vx+vy*vy;
+      const t=len?Math.max(0,Math.min(1,-(ax*vx+ay*vy)/len)):0;
+      const px=ax+t*vx, py=ay+t*vy;
+      D[j]=px*px+py*py; T[j]=t;
+      if(D[j]<dmin) dmin=D[j];
+    }
+    if(dmin>NEAR) return null;
+    const lim=(Math.sqrt(dmin)+SLACK)**2;
+    let j=0; while(D[j]>lim) j++;
+    while(j+1<m&&D[j+1]<D[j]) j++;
+    from+=j;
+    return (cum[from]+T[j]*(cum[from+1]-cum[from]))*scale;
+  });
+}
+function updWptKm(){
+  const rows=g('wl')?.children;
+  if(!rows||!wpts.length||rows.length!==wpts.length) return;
+  const kms=wptKms();
+  for(let i=0;i<rows.length;i++){
+    const s=rows[i].querySelector('.wkm');
+    if(s) s.textContent=kms[i]==null?'':kms[i].toFixed(1)+' km';
+  }
 }
 
 function relabelWpts(){
@@ -3636,18 +3918,31 @@ function restoreGeo(){
 //  AUTH — LOGIN / REGISTER / USER MENU
 // ═══════════════════════════════════════════════════════════════════════
 const _up=new URLSearchParams(window.location.search);
-if(_up.get('auth')==='strava-ok'){history.replaceState({},'','/');setTimeout(()=>toast('✅ Strava połączona!'),400);}
+// strava-ok: Strava connected to the account; strava-new: account created (or first connected) by "Kontynuuj ze Stravą"
+let _firstSync=false;
+if(_up.get('auth')==='strava-ok'||_up.get('auth')==='strava-new'){history.replaceState({},'','/');_firstSync=true;setTimeout(()=>toast('✅ Strava połączona! Pobieram Twoje jazdy, kwadraty pojawią się za chwilę.'),1500);}
 if(_up.get('auth')==='ok'){history.replaceState({},'','/');}
-if(_up.get('auth')==='error'){setTimeout(()=>toast('❌ Błąd: '+_up.get('msg')),400);history.replaceState({},'','/');}
+// Came back from Strava/Google with an error: said on the login screen (it stays there), or in a toast when logged in
+let _authErr=null;
+if(_up.get('auth')==='error'){_authErr=(_up.get('msg')||'error').slice(0,200);history.replaceState({},'','/');}
+function authErrText(m){return ['invalid_state','no_code'].includes(m)?t('Logowanie wygasło lub zostało przerwane. Spróbuj ponownie.'):t(m);}
 if(_up.get('error')==='strava-config-missing'){setTimeout(()=>toast('⚠️ Dodaj Client ID i Secret Strava w profilu'),400);history.replaceState({},'','/');}
 
 async function checkAuth(){
   try{
     const r=await fetch('/api/auth/me');
-    if(r.status===401){showAuthGate();return;}
+    if(r.status===401){
+      showAuthGate(_authErr?'❌ '+authErrText(_authErr):undefined);_authErr=null;
+      try{if(sessionStorage.getItem('sq-bye')){sessionStorage.removeItem('sq-bye');toast('Wylogowano');}}catch(_){}
+      return;
+    }
+    if(!r.ok) throw new Error('HTTP '+r.status);
     currentUser=await r.json();
     onAuthSuccess();
-  }catch(e){showAuthGate();}
+  }catch(e){
+    showAuthGate();
+    g('login-err').textContent=e.message===NET_ERR?NET_ERR:'Serwer chwilowo nie odpowiada. Odśwież stronę za chwilę.';
+  }
 }
 
 async function loadProviders(){
@@ -3656,15 +3951,36 @@ async function loadProviders(){
     const p=await r.json();
     let any=false;
     if(p.google){g('btn-google').style.display='flex';any=true;}
+    if(p.apple){g('btn-apple').style.display='flex';any=true;}
+    g('forgot-link').hidden=!p.reset; g('reg-email-hint').hidden=!p.reset;
+    window.applyAppName?.(p.appName);
     if(any) g('social-section').style.display='block';
+    // one-click Strava: nobody needs API keys to sign up
+    g('strava-first').style.display=p.strava?'block':'none';
+    if(p.strava){g('reg-strava-toggle').style.display='none';g('reg-strava-body').style.display='none';}
   }catch(_){}
 }
 
-function showAuthGate(){
+// The work on the map stays where it is: after logging in again (same account)
+// the route can still be saved.
+function sessionExpired(){
+  if(!currentUser) return;
+  currentUser=null;
+  clearInterval(_syncPollT);_syncPollT=null;
+  hideLoad();
+  g('toast').classList.remove('on');_sessionGone=true;
+  showAuthGate('Sesja wygasła. Zaloguj się ponownie — trasa na mapie zostaje.');
+}
+
+function showAuthGate(note){
+  const n=g('auth-note');
+  n.textContent=note||'';n.hidden=!note;
+  if(note) swAuthTab('login');
   g('auth-gate').style.display='flex';
   g('reg-app-domain').textContent=location.hostname;
   loadProviders();
   hideLoad();
+  window.onAuthGate?.();
 }
 
 function clearTileData(){
@@ -3675,32 +3991,52 @@ function clearTileData(){
   redrawAll();
 }
 
+function updateStravaUi(){
+  // header counters: for anyone who has squares (Strava, GPX or squadrats.com import)
+  g('strava-pills').style.display=(currentUser?.strava_connected||statsData?.sq||statsData?.sqi)?'flex':'none';
+}
+
 function onAuthSuccess(){
+  // Someone else logged in on this page: start from a clean page, so nothing
+  // of the previous person (route, points, squares, lists) can be left behind.
+  if(_lastUserId!=null&&_lastUserId!==currentUser.id){location.reload();return;}
+  _lastUserId=currentUser.id;
+  _sessionGone=false;
+  if(_authErr){const m='❌ '+authErrText(_authErr);_authErr=null;setTimeout(()=>toast(m),600);}
+  statsData={};
   clearTileData();
   g('auth-gate').style.display='none';
+  g('login-pass').value='';g('reg-pass').value='';g('reg-pass2').value='';
   // Update user menu
   const av=currentUser.username[0].toUpperCase();
   g('user-avatar-btn').textContent=av;
   g('user-name-btn').textContent=currentUser.username;
   g('user-dropdown-name').textContent=currentUser.username;
   g('user-dropdown-role').textContent=currentUser.role==='admin'?'⚡ Administrator':'👤 Użytkownik';
-  if(currentUser.role==='admin') g('admin-menu-btn').style.display='flex';
-  // Update Strava-dependent UI
-  const stravaOk=currentUser.strava_configured;
-  g('tab-sq-btn').style.display=stravaOk?'':'none';
-  g('tab-hm-btn').style.display=stravaOk?'':'none';
-  g('strava-pills').style.display=stravaOk?'flex':'none';
-  // Sync button: visible only when connected
-  g('sync-btn').disabled=!currentUser.strava_connected;
+  g('admin-menu-btn').style.display=currentUser.role==='admin'?'flex':'none';
+  // Squares and overlays work without Strava too (GPX / squadrats.com import)
+  g('tab-sq-btn').style.display='';
+  g('tab-hm-btn').style.display='';
+  updateStravaUi();
+  // Sync button stays active: without a Strava connection it says what to do
+  g('sync-btn').disabled=false;
   applyLayerPrefs(currentUser.layers);
+  _centerOnLoad=true;
   loadTilesFromDB();
   loadSavedRoutes();
   startSyncWatch();
-  if(!stravaOk){
-    setTimeout(()=>toast('Skonfiguruj API Strava w Profilu aby zsynchronizować aktywności'),800);
+  if(_firstSync){_firstSync=false;watchFirstSync();}
+  else if(!currentUser.strava_connected){
+    // a hint, not a nag: once per browser
+    let seen=false;
+    try{seen=!!localStorage.getItem('sq-strava-hint');localStorage.setItem('sq-strava-hint','1');}catch(_){}
+    if(!seen) setTimeout(()=>toast(currentUser.strava_configured
+      ?'Połącz Stravę w Profilu, a Twoje jazdy zamienią się w kwadraty'
+      :'Skonfiguruj API Strava w Profilu aby zsynchronizować aktywności'),800);
   }
-  // Auto-place home point as route start
-  setTimeout(applyHomePoint, 300);
+  // Auto-place home point as route start (not over a route that is already there)
+  setTimeout(()=>{if(!wpts.length) applyHomePoint();}, 300);
+  window.afterAuth?.();
 }
 
 // ── Auth forms ────────────────────────────────────────────────────────────────
@@ -3708,6 +4044,9 @@ function onAuthSuccess(){
 function swAuthTab(t){
   g('form-login').style.display=t==='login'?'block':'none';
   g('form-reg').style.display=t==='register'?'block':'none';
+  g('form-forgot').style.display=t==='forgot'?'block':'none';
+  g('form-reset').style.display=t==='reset'?'block':'none';
+  if(t==='forgot'){g('forgot-err').textContent='';g('forgot-ok').hidden=true;if(!g('forgot-email').value&&v('login-user').includes('@'))g('forgot-email').value=v('login-user');}
   g('atp-login').classList.toggle('on',t==='login');
   g('atp-reg').classList.toggle('on',t==='register');
 }
@@ -3768,11 +4107,16 @@ document.addEventListener('click',e=>{
   if(!g('user-menu-wrap')?.contains(e.target)) closeUserMenu();
 });
 
+// Logging out reloads the page: the next person on this device starts clean.
 async function doLogout(){
-  await fetch('/api/auth/logout',{method:'POST'});
+  try{
+    const r=await fetch('/api/auth/logout',{method:'POST'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+  }catch(e){toast('Nie udało się wylogować: '+e.message);return;}
   currentUser=null;
-  showAuthGate();
-  toast('Wylogowano');
+  try{sessionStorage.setItem('sq-bye','1');}catch(_){}
+  window.onLogout?.(); // what was kept for offline use belongs to the person who just left
+  location.reload();
 }
 
 // ── Profile modal ─────────────────────────────────────────────────────────────
@@ -3789,7 +4133,7 @@ async function loadHomeAddr(){
   if(key===_homeAddrKey) return;
   _homeAddrKey=key; _homeAddr=null;
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&accept-language=pl&lat=${currentUser.home_lat}&lon=${currentUser.home_lng}`);
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=18&accept-language=${tl('pl','en')}&lat=${currentUser.home_lat}&lon=${currentUser.home_lng}`);
     const d=await r.json();
     if(key!==_homeAddrKey) return;
     _homeAddr=shortPlace(d.address||{})||(d.display_name||'').split(',').slice(0,2).join(',')||null;
@@ -3867,8 +4211,8 @@ function applyHomePoint(){
   map.panTo([ll.lat,ll.lng]);
 }
 
-const OAUTH_ICONS={google:'ti-brand-google',facebook:'ti-brand-facebook',apple:'ti-brand-apple'};
-const OAUTH_LABELS={google:'Google',facebook:'Facebook',apple:'Apple'};
+const OAUTH_ICONS={google:'ti-brand-google',facebook:'ti-brand-facebook',apple:'ti-brand-apple',strava:'ti-brand-strava'};
+const OAUTH_LABELS={google:'Google',facebook:'Facebook',apple:'Apple',strava:'Strava'};
 
 function renderPasswordSection(){
   const s=g('prof-pass-section');
@@ -3924,6 +4268,7 @@ function openProfile(){
   g('prof-role').textContent=currentUser.role==='admin'?'⚡ Administrator':'👤 Użytkownik';
   g('prof-role').style.color=currentUser.role==='admin'?'var(--green)':'var(--tx2)';
   g('prof-email').textContent=currentUser.email||'—';
+  g('prof-email-box').innerHTML='';
   g('prof-app-domain').textContent=location.hostname;
   g('prof-strava-id').value=currentUser.strava_client_id||'';
   g('prof-strava-secret').value='';
@@ -3933,6 +4278,8 @@ function openProfile(){
   updateHomeCoords();
   renderPasswordSection();
   updateStravaStatus();
+  // with one-click connecting the API keys are an extra for those who want them
+  g('prof-strava-adv').open=!currentUser.strava_shared;
   g('profile-modal').style.display='flex';
 }
 function closeProfile(){g('profile-modal').style.display='none';}
@@ -3940,16 +4287,40 @@ function closeProfile(){g('profile-modal').style.display='none';}
 function updateStravaStatus(){
   const s=g('prof-strava-status');
   if(!currentUser)return;
-  if(currentUser.strava_connected&&currentUser.strava_athlete){
-    const a=currentUser.strava_athlete;
+  const u=currentUser, own=!!u.strava_own_keys, conn=!!(u.strava_connected&&u.strava_athlete);
+  if(conn){
+    const a=u.strava_athlete;
     const name=(a.firstname||'')+' '+(a.lastname||'');
-    s.innerHTML=`<span style="color:var(--green)">✅ Połączona</span> jako <b>${name.trim()||'Strava User'}</b>`;
-  }else if(currentUser.strava_configured){
+    s.innerHTML=`<span style="color:var(--green)">✅ Połączona</span> jako <b>${esc(name.trim()||'Strava User')}</b>`
+      +(own&&u.strava_shared?' <span style="color:var(--tx3)">(własne klucze)</span>':'');
+  }else if(own||!u.strava_shared&&u.strava_configured){
     s.innerHTML='<span style="color:var(--yellow)">⚠️ Klucze zapisane — kliknij <b>Połącz ze Stravą</b></span>';
+  }else if(u.strava_configured){
+    s.innerHTML='<span style="color:var(--tx2)">Niepołączona. Jedno kliknięcie i Twoje jazdy zamienią się w kwadraty.</span>';
   }else{
     s.innerHTML='<span style="color:var(--tx3)">Nie skonfigurowana — dodaj Client ID i Secret</span>';
   }
-  g('prof-connect-btn').disabled=!currentUser.strava_configured;
+  const cb=g('prof-connect-btn');
+  cb.disabled=!u.strava_configured;
+  cb.className='btn '+(conn?'btn-x':'btn-strava');
+  cb.innerHTML=`<i class="ti ti-brand-strava"></i>${conn?'Połącz ponownie':'Połącz ze Stravą'}`;
+  g('prof-disconnect-btn').style.display=conn?'':'none';
+  g('prof-strava-adv-sum').textContent=u.strava_shared?'Własne klucze Strava API (zaawansowane)':'Klucze Strava API';
+  g('prof-strava-adv-note').style.display=u.strava_shared?'':'none';
+}
+
+async function disconnectStrava(){
+  if(!confirm(t('Odłączyć Stravę? Synchronizacja się zatrzyma, zdobyte kwadraty zostają na koncie.')))return;
+  try{
+    const r=await fetch('/api/profile/strava/disconnect',{method:'POST'});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){toast('Błąd: '+(d.error||('HTTP '+r.status)));return;}
+    currentUser={...currentUser,...d.user};
+    updateStravaStatus();
+    updateStravaUi();
+    refreshSyncStatus();
+    toast('Strava odłączona');
+  }catch(err){toast('Błąd sieci');}
 }
 
 async function saveStravaCredentials(){
@@ -3961,15 +4332,13 @@ async function saveStravaCredentials(){
     if(!r.ok){g('prof-strava-err').textContent=d.error||'Błąd';return;}
     currentUser={...currentUser,...d.user};
     updateStravaStatus();
-    g('tab-sq-btn').style.display=currentUser.strava_configured?'':'none';
-    g('tab-hm-btn').style.display=currentUser.strava_configured?'':'none';
-    g('strava-pills').style.display=currentUser.strava_configured?'flex':'none';
+    updateStravaUi();
     toast('✅ Konfiguracja Strava zapisana');
   }catch(err){g('prof-strava-err').textContent='Błąd sieci';}
 }
 
 function connectStrava(){
-  if(!currentUser?.strava_configured){toast('Najpierw zapisz Client ID i Secret');return;}
+  if(!currentUser?.strava_configured){g('prof-strava-adv').open=true;toast('Najpierw zapisz Client ID i Secret');return;}
   window.location.href='/auth/strava';
 }
 
@@ -4019,30 +4388,37 @@ async function openAdmin(){
 }
 function closeAdmin(){g('admin-modal').style.display='none';}
 
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+let _adminUsers=[];
 
 function renderAdminUsers(users){
+  _adminUsers=users;
   if(!users.length){
     g('admin-users-list').innerHTML='<div style="color:var(--tx3);padding:20px;text-align:center">Brak użytkowników</div>';
     return;
   }
-  const rows=users.map(u=>`
+  // Nothing typed by a user ends up in an onclick: buttons carry only the
+  // numeric id, the name is looked up in _adminUsers.
+  const L=s=>`data-l="${esc(t(s))}"`;
+  const rows=users.map(u=>{
+    const id=+u.id, admin=u.role==='admin', prov=/^[a-z]{1,12}$/.test(u.oauth_provider||'')?u.oauth_provider:'';
+    return `
     <tr>
-      <td style="color:var(--tx3);font-family:monospace">${u.id}</td>
-      <td style="font-weight:600;color:var(--tx)">${esc(u.username)}</td>
-      <td style="font-size:10px">${u.email?esc(u.email):'<span style="color:var(--tx3)">—</span>'}</td>
-      <td><span class="rbadge ${u.role==='admin'?'ra':'ru'}">${u.role==='admin'?'Admin':'User'}</span></td>
-      <td>${u.oauth_provider?`<span class="oauth-badge ${u.oauth_provider}"><i class="ti ${OAUTH_ICONS[u.oauth_provider]||'ti-login'}"></i>${OAUTH_LABELS[u.oauth_provider]||u.oauth_provider}</span>`:'<span style="color:var(--tx3)">Email</span>'}</td>
-      <td>${u.strava_configured?(u.strava_connected?'<span style="color:var(--green)">✓ Połączona</span>':'<span style="color:var(--yellow)">Klucze OK</span>'):'<span style="color:var(--tx3)">Nie</span>'}</td>
-      <td style="font-family:monospace;color:var(--tx2)">${u.sq_count||0}</td>
-      <td style="font-size:10px;color:var(--tx3)">${(u.created_at||'').slice(0,10)||'—'}</td>
-      <td>${u.id!==currentUser?.id?`
-        <button class="abtn abtn-role" onclick="adminToggleRole(${u.id},'${u.role==='admin'?'user':'admin'}')" title="${u.role==='admin'?'Usuń admina':'Nadaj admina'}">
-          ${u.role==='admin'?'↓ User':'↑ Admin'}
+      <td ${L('#')} style="color:var(--tx3);font-family:monospace">${id}</td>
+      <td ${L('Użytkownik')} class="au-name" style="font-weight:600;color:var(--tx)">${esc(u.username)}</td>
+      <td ${L('Email')} style="font-size:10px">${u.email?esc(u.email):'<span style="color:var(--tx3)">—</span>'}</td>
+      <td ${L('Rola')}><span class="rbadge ${admin?'ra':'ru'}">${admin?'Admin':'User'}</span></td>
+      <td ${L('Login')}>${prov?`<span class="oauth-badge ${prov}"><i class="ti ${OAUTH_ICONS[prov]||'ti-login'}"></i>${esc(OAUTH_LABELS[prov]||prov)}</span>`:'<span style="color:var(--tx3)">Email</span>'}</td>
+      <td ${L('Strava')}>${u.strava_connected?'<span style="color:var(--green)">✓ Połączona</span>'+(u.strava_own_keys?' <span style="color:var(--tx3)">(własne klucze)</span>':''):(u.strava_own_keys?'<span style="color:var(--yellow)">Klucze OK</span>':'<span style="color:var(--tx3)">Nie</span>')}</td>
+      <td ${L('SQ')} style="font-family:monospace;color:var(--tx2)">${+u.sq_count||0}</td>
+      <td ${L('Data')} style="font-size:10px;color:var(--tx3)">${esc((u.created_at||'').slice(0,10))||'—'}</td>
+      <td class="au-acts">${id!==currentUser?.id?`
+        <button class="abtn abtn-role" onclick="adminToggleRole(${id},'${admin?'user':'admin'}')" title="${admin?'Usuń admina':'Nadaj admina'}">
+          ${admin?'↓ User':'↑ Admin'}
         </button>
-        <button class="abtn abtn-del" onclick="adminDeleteUser(${u.id},'${esc(u.username)}')">Usuń</button>
+        <button class="abtn abtn-del" onclick="adminDeleteUser(${id})">Usuń</button>
       `:'<span style="color:var(--tx3);font-size:10px">To Ty</span>'}</td>
-    </tr>`).join('');
+    </tr>`;}).join('');
   g('admin-users-list').innerHTML=`
     <div class="sl" style="margin-bottom:10px">Użytkownicy (${users.length})</div>
     <div style="overflow-x:auto">
@@ -4058,7 +4434,8 @@ async function adminToggleRole(id,newRole){
   if(r.ok){toast(`Rola zmieniona → ${newRole}`);openAdmin();}
   else toast('Błąd: '+(await r.json()).error);
 }
-async function adminDeleteUser(id,username){
+async function adminDeleteUser(id){
+  const username=_adminUsers.find(u=>+u.id===id)?.username??('#'+id);
   if(!confirm(t(`Usunąć użytkownika "${username}"?\nUsuwa też WSZYSTKIE jego dane (kwadraty, aktywności)!`)))return;
   const r=await fetch(`/api/admin/users/${id}`,{method:'DELETE'});
   if(r.ok){toast(`Użytkownik ${username} usunięty`);openAdmin();}
@@ -4159,7 +4536,9 @@ function refreshRouteUI(){
     pe.style.display=_routePop?'':'none';
     if(_routePop) pe.innerHTML=`<i class="ti ti-flame" style="color:var(--orange)"></i>Popularne drogi: ${Math.round(_routePop.share*100)}% trasy · szlaki/DDR ${Math.round(_routePop.network*100)}%`;
   }
+  updWptKm();
   refreshMobPeek();
+  window.onRouteUI?.();
 }
 function toggleRouteForm(){routeFormOpen=!routeFormOpen;refreshRouteUI();}
 
@@ -4321,7 +4700,7 @@ function refreshMobPeek(){
   }
 }
 
-function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTm);toastTm=setTimeout(()=>t.classList.remove('on'),5000);}
+function toast(msg){if(_sessionGone)return;if(typeof msg==='string'&&msg.endsWith(NET_ERR))msg=NET_ERR;const t=g('toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastTm);toastTm=setTimeout(()=>t.classList.remove('on'),5000);}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  STREET VIEW
@@ -4778,14 +5157,14 @@ async function fetchWikiPOI(){
       const icon=L.divIcon({
         className:'',iconSize:[36,36],iconAnchor:[18,18],
         html:`<div style="width:36px;height:36px;border-radius:8px;overflow:hidden;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.55);background:#111">
-          <img src="${p.thumb}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+          <img src="${esc(p.thumb)}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
         </div>`
       });
       const popup=`<div class="wiki-popup" style="min-width:200px;max-width:240px">
-        <img src="${p.thumb}" alt="">
-        <b>${p.title}</b>
-        <p>${p.extract?.slice(0,180)||''}${(p.extract?.length||0)>180?'…':''}</p>
-        <a href="${p.url}" target="_blank" rel="noopener">Czytaj na Wikipedii →</a>
+        <img src="${esc(p.thumb)}" alt="">
+        <b>${esc(p.title)}</b>
+        <p>${esc(String(p.extract||'').slice(0,180))}${(p.extract?.length||0)>180?'…':''}</p>
+        <a href="${/^https:\/\//.test(p.url)?esc(p.url):'#'}" target="_blank" rel="noopener">Czytaj na Wikipedii →</a>
       </div>`;
       L.marker([p.lat,p.lng],{icon,zIndexOffset:300}).bindPopup(popup,{maxWidth:260}).addTo(wikiLayer);
     });
@@ -5076,8 +5455,8 @@ const CUISINE_PL={pizza:'pizza',burger:'burgery',kebab:'kebab',asian:'azjatycka'
   ukrainian:'ukraińska',turkish:'turecka',greek:'grecka',mexican:'meksykańska',japanese:'japońska',french:'francuska',american:'amerykańska',
   coffee_shop:'kawa',chicken:'kurczak',sandwich:'kanapki',ice_cream:'lody',cake:'ciasta',pasta:'makarony',seafood:'ryby i owoce morza',
   fish:'ryby',vegetarian:'wegetariańska',vegan:'wegańska',steak_house:'steki',grill:'grill',breakfast:'śniadania',donut:'pączki'};
-const cuisinePL=(c)=>(c||'').split(';').map(x=>(LANG!=='en'&&CUISINE_PL[x.trim()])||x.trim().replace(/_/g,' ')).filter(Boolean).join(', ');
-const hoursPL=(h)=>LANG==='en'?(h||'').replace(/\boff\b/g,'closed').replace(/24\/7/,'24 h'):(h||'').replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,d=>({Mo:'Pn',Tu:'Wt',We:'Śr',Th:'Cz',Fr:'Pt',Sa:'So',Su:'Nd',PH:'Św.'}[d])).replace(/\boff\b/g,'nieczynne').replace(/24\/7/,'całą dobę');
+const cuisinePL=(c)=>(c||'').split(';').map(x=>(LANG==='pl'&&CUISINE_PL[x.trim()])||x.trim().replace(/_/g,' ')).filter(Boolean).join(', ');
+const hoursPL=(h)=>LANG!=='pl'?(h||'').replace(/\boff\b/g,'closed').replace(/24\/7/,'24 h'):(h||'').replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH)\b/g,d=>({Mo:'Pn',Tu:'Wt',We:'Śr',Th:'Cz',Fr:'Pt',Sa:'So',Su:'Nd',PH:'Św.'}[d])).replace(/\boff\b/g,'nieczynne').replace(/24\/7/,'całą dobę');
 const poiLabel=(t)=>{const v=(t.amenity||t.shop||t.tourism||t.historic||'');return POI_TYPE_PL[v]||(cuisinePL(t.cuisine)?cuisinePL(t.cuisine)[0].toUpperCase()+cuisinePL(t.cuisine).slice(1):v.replace(/_/g,' '));};
 
 function renderPOI(elements){
@@ -5196,6 +5575,7 @@ function showPOI(lat,lng){
 window.addEventListener('DOMContentLoaded',initMap);
 
 </script>
+<script src="/extras.js"></script>
 
 </body>
 </html>
